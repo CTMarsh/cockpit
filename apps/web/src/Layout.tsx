@@ -9,6 +9,10 @@ import {
   FileText,
   Network,
   Activity,
+  MonitorDot,
+  ScrollText,
+  Clock,
+  Power,
   LogOut,
   Menu,
   X,
@@ -23,6 +27,10 @@ const modules = [
   { path: "/markdown", label: "Markdown", icon: FileText },
   { path: "/graph", label: "Knowledge Graph", icon: Network },
   { path: "/monitor", label: "System Monitor", icon: Activity },
+  { path: "/proxmox", label: "Proxmox", icon: MonitorDot },
+  { path: "/logs", label: "Log Viewer", icon: ScrollText },
+  { path: "/cron", label: "Cron Jobs", icon: Clock },
+  { path: "/wol", label: "Wake-on-LAN", icon: Power },
 ];
 
 export function Layout({ onLogout }: { onLogout?: () => void }) {

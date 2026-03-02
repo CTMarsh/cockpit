@@ -10,6 +10,10 @@ import { RandomizerPage } from "./pages/Randomizer";
 import { MarkdownPage } from "./pages/Markdown";
 import { GraphPage } from "./pages/Graph";
 import { SysMonitorPage } from "./pages/SysMonitor";
+import { ProxmoxPage } from "./pages/Proxmox";
+import { LogsPage } from "./pages/Logs";
+import { CronJobsPage } from "./pages/CronJobs";
+import { WakeOnLanPage } from "./pages/WakeOnLan";
 import { DashboardPage } from "./pages/Dashboard";
 import "./index.css";
 
@@ -54,6 +58,10 @@ function App() {
           <Route path="/markdown/:id" element={<MarkdownPage />} />
           <Route path="/graph" element={<GraphPage />} />
           <Route path="/monitor" element={<SysMonitorPage />} />
+          <Route path="/proxmox" element={<ProxmoxPage />} />
+          <Route path="/logs" element={<LogsPage />} />
+          <Route path="/cron" element={<CronJobsPage />} />
+          <Route path="/wol" element={<WakeOnLanPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

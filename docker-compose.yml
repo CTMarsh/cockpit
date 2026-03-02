@@ -9,6 +9,8 @@ services:
       - cockpit-data:/app/data
       - /proc:/host/proc:ro
     pid: "host"
+    cap_add:
+      - NET_ADMIN
     environment:
       - API_PORT=4000
       - PROC_ROOT=/host/proc

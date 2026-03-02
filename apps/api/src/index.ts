@@ -10,6 +10,10 @@ import { randomizerRoutes } from "../../../modules/randomizer/api";
 import { markdownRoutes } from "../../../modules/markdown/api";
 import { graphRoutes } from "../../../modules/graph/api";
 import { sysmonRoutes } from "../../../modules/sysmon/api";
+import { proxmoxRoutes } from "../../../modules/proxmox/api";
+import { logsRoutes } from "../../../modules/logs/api";
+import { cronRoutes } from "../../../modules/cron/api";
+import { wolRoutes } from "../../../modules/wol/api";
 
 const app = new Hono();
 
@@ -30,7 +34,7 @@ app.use("/api/*", authMiddleware);
 
 // Health check
 app.get("/api/health", (c) =>
-  c.json({ status: "ok", name: "Cockpit API", version: "2.0.1", modules: 7 })
+  c.json({ status: "ok", name: "Cockpit API", version: "2.1.0", modules: 11 })
 );
 
 // Dashboard stats — aggregated overview
@@ -51,6 +55,10 @@ app.route("/api/randomizer", randomizerRoutes);
 app.route("/api/markdown", markdownRoutes);
 app.route("/api/graph", graphRoutes);
 app.route("/api/sysmon", sysmonRoutes);
+app.route("/api/proxmox", proxmoxRoutes);
+app.route("/api/logs", logsRoutes);
+app.route("/api/cron", cronRoutes);
+app.route("/api/wol", wolRoutes);
 
 // WebSocket endpoint for markdown collaboration
 const wsClients = new Map<string, Set<any>>();

@@ -10,6 +10,10 @@ import {
   HardDrive,
   Shuffle,
   Activity,
+  MonitorDot,
+  ScrollText,
+  Clock,
+  Power,
   ArrowRight,
   ExternalLink,
 } from "lucide-react";
@@ -38,6 +42,10 @@ export function DashboardPage() {
     { path: "/dedup", label: "Deduplicator", icon: HardDrive, desc: "Find duplicate files", stat: "Scanner" },
     { path: "/randomizer", label: "Build Ideas", icon: Shuffle, desc: "Random project ideas", stat: "Generator" },
     { path: "/monitor", label: "System Monitor", icon: Activity, desc: "CPU, memory & processes", stat: "Real-time" },
+    { path: "/proxmox", label: "Proxmox", icon: MonitorDot, desc: "VMs & containers on Proxmox", stat: "Hypervisor" },
+    { path: "/logs", label: "Log Viewer", icon: ScrollText, desc: "Container & system logs", stat: "Streaming" },
+    { path: "/cron", label: "Cron Jobs", icon: Clock, desc: "Scheduled task manager", stat: "Scheduler" },
+    { path: "/wol", label: "Wake-on-LAN", icon: Power, desc: "Wake machines remotely", stat: "Network" },
   ];
 
   return (

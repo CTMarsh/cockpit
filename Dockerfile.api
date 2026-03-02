@@ -10,6 +10,10 @@ COPY modules/randomizer/package.json modules/randomizer/
 COPY modules/markdown/package.json modules/markdown/
 COPY modules/graph/package.json modules/graph/
 COPY modules/sysmon/package.json modules/sysmon/
+COPY modules/proxmox/package.json modules/proxmox/
+COPY modules/logs/package.json modules/logs/
+COPY modules/cron/package.json modules/cron/
+COPY modules/wol/package.json modules/wol/
 
 RUN bun install --frozen-lockfile || bun install
 
