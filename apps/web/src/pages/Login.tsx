@@ -30,16 +30,16 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
   }
 
   return (
-    <div className="min-h-screen bg-cockpit-bg relative overflow-hidden flex items-center justify-center">
+    <div className="min-h-screen bg-cockpit-bg relative overflow-hidden flex items-center justify-center lg:justify-end">
       {/* Background artwork */}
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-40"
+        className="absolute inset-0 bg-cover bg-left bg-no-repeat opacity-50 lg:opacity-60"
         style={{ backgroundImage: "url(/ark-login-bg.jpg)" }}
       />
-      {/* Gradient overlay for readability */}
-      <div className="absolute inset-0 bg-gradient-to-t from-cockpit-bg via-cockpit-bg/80 to-cockpit-bg/40" />
+      {/* Gradient overlay — fades from right (form) to left (artwork) on desktop */}
+      <div className="absolute inset-0 bg-gradient-to-t lg:bg-gradient-to-l from-cockpit-bg via-cockpit-bg/80 to-cockpit-bg/20" />
 
-      <div className="w-full max-w-sm relative z-10 px-4">
+      <div className="w-full max-w-sm relative z-10 px-4 lg:mr-24">
         <div className="text-center mb-8">
           <img
             src="/ark-icon.jpg"
