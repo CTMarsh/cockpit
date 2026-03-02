@@ -102,6 +102,28 @@ bookmarksRoutes.delete("/:id", (c) => {
   return c.json({ deleted: id });
 });
 
+// Export all bookmarks as JSON
+bookmarksRoutes.get("/export", (c) => {
+  const rows = stmts.getAll.all();
+  const bookmarks = rows.map(parseBookmark);
+  return c.json({ bookmarks, exportedAt: new Date().toISOString() });
+});
+
+// Import bookmarks from JSON
+bookmarksRoutes.post("/import", async (c) => {
+  const body = await c.req.json<{ bookmarks: { url: string; title?: string; summary?: string; tags?: string[] }[] }>();
+  if (!body.bookmarks?.length) return c.json({ error: "bookmarks array is required" }, 400);
+  let imported = 0;
+  for (const b of body.bookmarks) {
+    if (!b.url) continue;
+    const id = crypto.randomUUID();
+    const tags = JSON.stringify(b.tags || []);
+    stmts.insert.run(id, b.url, b.title || b.url, b.summary || "", tags, null);
+    imported++;
+  }
+  return c.json({ imported });
+});
+
 bookmarksRoutes.get("/tags", (c) => {
   const rows = stmts.getTags.all() as any[];
   const tagCounts: Record<string, number> = {};

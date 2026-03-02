@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { Bookmark, Search, Plus, X, Tag, ExternalLink, Pencil, Check } from "lucide-react";
+import { Bookmark, Search, Plus, X, Tag, ExternalLink, Pencil, Check, Download, Upload } from "lucide-react";
 
 interface BookmarkItem {
   id: string;
@@ -81,11 +81,37 @@ export function BookmarksPage() {
           Bookmarks
         </h2>
         <p className="text-cockpit-text-muted mt-1">Save, tag, and search your bookmarks</p>
+        <div className="flex flex-wrap gap-2 mt-2">
+          <button
+            onClick={async () => {
+              const data = await api<any>("/bookmarks/export");
+              const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a"); a.href = url; a.download = "bookmarks.json"; a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cockpit-surface border border-cockpit-border text-xs text-cockpit-text-muted hover:text-cockpit-text transition-colors"
+          >
+            <Download className="w-3 h-3" /> Export
+          </button>
+          <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cockpit-surface border border-cockpit-border text-xs text-cockpit-text-muted hover:text-cockpit-text transition-colors cursor-pointer">
+            <Upload className="w-3 h-3" /> Import
+            <input type="file" accept=".json" className="hidden" onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const text = await file.text();
+              const data = JSON.parse(text);
+              await api("/bookmarks/import", { method: "POST", body: JSON.stringify(data) });
+              load();
+              e.target.value = "";
+            }} />
+          </label>
+        </div>
       </div>
 
       {/* Add + Search */}
       <div className="flex flex-col sm:flex-row gap-3">
-        <form onSubmit={addBookmark} className="flex gap-3 flex-1">
+        <form onSubmit={addBookmark} className="flex flex-col sm:flex-row gap-3 flex-1">
           <div className="relative flex-1">
             <Plus className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cockpit-text-muted" />
             <input

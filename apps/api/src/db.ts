@@ -81,6 +81,26 @@ db.run(`
   )
 `);
 
+db.run(`
+  CREATE TABLE IF NOT EXISTS favorites (
+    idea_id INTEGER PRIMARY KEY,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS custom_ideas (
+    id INTEGER PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    stack TEXT NOT NULL DEFAULT '[]',
+    difficulty TEXT NOT NULL DEFAULT 'intermediate',
+    category TEXT NOT NULL DEFAULT 'custom',
+    estimated_hours TEXT NOT NULL DEFAULT '4-8',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
 // Seed default services if empty
 const serviceCount = db.query("SELECT COUNT(*) as count FROM services").get() as any;
 if (serviceCount.count === 0) {

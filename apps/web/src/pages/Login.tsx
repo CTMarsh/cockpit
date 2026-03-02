@@ -37,7 +37,7 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
             <Rocket className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold">Cockpit</h1>
-          <p className="text-cockpit-text-muted text-sm mt-1">Sign in to your dashboard</p>
+          <p className="text-cockpit-text-muted text-sm mt-1">NoahsArk Command Center</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-cockpit-surface border border-cockpit-border rounded-2xl p-6 space-y-4">

@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { db } from "../../apps/api/src/db";
 
 export const randomizerRoutes = new Hono();
 
@@ -10,9 +11,10 @@ interface ProjectIdea {
   difficulty: "beginner" | "intermediate" | "advanced";
   category: string;
   estimatedHours: string;
+  isCustom?: boolean;
 }
 
-const ideas: ProjectIdea[] = [
+const builtinIdeas: ProjectIdea[] = [
   { id: 1, title: "CLI Password Manager", description: "Encrypted password storage with terminal UI. AES-256 encryption, clipboard integration, password generation.", stack: ["typescript", "node"], difficulty: "intermediate", category: "security", estimatedHours: "8-12" },
   { id: 2, title: "Real-Time Chat Room", description: "WebSocket-based chat with rooms, typing indicators, and message history.", stack: ["typescript", "react", "websocket"], difficulty: "intermediate", category: "web", estimatedHours: "6-10" },
   { id: 3, title: "Git Commit Visualizer", description: "Parse git history and render an interactive commit graph with branch visualization.", stack: ["typescript", "d3", "git"], difficulty: "advanced", category: "devtools", estimatedHours: "12-20" },
@@ -35,10 +37,57 @@ const ideas: ProjectIdea[] = [
   { id: 20, title: "Cron Job Dashboard", description: "Manage and monitor cron jobs. Visual scheduler, execution history, failure alerts.", stack: ["typescript", "react", "node"], difficulty: "advanced", category: "devops", estimatedHours: "12-18" },
 ];
 
+function getAllIdeas(): ProjectIdea[] {
+  const customRows = db.query("SELECT * FROM custom_ideas ORDER BY created_at DESC").all() as any[];
+  const custom: ProjectIdea[] = customRows.map((r: any) => ({
+    id: r.id,
+    title: r.title,
+    description: r.description,
+    stack: JSON.parse(r.stack || "[]"),
+    difficulty: r.difficulty,
+    category: r.category,
+    estimatedHours: r.estimated_hours,
+    isCustom: true,
+  }));
+  return [...builtinIdeas, ...custom];
+}
+
+function generatePrompt(idea: ProjectIdea): string {
+  return `Build a "${idea.title}" project from scratch.
+
+## Project Description
+${idea.description}
+
+## Technical Requirements
+- **Tech Stack:** ${idea.stack.join(", ")}
+- **Difficulty:** ${idea.difficulty}
+- **Category:** ${idea.category}
+- **Estimated Time:** ${idea.estimatedHours} hours
+
+## Instructions for Claude Code
+1. Create a new project directory with a clear folder structure
+2. Use TypeScript throughout with strict mode enabled
+3. Set up the project with \`bun init\` and install dependencies
+4. Implement the core functionality first, then add polish
+5. Include proper error handling and input validation
+6. Add a README.md with setup instructions and usage examples
+7. Make it self-contained — no external services required unless specified
+8. Use modern best practices: ESM imports, async/await, typed interfaces
+9. If it has a UI, use a minimal framework (React + Vite or plain HTML/CSS)
+10. Include at least 3 example use cases to demonstrate the tool works
+
+## Quality Checklist
+- [ ] Project builds without errors (\`bun build\` or \`tsc --noEmit\`)
+- [ ] Core feature works end-to-end
+- [ ] Error states are handled gracefully
+- [ ] Code is clean, well-structured, and documented
+- [ ] README explains how to install, configure, and run`;
+}
+
 randomizerRoutes.get("/health", (c) => c.json({ module: "randomizer", status: "ok" }));
 
-// Get a random project idea (with optional filters)
 randomizerRoutes.get("/random", (c) => {
+  const ideas = getAllIdeas();
   let pool = [...ideas];
   const stack = c.req.query("stack");
   const difficulty = c.req.query("difficulty");
@@ -50,18 +99,56 @@ randomizerRoutes.get("/random", (c) => {
 
   if (pool.length === 0) return c.json({ error: "No ideas match your filters" }, 404);
   const pick = pool[Math.floor(Math.random() * pool.length)];
-  return c.json(pick);
+  return c.json({ ...pick, prompt: generatePrompt(pick) });
 });
 
-// Get all ideas
 randomizerRoutes.get("/ideas", (c) => {
+  const ideas = getAllIdeas();
   return c.json({ ideas, total: ideas.length });
 });
 
-// Get filter options
 randomizerRoutes.get("/filters", (c) => {
+  const ideas = getAllIdeas();
   const stacks = [...new Set(ideas.flatMap((i) => i.stack))].sort();
   const difficulties = [...new Set(ideas.map((i) => i.difficulty))];
   const categories = [...new Set(ideas.map((i) => i.category))].sort();
   return c.json({ stacks, difficulties, categories });
+});
+
+// Favorites
+randomizerRoutes.get("/favorites", (c) => {
+  const rows = db.query("SELECT idea_id FROM favorites ORDER BY created_at DESC").all() as any[];
+  return c.json({ favorites: rows.map((r: any) => r.idea_id) });
+});
+
+randomizerRoutes.post("/favorites/:id", (c) => {
+  const ideaId = Number(c.req.param("id"));
+  db.query("INSERT OR IGNORE INTO favorites (idea_id) VALUES (?)").run(ideaId);
+  return c.json({ favorited: ideaId });
+});
+
+randomizerRoutes.delete("/favorites/:id", (c) => {
+  const ideaId = Number(c.req.param("id"));
+  db.query("DELETE FROM favorites WHERE idea_id = ?").run(ideaId);
+  return c.json({ unfavorited: ideaId });
+});
+
+// Custom ideas
+randomizerRoutes.post("/ideas", async (c) => {
+  const body = await c.req.json<{
+    title: string; description: string; stack: string[];
+    difficulty: string; category: string; estimatedHours: string;
+  }>();
+  if (!body.title) return c.json({ error: "title is required" }, 400);
+  const id = Date.now();
+  db.query(
+    "INSERT INTO custom_ideas (id, title, description, stack, difficulty, category, estimated_hours) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  ).run(id, body.title, body.description || "", JSON.stringify(body.stack || []), body.difficulty || "intermediate", body.category || "custom", body.estimatedHours || "4-8");
+  return c.json({ id, created: true }, 201);
+});
+
+randomizerRoutes.delete("/ideas/:id", (c) => {
+  const id = Number(c.req.param("id"));
+  db.query("DELETE FROM custom_ideas WHERE id = ?").run(id);
+  return c.json({ deleted: id });
 });

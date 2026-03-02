@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { RefreshCw, Circle, Server, Box, Play, Square, RotateCcw } from "lucide-react";
+import { RefreshCw, Circle, Server, Box, Play, Square, RotateCcw, Pencil, Check, X } from "lucide-react";
 
 interface ServiceStatus {
   id: string;
@@ -10,6 +10,7 @@ interface ServiceStatus {
   responseTime: number | null;
   lastChecked: string;
   uptimePercent: number;
+  statusCode: number | null;
 }
 
 interface Container {
@@ -30,6 +31,9 @@ export function HomelabPage() {
 
   const [newName, setNewName] = useState("");
   const [newUrl, setNewUrl] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editUrl, setEditUrl] = useState("");
 
   async function refresh() {
     setLoading(true);
@@ -37,9 +41,7 @@ export function HomelabPage() {
       const data = await api<any>("/homelab/services");
       setServices(data.services);
       setSummary(data.summary);
-    } catch {
-      // API not running yet
-    }
+    } catch {}
     try {
       const data = await api<any>("/homelab/containers");
       setContainers(data.containers || []);
@@ -67,6 +69,21 @@ export function HomelabPage() {
     refresh();
   }
 
+  function startEdit(s: ServiceStatus) {
+    setEditingId(s.id);
+    setEditName(s.name);
+    setEditUrl(s.url);
+  }
+
+  async function saveEdit(id: string) {
+    await api(`/homelab/services/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ name: editName, url: editUrl }),
+    });
+    setEditingId(null);
+    refresh();
+  }
+
   async function containerAction(id: string, action: "start" | "stop" | "restart") {
     await api(`/homelab/containers/${id}/${action}`, { method: "POST" });
     setTimeout(refresh, 1500);
@@ -81,7 +98,7 @@ export function HomelabPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-3">
             <Server className="w-6 h-6 text-cockpit-accent" />
@@ -92,7 +109,7 @@ export function HomelabPage() {
         <button
           onClick={refresh}
           disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cockpit-surface border border-cockpit-border hover:border-cockpit-accent/50 transition-colors text-sm"
+          className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-cockpit-surface border border-cockpit-border hover:border-cockpit-accent/50 transition-colors text-sm w-full sm:w-auto"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           Refresh
@@ -100,7 +117,7 @@ export function HomelabPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-cockpit-surface border border-cockpit-border rounded-xl p-5">
           <div className="text-cockpit-text-muted text-sm">Total Services</div>
           <div className="text-3xl font-bold mt-1">{summary.total}</div>
@@ -124,72 +141,75 @@ export function HomelabPage() {
               key={s.id}
               className="bg-cockpit-surface border border-cockpit-border rounded-xl p-4 hover:border-cockpit-accent/30 transition-colors group"
             >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <Circle
-                    className={`w-3 h-3 fill-current ${
-                      s.status === "up" ? "text-cockpit-success" : "text-cockpit-danger"
-                    }`}
+              {editingId === s.id ? (
+                <div className="space-y-2">
+                  <input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full bg-cockpit-bg border border-cockpit-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cockpit-accent"
+                    placeholder="Service name"
                   />
-                  <div>
-                    <div className="font-medium">{s.name}</div>
-                    <div className="text-xs text-cockpit-text-muted truncate max-w-[200px]">
-                      {s.url}
+                  <input
+                    value={editUrl}
+                    onChange={(e) => setEditUrl(e.target.value)}
+                    className="w-full bg-cockpit-bg border border-cockpit-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cockpit-accent"
+                    placeholder="URL"
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={() => saveEdit(s.id)} className="flex items-center gap-1 px-3 py-1 bg-cockpit-accent rounded-lg text-xs"><Check className="w-3 h-3" /> Save</button>
+                    <button onClick={() => setEditingId(null)} className="px-3 py-1 text-cockpit-text-muted text-xs">Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <Circle className={`w-3 h-3 fill-current ${s.status === "up" ? "text-cockpit-success" : "text-cockpit-danger"}`} />
+                      <div>
+                        <div className="font-medium">{s.name}</div>
+                        <div className="text-xs text-cockpit-text-muted truncate max-w-[200px]">{s.url}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => startEdit(s)} className="text-cockpit-text-muted hover:text-cockpit-accent text-xs p-1"><Pencil className="w-3 h-3" /></button>
+                      <button onClick={() => removeService(s.id)} className="text-cockpit-text-muted hover:text-cockpit-danger text-xs p-1"><X className="w-3 h-3" /></button>
                     </div>
                   </div>
-                </div>
-                <button
-                  onClick={() => removeService(s.id)}
-                  className="text-cockpit-text-muted hover:text-cockpit-danger opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-                >
-                  Remove
-                </button>
-              </div>
-              <div className="mt-3 space-y-2">
-                {s.responseTime !== null && (
-                  <div className="text-xs text-cockpit-text-muted">
-                    Response: <span className="text-cockpit-text">{s.responseTime}ms</span>
+                  <div className="mt-3 space-y-2">
+                    {s.responseTime !== null && (
+                      <div className="text-xs text-cockpit-text-muted">
+                        Response: <span className="text-cockpit-text">{s.responseTime}ms</span>
+                        {s.statusCode && <span className="ml-2 opacity-60">({s.statusCode})</span>}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-cockpit-border rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            s.uptimePercent >= 99 ? "bg-cockpit-success" :
+                            s.uptimePercent >= 95 ? "bg-cockpit-warning" : "bg-cockpit-danger"
+                          }`}
+                          style={{ width: `${s.uptimePercent}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-cockpit-text-muted w-12 text-right">{s.uptimePercent}%</span>
+                    </div>
                   </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 h-1.5 bg-cockpit-border rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        s.uptimePercent >= 99 ? "bg-cockpit-success" :
-                        s.uptimePercent >= 95 ? "bg-cockpit-warning" : "bg-cockpit-danger"
-                      }`}
-                      style={{ width: `${s.uptimePercent}%` }}
-                    />
-                  </div>
-                  <span className="text-xs text-cockpit-text-muted w-12 text-right">
-                    {s.uptimePercent}%
-                  </span>
-                </div>
-              </div>
+                </>
+              )}
             </div>
           ))}
         </div>
 
         {/* Add Service Form */}
-        <form onSubmit={addService} className="mt-4 flex gap-3">
-          <input
-            type="text"
-            placeholder="Service name"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            className="flex-1 bg-cockpit-surface border border-cockpit-border rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-cockpit-accent"
-          />
-          <input
-            type="text"
-            placeholder="URL (e.g., http://192.168.1.100:8080)"
-            value={newUrl}
-            onChange={(e) => setNewUrl(e.target.value)}
-            className="flex-[2] bg-cockpit-surface border border-cockpit-border rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-cockpit-accent"
-          />
-          <button
-            type="submit"
-            className="px-5 py-2 bg-cockpit-accent hover:bg-cockpit-accent-hover rounded-lg text-sm font-medium transition-colors"
-          >
+        <form onSubmit={addService} className="mt-4 flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input type="text" placeholder="Service name" value={newName} onChange={(e) => setNewName(e.target.value)}
+              className="flex-1 bg-cockpit-surface border border-cockpit-border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-cockpit-accent" />
+            <input type="text" placeholder="URL (e.g., http://192.168.1.100:8080)" value={newUrl} onChange={(e) => setNewUrl(e.target.value)}
+              className="flex-1 sm:flex-[2] bg-cockpit-surface border border-cockpit-border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-cockpit-accent" />
+          </div>
+          <button type="submit" className="w-full sm:w-auto px-5 py-2.5 bg-cockpit-accent hover:bg-cockpit-accent-hover rounded-lg text-sm font-medium transition-colors">
             Add Service
           </button>
         </form>
@@ -198,18 +218,15 @@ export function HomelabPage() {
       {/* Docker Containers */}
       <div>
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Box className="w-5 h-5" />
-          Docker Containers
+          <Box className="w-5 h-5" /> Docker Containers
         </h3>
         {dockerError ? (
           <div className="bg-cockpit-surface border border-cockpit-border rounded-xl p-6 text-center text-cockpit-text-muted">
             <p>{dockerError}</p>
-            <p className="text-xs mt-2">
-              Set DOCKER_HOST=tcp://localhost:2375 to enable Docker monitoring
-            </p>
+            <p className="text-xs mt-2">Set DOCKER_HOST=tcp://localhost:2375 to enable Docker monitoring</p>
           </div>
         ) : containers.length > 0 ? (
-          <div className="bg-cockpit-surface border border-cockpit-border rounded-xl overflow-hidden">
+          <div className="bg-cockpit-surface border border-cockpit-border rounded-xl overflow-hidden overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-cockpit-border text-cockpit-text-muted">
@@ -227,46 +244,27 @@ export function HomelabPage() {
                     <td className="px-4 py-3 font-mono">{ct.name}</td>
                     <td className="px-4 py-3 text-cockpit-text-muted">{ct.image}</td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs ${
-                          ct.state === "running"
-                            ? "bg-cockpit-success/10 text-cockpit-success"
-                            : "bg-cockpit-danger/10 text-cockpit-danger"
-                        }`}
-                      >
-                        <Circle className="w-1.5 h-1.5 fill-current" />
-                        {ct.state}
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs ${
+                        ct.state === "running" ? "bg-cockpit-success/10 text-cockpit-success" : "bg-cockpit-danger/10 text-cockpit-danger"
+                      }`}>
+                        <Circle className="w-1.5 h-1.5 fill-current" /> {ct.state}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-cockpit-text-muted">{ct.status}</td>
-                    <td className="px-4 py-3 text-cockpit-text-muted font-mono text-xs">
-                      {ct.ports?.join(", ") || "-"}
-                    </td>
+                    <td className="px-4 py-3 text-cockpit-text-muted font-mono text-xs">{ct.ports?.join(", ") || "-"}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
                         {ct.state !== "running" && (
-                          <button
-                            onClick={() => containerAction(ct.id, "start")}
-                            className="p-1 text-cockpit-text-muted hover:text-cockpit-success transition-colors"
-                            title="Start"
-                          >
+                          <button onClick={() => containerAction(ct.id, "start")} className="p-1 text-cockpit-text-muted hover:text-cockpit-success transition-colors" title="Start">
                             <Play className="w-3.5 h-3.5" />
                           </button>
                         )}
                         {ct.state === "running" && (
-                          <button
-                            onClick={() => containerAction(ct.id, "stop")}
-                            className="p-1 text-cockpit-text-muted hover:text-cockpit-danger transition-colors"
-                            title="Stop"
-                          >
+                          <button onClick={() => containerAction(ct.id, "stop")} className="p-1 text-cockpit-text-muted hover:text-cockpit-danger transition-colors" title="Stop">
                             <Square className="w-3.5 h-3.5" />
                           </button>
                         )}
-                        <button
-                          onClick={() => containerAction(ct.id, "restart")}
-                          className="p-1 text-cockpit-text-muted hover:text-cockpit-accent transition-colors"
-                          title="Restart"
-                        >
+                        <button onClick={() => containerAction(ct.id, "restart")} className="p-1 text-cockpit-text-muted hover:text-cockpit-accent transition-colors" title="Restart">
                           <RotateCcw className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -277,9 +275,7 @@ export function HomelabPage() {
             </table>
           </div>
         ) : (
-          <div className="bg-cockpit-surface border border-cockpit-border rounded-xl p-6 text-center text-cockpit-text-muted">
-            No containers found
-          </div>
+          <div className="bg-cockpit-surface border border-cockpit-border rounded-xl p-6 text-center text-cockpit-text-muted">No containers found</div>
         )}
       </div>
     </div>

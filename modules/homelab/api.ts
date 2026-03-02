@@ -25,6 +25,8 @@ interface ServiceStatus {
 const stmts = {
   getAll: db.query("SELECT * FROM services ORDER BY created_at ASC"),
   insert: db.query("INSERT INTO services (id, name, url, icon, expected_status) VALUES (?, ?, ?, ?, ?)"),
+  update: db.query("UPDATE services SET name = ?, url = ?, expected_status = ? WHERE id = ?"),
+  getById: db.query("SELECT * FROM services WHERE id = ?"),
   delete: db.query("DELETE FROM services WHERE id = ?"),
   recordUptime: db.query("INSERT INTO uptime_history (service_id, status, response_time) VALUES (?, ?, ?)"),
   getHistory: db.query("SELECT status, response_time, checked_at FROM uptime_history WHERE service_id = ? ORDER BY checked_at DESC LIMIT ?"),
@@ -44,15 +46,20 @@ async function checkService(service: ServiceConfig): Promise<ServiceStatus> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(service.url, { signal: controller.signal });
+    const res = await fetch(service.url, { signal: controller.signal, redirect: "follow" });
     clearTimeout(timeout);
     const responseTime = Date.now() - start;
+    // Any response under 500 = service is up (including redirects, 404s)
+    // Only 5xx errors mean the service itself is broken
+    const isUp = service.expected_status === 0
+      ? res.status < 500
+      : res.status === service.expected_status;
     return {
       id: service.id,
       name: service.name,
       url: service.url,
       icon: service.icon,
-      status: res.status === service.expected_status ? "up" : "down",
+      status: isUp ? "up" : "down",
       responseTime,
       lastChecked: new Date().toISOString(),
       statusCode: res.status,
@@ -110,9 +117,21 @@ homelabRoutes.post("/services", async (c) => {
   const body = await c.req.json<{ name: string; url: string; icon?: string; expectedStatus?: number }>();
   if (!body.name || !body.url) return c.json({ error: "name and url are required" }, 400);
   const id = body.name.toLowerCase().replace(/\s+/g, "-");
-  const expectedStatus = body.expectedStatus || 200;
+  const expectedStatus = body.expectedStatus ?? 0;
   stmts.insert.run(id, body.name, body.url, body.icon || null, expectedStatus);
   return c.json({ id, name: body.name, url: body.url }, 201);
+});
+
+homelabRoutes.put("/services/:id", async (c) => {
+  const id = c.req.param("id");
+  const existing = stmts.getById.get(id) as any;
+  if (!existing) return c.json({ error: "Service not found" }, 404);
+  const body = await c.req.json<{ name?: string; url?: string; expectedStatus?: number }>();
+  const name = body.name ?? existing.name;
+  const url = body.url ?? existing.url;
+  const expectedStatus = body.expectedStatus ?? existing.expected_status;
+  stmts.update.run(name, url, expectedStatus, id);
+  return c.json({ id, name, url, expectedStatus });
 });
 
 homelabRoutes.delete("/services/:id", (c) => {

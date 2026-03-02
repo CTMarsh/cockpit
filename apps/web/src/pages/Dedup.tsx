@@ -106,7 +106,7 @@ export function DedupPage() {
       </div>
 
       {/* Scan Form */}
-      <form onSubmit={startScan} className="flex gap-3">
+      <form onSubmit={startScan} className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cockpit-text-muted" />
           <input
@@ -136,7 +136,7 @@ export function DedupPage() {
       {result && (
         <div className="space-y-4">
           {/* Summary */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-cockpit-surface border border-cockpit-border rounded-xl p-5">
               <div className="text-cockpit-text-muted text-sm">Files Scanned</div>
               <div className="text-3xl font-bold mt-1">{result.totalFiles.toLocaleString()}</div>
@@ -157,7 +157,7 @@ export function DedupPage() {
 
           {/* Action bar */}
           {result.duplicateGroups.length > 0 && (
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={selectAllDupes}
                 className="px-4 py-2 rounded-lg bg-cockpit-surface border border-cockpit-border hover:border-cockpit-accent/50 transition-colors text-sm"

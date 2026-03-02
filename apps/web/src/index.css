@@ -21,3 +21,42 @@
     @apply bg-cockpit-text-muted;
   }
 }
+
+/* Markdown prose styling */
+.prose table {
+  @apply border-collapse w-full;
+}
+.prose table th,
+.prose table td {
+  @apply border border-cockpit-border px-3 py-2 text-sm;
+}
+.prose table th {
+  @apply bg-cockpit-bg font-medium text-left;
+}
+.prose table tr:nth-child(even) {
+  @apply bg-cockpit-bg/50;
+}
+.prose code:not(pre code) {
+  @apply bg-cockpit-bg border border-cockpit-border rounded px-1.5 py-0.5 text-xs font-mono text-cockpit-accent;
+}
+.prose pre {
+  @apply bg-cockpit-bg border border-cockpit-border rounded-lg p-4 overflow-x-auto;
+}
+.prose pre code {
+  @apply text-sm font-mono leading-relaxed;
+}
+.prose blockquote {
+  @apply border-l-2 border-cockpit-accent/40 pl-4 italic text-cockpit-text-muted;
+}
+.prose hr {
+  @apply border-cockpit-border;
+}
+.prose a {
+  @apply text-cockpit-accent hover:text-cockpit-accent-hover underline;
+}
+.prose img {
+  @apply rounded-lg max-w-full;
+}
+.prose input[type="checkbox"] {
+  @apply accent-cockpit-accent mr-1.5;
+}
