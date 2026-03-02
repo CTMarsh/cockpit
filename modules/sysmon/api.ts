@@ -70,32 +70,60 @@ async function getMemory(): Promise<{ totalMB: number; usedMB: number; freeMB: n
   };
 }
 
-// Parse disk usage via df command (more reliable than /proc)
+// Parse disk usage from /proc/mounts + statvfs
 async function getDisk(): Promise<{ mounts: { filesystem: string; mountpoint: string; totalGB: number; usedGB: number; freeGB: number; percent: number }[] }> {
   try {
-    const proc = Bun.spawn(["df", "-B1", "--output=source,target,size,used,avail,pcent", "-x", "tmpfs", "-x", "devtmpfs", "-x", "overlay"], {
-      stdout: "pipe",
-    });
-    const text = await new Response(proc.stdout).text();
-    const lines = text.trim().split("\n").slice(1);
-    const mounts = lines
-      .map((line) => {
-        const parts = line.trim().split(/\s+/);
-        if (parts.length < 6) return null;
-        const totalBytes = parseInt(parts[2]);
-        const usedBytes = parseInt(parts[3]);
-        const freeBytes = parseInt(parts[4]);
-        return {
-          filesystem: parts[0],
-          mountpoint: parts[1],
+    // Read /proc/mounts to find real filesystems
+    const mountsContent = await readProcFileAsync("1/mounts");
+    const lines = mountsContent.split("\n").filter(Boolean);
+    const mounts: any[] = [];
+
+    for (const line of lines) {
+      const parts = line.split(/\s+/);
+      const device = parts[0];
+      const mountpoint = parts[1];
+      const fstype = parts[2];
+
+      // Skip virtual filesystems
+      if (["proc", "sysfs", "devpts", "tmpfs", "devtmpfs", "cgroup", "cgroup2", "overlay", "mqueue", "hugetlbfs", "securityfs", "debugfs", "fusectl", "configfs", "pstore", "bpf", "tracefs", "nsfs", "autofs"].includes(fstype)) continue;
+      if (device === "none" || device.startsWith("shm")) continue;
+
+      // Use Bun.spawn to run stat on the mountpoint to get disk stats
+      try {
+        const statProc = Bun.spawn(["stat", "-f", "-c", "%b %f %s", mountpoint], { stdout: "pipe" });
+        const statText = await new Response(statProc.stdout).text();
+        const [totalBlocks, freeBlocks, blockSize] = statText.trim().split(/\s+/).map(Number);
+        if (!totalBlocks || !blockSize) continue;
+
+        const totalBytes = totalBlocks * blockSize;
+        const freeBytes = freeBlocks * blockSize;
+        const usedBytes = totalBytes - freeBytes;
+
+        // Skip tiny filesystems (<100MB)
+        if (totalBytes < 104857600) continue;
+
+        mounts.push({
+          filesystem: device,
+          mountpoint,
           totalGB: Math.round((totalBytes / 1073741824) * 10) / 10,
           usedGB: Math.round((usedBytes / 1073741824) * 10) / 10,
           freeGB: Math.round((freeBytes / 1073741824) * 10) / 10,
           percent: totalBytes > 0 ? Math.round((usedBytes / totalBytes) * 1000) / 10 : 0,
-        };
-      })
-      .filter(Boolean);
-    return { mounts: mounts as any };
+        });
+      } catch {
+        continue;
+      }
+    }
+
+    // Deduplicate by filesystem device
+    const seen = new Set<string>();
+    const unique = mounts.filter((m) => {
+      if (seen.has(m.filesystem)) return false;
+      seen.add(m.filesystem);
+      return true;
+    });
+
+    return { mounts: unique };
   } catch {
     return { mounts: [] };
   }
@@ -180,33 +208,82 @@ sysmonRoutes.get("/metrics", async (c) => {
   });
 });
 
-// GET /api/sysmon/processes — running process list
+// GET /api/sysmon/processes — running process list from /proc
 sysmonRoutes.get("/processes", async (c) => {
   try {
-    const proc = Bun.spawn(["ps", "aux", "--sort=-pcpu"], { stdout: "pipe" });
-    const text = await new Response(proc.stdout).text();
-    const lines = text.trim().split("\n");
-    const header = lines[0];
-    const processes = lines.slice(1, 101).map((line) => {
-      const parts = line.trim().split(/\s+/);
-      return {
-        user: parts[0],
-        pid: parseInt(parts[1]),
-        cpu: parseFloat(parts[2]),
-        mem: parseFloat(parts[3]),
-        vsz: parseInt(parts[4]),
-        rss: parseInt(parts[5]),
-        stat: parts[7],
-        start: parts[8],
-        time: parts[9],
-        command: parts.slice(10).join(" "),
-      };
-    });
-    return c.json({ processes });
-  } catch {
-    return c.json({ processes: [], error: "Failed to read process list" });
+    const { readdirSync } = await import("fs");
+    const entries = readdirSync(PROC_ROOT);
+    const memTotal = (await getMemoryTotal()) || 1;
+    const hertz = 100; // standard clock ticks per second
+    const uptimeContent = await readProcFileAsync("uptime");
+    const uptimeSecs = parseFloat(uptimeContent.split(" ")[0]) || 1;
+
+    const processes: any[] = [];
+
+    for (const entry of entries) {
+      if (!/^\d+$/.test(entry)) continue;
+      const pid = parseInt(entry);
+      try {
+        const statContent = await readProcFileAsync(`${pid}/stat`);
+        const statusContent = await readProcFileAsync(`${pid}/status`);
+        const cmdline = await readProcFileAsync(`${pid}/cmdline`);
+
+        // Parse /proc/[pid]/stat
+        // Format: pid (comm) state ppid pgroup session tty_nr ...
+        const match = statContent.match(/^\d+\s+\((.+?)\)\s+(\S+)\s+(.+)/);
+        if (!match) continue;
+        const comm = match[1];
+        const state = match[2];
+        const statFields = match[3].split(/\s+/);
+        const utime = parseInt(statFields[10]) || 0; // field 14 in stat (0-indexed from ppid)
+        const stime = parseInt(statFields[11]) || 0; // field 15
+        const starttime = parseInt(statFields[18]) || 0; // field 22
+
+        // CPU% approximation
+        const totalTime = utime + stime;
+        const processUptime = uptimeSecs - (starttime / hertz);
+        const cpuPercent = processUptime > 0 ? Math.round(((totalTime / hertz) / processUptime) * 1000) / 10 : 0;
+
+        // Parse /proc/[pid]/status for memory and user
+        const getStatusField = (key: string) => {
+          const line = statusContent.split("\n").find((l: string) => l.startsWith(key));
+          return line ? line.split(/:\s+/)[1]?.trim() : "";
+        };
+        const rssKB = parseInt(getStatusField("VmRSS")) || 0;
+        const memPercent = Math.round((rssKB / memTotal) * 1000) / 10;
+        const uid = getStatusField("Uid")?.split(/\s+/)[0] || "0";
+
+        // Command line
+        const command = cmdline ? cmdline.replace(/\0/g, " ").trim() : comm;
+
+        processes.push({
+          user: uid,
+          pid,
+          cpu: cpuPercent,
+          mem: memPercent,
+          rss: rssKB,
+          stat: state,
+          command: command.slice(0, 200),
+        });
+      } catch {
+        // Process may have exited
+        continue;
+      }
+    }
+
+    // Sort by CPU descending, take top 100
+    processes.sort((a, b) => b.cpu - a.cpu);
+    return c.json({ processes: processes.slice(0, 100) });
+  } catch (e: any) {
+    return c.json({ processes: [], error: e.message || "Failed to read process list" });
   }
 });
+
+async function getMemoryTotal(): Promise<number> {
+  const content = await readProcFileAsync("meminfo");
+  const line = content.split("\n").find((l: string) => l.startsWith("MemTotal:"));
+  return line ? parseInt(line.split(/\s+/)[1]) : 1;
+}
 
 // POST /api/sysmon/kill/:pid — kill a process by PID
 sysmonRoutes.post("/kill/:pid", async (c) => {
@@ -222,13 +299,8 @@ sysmonRoutes.post("/kill/:pid", async (c) => {
   }
 
   try {
-    const proc = Bun.spawn(["kill", "-15", String(pid)], { stdout: "pipe", stderr: "pipe" });
-    await proc.exited;
-    if (proc.exitCode === 0) {
-      return c.json({ ok: true, pid, signal: "SIGTERM" });
-    }
-    const stderr = await new Response(proc.stderr).text();
-    return c.json({ error: stderr.trim() || "Failed to kill process" }, 400);
+    process.kill(pid, "SIGTERM");
+    return c.json({ ok: true, pid, signal: "SIGTERM" });
   } catch (e: any) {
     return c.json({ error: e.message || "Kill failed" }, 500);
   }
