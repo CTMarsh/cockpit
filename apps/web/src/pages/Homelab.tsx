@@ -9,6 +9,7 @@ interface ServiceStatus {
   status: "up" | "down" | "unknown";
   responseTime: number | null;
   lastChecked: string;
+  uptimePercent: number;
 }
 
 interface Container {
@@ -139,11 +140,27 @@ export function HomelabPage() {
                   Remove
                 </button>
               </div>
-              {s.responseTime !== null && (
-                <div className="mt-3 text-xs text-cockpit-text-muted">
-                  Response: <span className="text-cockpit-text">{s.responseTime}ms</span>
+              <div className="mt-3 space-y-2">
+                {s.responseTime !== null && (
+                  <div className="text-xs text-cockpit-text-muted">
+                    Response: <span className="text-cockpit-text">{s.responseTime}ms</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 bg-cockpit-border rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        s.uptimePercent >= 99 ? "bg-cockpit-success" :
+                        s.uptimePercent >= 95 ? "bg-cockpit-warning" : "bg-cockpit-danger"
+                      }`}
+                      style={{ width: `${s.uptimePercent}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-cockpit-text-muted w-12 text-right">
+                    {s.uptimePercent}%
+                  </span>
                 </div>
-              )}
+              </div>
             </div>
           ))}
         </div>

@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import ReactMarkdown from "react-markdown";
-import { FileText, Plus, Save, ArrowLeft, Search } from "lucide-react";
+import { FileText, Plus, Save, ArrowLeft, Search, Wifi, WifiOff } from "lucide-react";
 
 interface DocMeta {
   id: string;
@@ -20,6 +20,9 @@ export function MarkdownPage() {
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+  const [wsConnected, setWsConnected] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
+  const isRemoteUpdate = useRef(false);
 
   async function loadDocs() {
     const data = await api<{ docs: DocMeta[] }>("/markdown/docs");
@@ -60,6 +63,34 @@ export function MarkdownPage() {
     if (id) loadDoc(id);
   }, [id]);
 
+  // WebSocket for real-time collaboration
+  useEffect(() => {
+    if (!id) return;
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(`${protocol}//${window.location.host}/api/ws?docId=${id}`);
+    wsRef.current = ws;
+    ws.onopen = () => setWsConnected(true);
+    ws.onclose = () => setWsConnected(false);
+    ws.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.type === "update" && data.docId === id) {
+          isRemoteUpdate.current = true;
+          setContent(data.content);
+        }
+      } catch {}
+    };
+    return () => { ws.close(); setWsConnected(false); };
+  }, [id]);
+
+  const handleContentChange = useCallback((newContent: string) => {
+    setContent(newContent);
+    if (!isRemoteUpdate.current && wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ docId: id, content: newContent }));
+    }
+    isRemoteUpdate.current = false;
+  }, [id]);
+
   // Save on Ctrl+S
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -93,6 +124,11 @@ export function MarkdownPage() {
             {saving ? "Saving..." : "Save"}
             <kbd className="text-xs opacity-60 ml-1">Ctrl+S</kbd>
           </button>
+          {wsConnected ? (
+            <span className="flex items-center gap-1 text-xs text-cockpit-success"><Wifi className="w-3 h-3" /> Live</span>
+          ) : (
+            <span className="flex items-center gap-1 text-xs text-cockpit-text-muted"><WifiOff className="w-3 h-3" /> Offline</span>
+          )}
         </div>
 
         {/* Split Editor */}
@@ -100,7 +136,7 @@ export function MarkdownPage() {
           {/* Editor */}
           <textarea
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={(e) => handleContentChange(e.target.value)}
             className="bg-cockpit-surface border border-cockpit-border rounded-xl p-4 text-sm font-mono resize-none focus:outline-none focus:border-cockpit-accent"
             spellCheck={false}
           />

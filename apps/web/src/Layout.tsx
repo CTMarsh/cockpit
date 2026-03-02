@@ -7,6 +7,7 @@ import {
   FileText,
   Network,
   Rocket,
+  LogOut,
 } from "lucide-react";
 
 const modules = [
@@ -18,7 +19,11 @@ const modules = [
   { path: "/graph", label: "Knowledge Graph", icon: Network },
 ];
 
-export function Layout() {
+export function Layout({ onLogout }: { onLogout?: () => void }) {
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    onLogout?.();
+  }
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
@@ -57,11 +62,18 @@ export function Layout() {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-cockpit-border">
+        <div className="p-4 border-t border-cockpit-border flex items-center justify-between">
           <div className="text-xs text-cockpit-text-muted">
             <span className="inline-block w-2 h-2 rounded-full bg-cockpit-success mr-2" />
             All systems nominal
           </div>
+          <button
+            onClick={handleLogout}
+            className="text-cockpit-text-muted hover:text-cockpit-danger transition-colors"
+            title="Sign out"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </aside>
 

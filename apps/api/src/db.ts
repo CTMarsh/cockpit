@@ -60,6 +60,27 @@ db.run(`
   )
 `);
 
+db.run(`
+  CREATE TABLE IF NOT EXISTS uptime_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    service_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    response_time INTEGER,
+    checked_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE
+  )
+`);
+
+db.run(`CREATE INDEX IF NOT EXISTS idx_uptime_service ON uptime_history(service_id, checked_at)`);
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS sessions (
+    token TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    expires_at TEXT NOT NULL
+  )
+`);
+
 // Seed default services if empty
 const serviceCount = db.query("SELECT COUNT(*) as count FROM services").get() as any;
 if (serviceCount.count === 0) {

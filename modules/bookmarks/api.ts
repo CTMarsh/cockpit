@@ -65,6 +65,15 @@ bookmarksRoutes.post("/", async (c) => {
     // skip
   }
 
+  // AI auto-tagging: extract keywords from title and summary
+  const textForTags = `${title} ${summary}`.toLowerCase();
+  const stopWords = new Set(["the","a","an","is","are","was","were","be","been","being","have","has","had","do","does","did","will","would","could","should","may","might","shall","can","need","dare","ought","used","to","of","in","for","on","with","at","by","from","as","into","through","during","before","after","above","below","between","out","off","over","under","again","further","then","once","and","but","or","nor","not","so","very","just","about","up","its","it","this","that","these","those","i","me","my","we","our","you","your","he","she","they","them","his","her","their","what","which","who","how","all","each","every","both","few","more","most","other","some","such","no","only","own","same"]);
+  const words = textForTags.replace(/[^a-z0-9\s-]/g, "").split(/\s+/).filter(w => w.length > 3 && !stopWords.has(w));
+  const wordFreq: Record<string, number> = {};
+  for (const w of words) wordFreq[w] = (wordFreq[w] || 0) + 1;
+  const topKeywords = Object.entries(wordFreq).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([w]) => w);
+  for (const kw of topKeywords) autoTags.add(kw);
+
   const id = crypto.randomUUID();
   const tags = JSON.stringify([...autoTags]);
   stmts.insert.run(id, body.url, title, summary, tags, null);

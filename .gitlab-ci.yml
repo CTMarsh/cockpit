@@ -1,0 +1,50 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  LXC_HOST: "10.0.80.132"
+  LXC_USER: "root"
+  DEPLOY_DIR: "/opt/cockpit"
+
+build:
+  stage: build
+  image: oven/bun:1
+  script:
+    - bun install
+    - cd apps/web && bun install && bun run build
+  artifacts:
+    paths:
+      - apps/web/dist/
+    expire_in: 1 hour
+  only:
+    - master
+
+deploy:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client rsync docker-cli
+    - mkdir -p ~/.ssh
+    - echo "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+    - chmod 600 ~/.ssh/id_ed25519
+    - ssh-keyscan -H $LXC_HOST >> ~/.ssh/known_hosts 2>/dev/null
+  script:
+    - echo "Syncing files to LXC..."
+    - rsync -avz --delete
+        --exclude='.git'
+        --exclude='node_modules'
+        --exclude='data'
+        --exclude='.env'
+        --exclude='dist'
+        --exclude='.gitlab-ci.yml'
+        ./ $LXC_USER@$LXC_HOST:$DEPLOY_DIR/
+    - echo "Rebuilding and restarting containers..."
+    - ssh $LXC_USER@$LXC_HOST "cd $DEPLOY_DIR && docker compose build --quiet && docker compose up -d && echo DEPLOY_OK"
+    - echo "Health check..."
+    - ssh $LXC_USER@$LXC_HOST "sleep 3 && curl -sf http://localhost:4000/api/health"
+  only:
+    - master
+  environment:
+    name: production
+    url: https://dashboard.noahsark.me

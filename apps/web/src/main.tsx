@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from "./Layout";
+import { LoginPage } from "./pages/Login";
 import { HomelabPage } from "./pages/Homelab";
 import { BookmarksPage } from "./pages/Bookmarks";
 import { DedupPage } from "./pages/Dedup";
@@ -10,11 +11,38 @@ import { MarkdownPage } from "./pages/Markdown";
 import { GraphPage } from "./pages/Graph";
 import "./index.css";
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
+function App() {
+  const [auth, setAuth] = useState<boolean | null>(null);
+
+  async function checkAuth() {
+    try {
+      const res = await fetch("/api/auth/me", { credentials: "include" });
+      setAuth(res.ok);
+    } catch {
+      setAuth(false);
+    }
+  }
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  if (auth === null) {
+    return (
+      <div className="min-h-screen bg-cockpit-bg flex items-center justify-center">
+        <div className="text-cockpit-text-muted">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!auth) {
+    return <LoginPage onLogin={() => setAuth(true)} />;
+  }
+
+  return (
     <BrowserRouter>
       <Routes>
-        <Route element={<Layout />}>
+        <Route element={<Layout onLogout={() => setAuth(false)} />}>
           <Route index element={<Navigate to="/homelab" replace />} />
           <Route path="/homelab" element={<HomelabPage />} />
           <Route path="/bookmarks" element={<BookmarksPage />} />
@@ -26,5 +54,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         </Route>
       </Routes>
     </BrowserRouter>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App />
   </React.StrictMode>
 );
