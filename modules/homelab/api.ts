@@ -121,6 +121,26 @@ homelabRoutes.delete("/services/:id", (c) => {
   return c.json({ deleted: id });
 });
 
+// Docker container actions
+homelabRoutes.post("/containers/:id/:action", async (c) => {
+  const id = c.req.param("id");
+  const action = c.req.param("action");
+  if (!["start", "stop", "restart"].includes(action)) {
+    return c.json({ error: "Invalid action. Use start, stop, or restart" }, 400);
+  }
+  try {
+    const dockerHost = process.env.DOCKER_HOST || "http://localhost:2375";
+    const res = await fetch(`${dockerHost}/containers/${id}/${action}`, { method: "POST" });
+    if (!res.ok && res.status !== 304) {
+      const text = await res.text();
+      return c.json({ error: text }, res.status);
+    }
+    return c.json({ ok: true, action, containerId: id });
+  } catch {
+    return c.json({ error: "Docker API not available" }, 503);
+  }
+});
+
 homelabRoutes.get("/containers", async (c) => {
   try {
     const dockerHost = process.env.DOCKER_HOST || "http://localhost:2375";

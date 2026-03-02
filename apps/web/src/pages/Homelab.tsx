@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { RefreshCw, Circle, Server, Box } from "lucide-react";
+import { RefreshCw, Circle, Server, Box, Play, Square, RotateCcw } from "lucide-react";
 
 interface ServiceStatus {
   id: string;
@@ -65,6 +65,11 @@ export function HomelabPage() {
   async function removeService(id: string) {
     await api(`/homelab/services/${id}`, { method: "DELETE" });
     refresh();
+  }
+
+  async function containerAction(id: string, action: "start" | "stop" | "restart") {
+    await api(`/homelab/containers/${id}/${action}`, { method: "POST" });
+    setTimeout(refresh, 1500);
   }
 
   useEffect(() => {
@@ -213,6 +218,7 @@ export function HomelabPage() {
                   <th className="px-4 py-3 text-left font-medium">State</th>
                   <th className="px-4 py-3 text-left font-medium">Status</th>
                   <th className="px-4 py-3 text-left font-medium">Ports</th>
+                  <th className="px-4 py-3 text-left font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -235,6 +241,35 @@ export function HomelabPage() {
                     <td className="px-4 py-3 text-cockpit-text-muted">{ct.status}</td>
                     <td className="px-4 py-3 text-cockpit-text-muted font-mono text-xs">
                       {ct.ports?.join(", ") || "-"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        {ct.state !== "running" && (
+                          <button
+                            onClick={() => containerAction(ct.id, "start")}
+                            className="p-1 text-cockpit-text-muted hover:text-cockpit-success transition-colors"
+                            title="Start"
+                          >
+                            <Play className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {ct.state === "running" && (
+                          <button
+                            onClick={() => containerAction(ct.id, "stop")}
+                            className="p-1 text-cockpit-text-muted hover:text-cockpit-danger transition-colors"
+                            title="Stop"
+                          >
+                            <Square className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => containerAction(ct.id, "restart")}
+                          className="p-1 text-cockpit-text-muted hover:text-cockpit-accent transition-colors"
+                          title="Restart"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

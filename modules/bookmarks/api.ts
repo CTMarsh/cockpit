@@ -13,6 +13,7 @@ const stmts = {
     "INSERT INTO bookmarks (id, url, title, summary, tags, favicon) VALUES (?, ?, ?, ?, ?, ?)"
   ),
   delete: db.query("DELETE FROM bookmarks WHERE id = ?"),
+  update: db.query("UPDATE bookmarks SET title = ?, tags = ? WHERE id = ?"),
   getTags: db.query("SELECT tags FROM bookmarks"),
 };
 
@@ -79,6 +80,18 @@ bookmarksRoutes.post("/", async (c) => {
   stmts.insert.run(id, body.url, title, summary, tags, null);
 
   return c.json({ id, url: body.url, title, summary, tags: [...autoTags], createdAt: new Date().toISOString() }, 201);
+});
+
+bookmarksRoutes.put("/:id", async (c) => {
+  const id = c.req.param("id");
+  const existing = stmts.getById.get(id);
+  if (!existing) return c.json({ error: "Bookmark not found" }, 404);
+  const body = await c.req.json<{ title?: string; tags?: string[] }>();
+  const parsed = parseBookmark(existing);
+  const title = body.title ?? parsed.title;
+  const tags = JSON.stringify(body.tags ?? parsed.tags);
+  stmts.update.run(title, tags, id);
+  return c.json({ id, title, tags: JSON.parse(tags) });
 });
 
 bookmarksRoutes.delete("/:id", (c) => {

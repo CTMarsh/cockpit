@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { authRoutes, authMiddleware } from "./auth";
+import { db } from "./db";
 import { homelabRoutes } from "../../../modules/homelab/api";
 import { bookmarksRoutes } from "../../../modules/bookmarks/api";
 import { dedupRoutes } from "../../../modules/dedup/api";
@@ -31,6 +32,16 @@ app.get("/api/health", (c) =>
   c.json({ status: "ok", name: "Cockpit API", modules: 6 })
 );
 
+// Dashboard stats — aggregated overview
+app.get("/api/dashboard/stats", async (c) => {
+  const bookmarkCount = (db.query("SELECT COUNT(*) as count FROM bookmarks").get() as any)?.count || 0;
+  const docCount = (db.query("SELECT COUNT(*) as count FROM documents").get() as any)?.count || 0;
+  const serviceCount = (db.query("SELECT COUNT(*) as count FROM services").get() as any)?.count || 0;
+  const recentBookmarks = db.query("SELECT id, url, title, tags, created_at FROM bookmarks ORDER BY created_at DESC LIMIT 5").all();
+  const recentDocs = db.query("SELECT id, title, updated_at FROM documents ORDER BY updated_at DESC LIMIT 5").all();
+  return c.json({ bookmarkCount, docCount, serviceCount, recentBookmarks, recentDocs });
+});
+
 // Module routes — each has its own namespace
 app.route("/api/homelab", homelabRoutes);
 app.route("/api/bookmarks", bookmarksRoutes);
@@ -47,7 +58,15 @@ console.log(`🚀 Cockpit API running on http://localhost:${port}`);
 
 export default {
   port,
-  fetch: app.fetch,
+  fetch(req: Request, server: any) {
+    const url = new URL(req.url);
+    if (url.pathname === "/api/ws") {
+      const docId = url.searchParams.get("docId") || "default";
+      if (server.upgrade(req, { data: { docId } })) return;
+      return new Response("WebSocket upgrade failed", { status: 400 });
+    }
+    return app.fetch(req, server);
+  },
   websocket: {
     open(ws: any) {
       const docId = ws.data?.docId || "default";

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Layout } from "./Layout";
 import { LoginPage } from "./pages/Login";
 import { HomelabPage } from "./pages/Homelab";
@@ -9,6 +9,7 @@ import { DedupPage } from "./pages/Dedup";
 import { RandomizerPage } from "./pages/Randomizer";
 import { MarkdownPage } from "./pages/Markdown";
 import { GraphPage } from "./pages/Graph";
+import { DashboardPage } from "./pages/Dashboard";
 import "./index.css";
 
 function App() {
@@ -43,7 +44,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route element={<Layout onLogout={() => setAuth(false)} />}>
-          <Route index element={<Navigate to="/homelab" replace />} />
+          <Route index element={<DashboardPage />} />
           <Route path="/homelab" element={<HomelabPage />} />
           <Route path="/bookmarks" element={<BookmarksPage />} />
           <Route path="/dedup" element={<DedupPage />} />
