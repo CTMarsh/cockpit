@@ -1,0 +1,72 @@
+import { Database } from "bun:sqlite";
+import { mkdirSync } from "fs";
+import { join } from "path";
+
+const DATA_DIR = join(process.cwd(), "data");
+mkdirSync(DATA_DIR, { recursive: true });
+
+const DB_PATH = join(DATA_DIR, "cockpit.db");
+const db = new Database(DB_PATH);
+
+// Enable WAL mode for better concurrent performance
+db.run("PRAGMA journal_mode = WAL");
+db.run("PRAGMA foreign_keys = ON");
+
+// Run migrations
+db.run(`
+  CREATE TABLE IF NOT EXISTS bookmarks (
+    id TEXT PRIMARY KEY,
+    url TEXT NOT NULL,
+    title TEXT NOT NULL DEFAULT '',
+    summary TEXT NOT NULL DEFAULT '',
+    tags TEXT NOT NULL DEFAULT '[]',
+    favicon TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS services (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    icon TEXT,
+    expected_status INTEGER NOT NULL DEFAULT 200,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS graph_edges (
+    id TEXT PRIMARY KEY,
+    source_id TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    target_type TEXT NOT NULL,
+    label TEXT NOT NULL DEFAULT '',
+    weight INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+db.run(`
+  CREATE TABLE IF NOT EXISTS documents (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL DEFAULT 'Untitled',
+    content TEXT NOT NULL DEFAULT '',
+    word_count INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+// Seed default services if empty
+const serviceCount = db.query("SELECT COUNT(*) as count FROM services").get() as any;
+if (serviceCount.count === 0) {
+  const insert = db.prepare("INSERT INTO services (id, name, url) VALUES (?, ?, ?)");
+  insert.run("cockpit-api", "Cockpit API", "http://localhost:4000/api/health");
+  insert.run("google-dns", "Google DNS", "https://dns.google");
+}
+
+export { db };
+export default db;

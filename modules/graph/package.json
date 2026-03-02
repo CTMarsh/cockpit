@@ -1,0 +1,5 @@
+{
+  "name": "@cockpit/graph",
+  "private": true,
+  "main": "api.ts"
+}

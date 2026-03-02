@@ -1,0 +1,5 @@
+{
+  "name": "@cockpit/randomizer",
+  "private": true,
+  "main": "api.ts"
+}

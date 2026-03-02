@@ -1,0 +1,5 @@
+{
+  "name": "@cockpit/bookmarks",
+  "private": true,
+  "main": "api.ts"
+}

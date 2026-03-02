@@ -1,0 +1,21 @@
+FROM oven/bun:1 AS base
+WORKDIR /app
+
+COPY package.json bun.lockb* ./
+COPY apps/api/package.json apps/api/
+COPY modules/homelab/package.json modules/homelab/
+COPY modules/bookmarks/package.json modules/bookmarks/
+COPY modules/dedup/package.json modules/dedup/
+COPY modules/randomizer/package.json modules/randomizer/
+COPY modules/markdown/package.json modules/markdown/
+COPY modules/graph/package.json modules/graph/
+
+RUN bun install --frozen-lockfile || bun install
+
+COPY apps/api apps/api
+COPY modules modules
+
+RUN mkdir -p /app/data/markdown
+
+EXPOSE 4000
+CMD ["bun", "run", "apps/api/src/index.ts"]

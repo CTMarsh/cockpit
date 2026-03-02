@@ -1,0 +1,5 @@
+{
+  "name": "@cockpit/markdown",
+  "private": true,
+  "main": "api.ts"
+}
