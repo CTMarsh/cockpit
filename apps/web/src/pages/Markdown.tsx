@@ -420,8 +420,18 @@ export function MarkdownPage() {
               </div>
             </div>
           )}
-          <div className="bg-cockpit-surface border border-cockpit-border rounded-xl p-4 sm:p-6 overflow-y-auto prose prose-invert prose-sm max-w-none min-h-0">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+          <div className="bg-cockpit-surface border border-cockpit-border rounded-xl overflow-y-auto prose prose-invert prose-sm max-w-none min-h-0 relative">
+            {previewOnly && (
+              <button
+                onClick={() => setPreviewOnly(false)}
+                className="sticky top-0 z-10 w-full flex items-center justify-center gap-2 px-3 py-2 bg-cockpit-bg/90 border-b border-cockpit-border text-xs text-cockpit-text-muted hover:text-cockpit-text transition-colors backdrop-blur-sm"
+              >
+                <Eye className="w-3.5 h-3.5" /> Preview Only — click to show editor
+              </button>
+            )}
+            <div className="p-4 sm:p-6">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+            </div>
           </div>
         </div>
       </div>
