@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   api:
     build:
@@ -12,6 +10,11 @@ services:
     environment:
       - API_PORT=4000
       - DOCKER_HOST=${DOCKER_HOST:-tcp://host.docker.internal:2375}
+      - COCKPIT_USER=${COCKPIT_USER:-admin}
+      - COCKPIT_PASS=${COCKPIT_PASS:-cockpit}
+      - SESSION_SECRET=${SESSION_SECRET:-change-me}
+    env_file:
+      - .env
     restart: unless-stopped
 
   web:
