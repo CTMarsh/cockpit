@@ -86,6 +86,7 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
         </form>
 
         <p className="text-center text-xs text-cockpit-text-muted/50 mt-6">Weathering every storm</p>
+        <p className="text-center text-xs text-cockpit-text-muted/30 mt-2">v{(globalThis as any).__APP_VERSION__ || "2.0.0"}</p>
       </div>
     </div>
   );

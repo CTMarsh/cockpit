@@ -7,9 +7,12 @@ services:
       - "4000:4000"
     volumes:
       - cockpit-data:/app/data
+      - /proc:/host/proc:ro
+    pid: "host"
     environment:
       - API_PORT=4000
-      - DOCKER_HOST=${DOCKER_HOST:-tcp://host.docker.internal:2375}
+      - PROC_ROOT=/host/proc
+      - DOCKER_HOST=${DOCKER_HOST:-http://host.docker.internal:2375}
       - COCKPIT_USER=${COCKPIT_USER:-admin}
       - COCKPIT_PASS=${COCKPIT_PASS:-cockpit}
       - SESSION_SECRET=${SESSION_SECRET:-change-me}

@@ -140,15 +140,53 @@ homelabRoutes.delete("/services/:id", (c) => {
   return c.json({ deleted: id });
 });
 
-// Docker container actions
+// Docker host management
+const dockerStmts = {
+  getAllHosts: db.query("SELECT * FROM docker_hosts ORDER BY created_at ASC"),
+  insertHost: db.query("INSERT INTO docker_hosts (id, name, url) VALUES (?, ?, ?)"),
+  updateHost: db.query("UPDATE docker_hosts SET name = ?, url = ? WHERE id = ?"),
+  deleteHost: db.query("DELETE FROM docker_hosts WHERE id = ?"),
+  getHost: db.query("SELECT * FROM docker_hosts WHERE id = ?"),
+};
+
+homelabRoutes.get("/docker-hosts", (c) => {
+  const hosts = dockerStmts.getAllHosts.all();
+  return c.json({ hosts });
+});
+
+homelabRoutes.post("/docker-hosts", async (c) => {
+  const body = await c.req.json<{ name: string; url: string }>();
+  if (!body.name || !body.url) return c.json({ error: "name and url are required" }, 400);
+  const id = body.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  dockerStmts.insertHost.run(id, body.name, body.url);
+  return c.json({ id, name: body.name, url: body.url }, 201);
+});
+
+homelabRoutes.put("/docker-hosts/:id", async (c) => {
+  const id = c.req.param("id");
+  const existing = dockerStmts.getHost.get(id);
+  if (!existing) return c.json({ error: "Docker host not found" }, 404);
+  const body = await c.req.json<{ name?: string; url?: string }>();
+  dockerStmts.updateHost.run(body.name || (existing as any).name, body.url || (existing as any).url, id);
+  return c.json({ ok: true });
+});
+
+homelabRoutes.delete("/docker-hosts/:id", (c) => {
+  const id = c.req.param("id");
+  dockerStmts.deleteHost.run(id);
+  return c.json({ deleted: id });
+});
+
+// Docker container actions — now supports host query param
 homelabRoutes.post("/containers/:id/:action", async (c) => {
   const id = c.req.param("id");
   const action = c.req.param("action");
+  const hostUrl = c.req.query("host");
   if (!["start", "stop", "restart"].includes(action)) {
     return c.json({ error: "Invalid action. Use start, stop, or restart" }, 400);
   }
   try {
-    const dockerHost = process.env.DOCKER_HOST || "http://localhost:2375";
+    const dockerHost = hostUrl || process.env.DOCKER_HOST || "http://localhost:2375";
     const res = await fetch(`${dockerHost}/containers/${id}/${action}`, { method: "POST" });
     if (!res.ok && res.status !== 304) {
       const text = await res.text();
@@ -160,27 +198,54 @@ homelabRoutes.post("/containers/:id/:action", async (c) => {
   }
 });
 
+// Fetch containers from all configured Docker hosts
 homelabRoutes.get("/containers", async (c) => {
-  try {
-    const dockerHost = process.env.DOCKER_HOST || "http://localhost:2375";
-    const res = await fetch(`${dockerHost}/containers/json?all=true`);
-    if (!res.ok) throw new Error(`Docker API returned ${res.status}`);
-    const containers = await res.json();
-    return c.json({
-      containers: containers.map((ct: any) => ({
-        id: ct.Id?.slice(0, 12),
-        name: ct.Names?.[0]?.replace(/^\//, ""),
-        image: ct.Image,
-        state: ct.State,
-        status: ct.Status,
-        ports: ct.Ports?.map((p: any) => `${p.PublicPort || ""}:${p.PrivatePort}/${p.Type}`).filter(Boolean),
-        created: ct.Created,
-      })),
-    });
-  } catch {
+  const hosts = dockerStmts.getAllHosts.all() as { id: string; name: string; url: string }[];
+  const defaultHost = process.env.DOCKER_HOST;
+
+  // Build list of hosts to query
+  const targets: { name: string; url: string }[] = [];
+  if (defaultHost) targets.push({ name: "Local", url: defaultHost });
+  for (const h of hosts) targets.push({ name: h.name, url: h.url });
+
+  if (targets.length === 0) {
     return c.json({
       containers: [],
-      error: "Docker API not available. Set DOCKER_HOST env var or expose Docker TCP API.",
+      hosts: [],
+      error: "No Docker hosts configured. Add a Docker host or set DOCKER_HOST env var.",
     });
   }
+
+  const allContainers: any[] = [];
+  const hostStatuses: { name: string; url: string; status: "ok" | "error"; containerCount: number; error?: string }[] = [];
+
+  await Promise.all(
+    targets.map(async (target) => {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(`${target.url}/containers/json?all=true`, { signal: controller.signal });
+        clearTimeout(timeout);
+        if (!res.ok) throw new Error(`${res.status}`);
+        const containers = await res.json();
+        const mapped = containers.map((ct: any) => ({
+          id: ct.Id?.slice(0, 12),
+          name: ct.Names?.[0]?.replace(/^\//, ""),
+          image: ct.Image,
+          state: ct.State,
+          status: ct.Status,
+          ports: ct.Ports?.map((p: any) => `${p.PublicPort || ""}:${p.PrivatePort}/${p.Type}`).filter(Boolean),
+          created: ct.Created,
+          host: target.name,
+          hostUrl: target.url,
+        }));
+        allContainers.push(...mapped);
+        hostStatuses.push({ name: target.name, url: target.url, status: "ok", containerCount: mapped.length });
+      } catch (e: any) {
+        hostStatuses.push({ name: target.name, url: target.url, status: "error", containerCount: 0, error: e.message });
+      }
+    })
+  );
+
+  return c.json({ containers: allContainers, hosts: hostStatuses });
 });

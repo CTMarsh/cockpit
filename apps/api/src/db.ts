@@ -101,6 +101,15 @@ db.run(`
   )
 `);
 
+db.run(`
+  CREATE TABLE IF NOT EXISTS docker_hosts (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
 // Seed default services if empty
 const serviceCount = db.query("SELECT COUNT(*) as count FROM services").get() as any;
 if (serviceCount.count === 0) {

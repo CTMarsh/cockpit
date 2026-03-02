@@ -9,6 +9,7 @@ import { DedupPage } from "./pages/Dedup";
 import { RandomizerPage } from "./pages/Randomizer";
 import { MarkdownPage } from "./pages/Markdown";
 import { GraphPage } from "./pages/Graph";
+import { SysMonitorPage } from "./pages/SysMonitor";
 import { DashboardPage } from "./pages/Dashboard";
 import "./index.css";
 
@@ -52,6 +53,7 @@ function App() {
           <Route path="/markdown" element={<MarkdownPage />} />
           <Route path="/markdown/:id" element={<MarkdownPage />} />
           <Route path="/graph" element={<GraphPage />} />
+          <Route path="/monitor" element={<SysMonitorPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

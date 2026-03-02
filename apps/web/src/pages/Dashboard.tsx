@@ -9,6 +9,7 @@ import {
   Network,
   HardDrive,
   Shuffle,
+  Activity,
   ArrowRight,
   ExternalLink,
 } from "lucide-react";
@@ -36,6 +37,7 @@ export function DashboardPage() {
     { path: "/graph", label: "Knowledge Graph", icon: Network, desc: "Visualize connections", stat: "Interactive" },
     { path: "/dedup", label: "Deduplicator", icon: HardDrive, desc: "Find duplicate files", stat: "Scanner" },
     { path: "/randomizer", label: "Build Ideas", icon: Shuffle, desc: "Random project ideas", stat: "Generator" },
+    { path: "/monitor", label: "System Monitor", icon: Activity, desc: "CPU, memory & processes", stat: "Real-time" },
   ];
 
   return (

@@ -9,6 +9,7 @@ COPY modules/dedup/package.json modules/dedup/
 COPY modules/randomizer/package.json modules/randomizer/
 COPY modules/markdown/package.json modules/markdown/
 COPY modules/graph/package.json modules/graph/
+COPY modules/sysmon/package.json modules/sysmon/
 
 RUN bun install --frozen-lockfile || bun install
 

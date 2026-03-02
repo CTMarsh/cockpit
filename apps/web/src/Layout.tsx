@@ -8,6 +8,7 @@ import {
   Shuffle,
   FileText,
   Network,
+  Activity,
   LogOut,
   Menu,
   X,
@@ -21,6 +22,7 @@ const modules = [
   { path: "/randomizer", label: "Build Ideas", icon: Shuffle },
   { path: "/markdown", label: "Markdown", icon: FileText },
   { path: "/graph", label: "Knowledge Graph", icon: Network },
+  { path: "/monitor", label: "System Monitor", icon: Activity },
 ];
 
 export function Layout({ onLogout }: { onLogout?: () => void }) {
@@ -84,11 +86,12 @@ export function Layout({ onLogout }: { onLogout?: () => void }) {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-cockpit-border flex items-center justify-between">
-        <div className="text-xs text-cockpit-text-muted">
-          <span className="inline-block w-2 h-2 rounded-full bg-cockpit-success mr-2" />
-          All systems nominal
-        </div>
+      <div className="p-4 border-t border-cockpit-border">
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-cockpit-text-muted">
+            <span className="inline-block w-2 h-2 rounded-full bg-cockpit-success mr-2" />
+            All systems nominal
+          </div>
         <button
           onClick={handleLogout}
           className="text-cockpit-text-muted hover:text-cockpit-danger transition-colors"
@@ -96,6 +99,8 @@ export function Layout({ onLogout }: { onLogout?: () => void }) {
         >
           <LogOut className="w-4 h-4" />
         </button>
+        </div>
+        <div className="text-[10px] text-cockpit-text-muted/40 mt-1.5">v{(globalThis as any).__APP_VERSION__ || "2.0.0"}</div>
       </div>
     </>
   );

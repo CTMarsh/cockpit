@@ -9,6 +9,7 @@ import { dedupRoutes } from "../../../modules/dedup/api";
 import { randomizerRoutes } from "../../../modules/randomizer/api";
 import { markdownRoutes } from "../../../modules/markdown/api";
 import { graphRoutes } from "../../../modules/graph/api";
+import { sysmonRoutes } from "../../../modules/sysmon/api";
 
 const app = new Hono();
 
@@ -29,7 +30,7 @@ app.use("/api/*", authMiddleware);
 
 // Health check
 app.get("/api/health", (c) =>
-  c.json({ status: "ok", name: "Cockpit API", modules: 6 })
+  c.json({ status: "ok", name: "Cockpit API", version: "2.0.0", modules: 7 })
 );
 
 // Dashboard stats — aggregated overview
@@ -49,6 +50,7 @@ app.route("/api/dedup", dedupRoutes);
 app.route("/api/randomizer", randomizerRoutes);
 app.route("/api/markdown", markdownRoutes);
 app.route("/api/graph", graphRoutes);
+app.route("/api/sysmon", sysmonRoutes);
 
 // WebSocket endpoint for markdown collaboration
 const wsClients = new Map<string, Set<any>>();
