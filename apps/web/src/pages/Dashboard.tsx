@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import {
-  Rocket,
+  Anchor,
   Server,
   Bookmark,
   FileText,
@@ -43,10 +43,10 @@ export function DashboardPage() {
       {/* Welcome */}
       <div>
         <h2 className="text-2xl font-bold flex items-center gap-3">
-          <Rocket className="w-6 h-6 text-cockpit-accent" />
+          <Anchor className="w-6 h-6 text-cockpit-accent" />
           Welcome to Cockpit
         </h2>
-        <p className="text-cockpit-text-muted mt-1">Your self-hosted command center</p>
+        <p className="text-cockpit-text-muted mt-1">NoahsArk Command Center — weathering every storm</p>
       </div>
 
       {/* Module Cards */}

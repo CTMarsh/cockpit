@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Rocket, LogIn } from "lucide-react";
+import { LogIn } from "lucide-react";
 
 export function LoginPage({ onLogin }: { onLogin: () => void }) {
   const [username, setUsername] = useState("");
@@ -30,17 +30,27 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
   }
 
   return (
-    <div className="min-h-screen bg-cockpit-bg flex items-center justify-center">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen bg-cockpit-bg relative overflow-hidden flex items-center justify-center">
+      {/* Background artwork */}
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-40"
+        style={{ backgroundImage: "url(/ark-login-bg.jpg)" }}
+      />
+      {/* Gradient overlay for readability */}
+      <div className="absolute inset-0 bg-gradient-to-t from-cockpit-bg via-cockpit-bg/80 to-cockpit-bg/40" />
+
+      <div className="w-full max-w-sm relative z-10 px-4">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-cockpit-accent flex items-center justify-center mx-auto mb-4">
-            <Rocket className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold">Cockpit</h1>
+          <img
+            src="/ark-icon.jpg"
+            alt="NoahsArk"
+            className="w-20 h-20 rounded-2xl mx-auto mb-4 shadow-lg shadow-cockpit-accent/20"
+          />
+          <h1 className="text-2xl font-bold text-cockpit-text">Cockpit</h1>
           <p className="text-cockpit-text-muted text-sm mt-1">NoahsArk Command Center</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-cockpit-surface border border-cockpit-border rounded-2xl p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="bg-cockpit-surface/90 backdrop-blur-sm border border-cockpit-border rounded-2xl p-6 space-y-4 shadow-xl">
           {error && (
             <div className="bg-cockpit-danger/10 border border-cockpit-danger/20 rounded-lg px-4 py-2.5 text-sm text-cockpit-danger">
               {error}
@@ -52,7 +62,7 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full bg-cockpit-bg border border-cockpit-border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-cockpit-accent"
+              className="w-full bg-cockpit-bg/80 border border-cockpit-border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-cockpit-accent"
               autoFocus
             />
           </div>
@@ -62,18 +72,20 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-cockpit-bg border border-cockpit-border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-cockpit-accent"
+              className="w-full bg-cockpit-bg/80 border border-cockpit-border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-cockpit-accent"
             />
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-cockpit-accent hover:bg-cockpit-accent-hover rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-cockpit-accent hover:bg-cockpit-accent-hover text-cockpit-bg font-semibold rounded-lg text-sm transition-colors disabled:opacity-50"
           >
             <LogIn className="w-4 h-4" />
             {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
+
+        <p className="text-center text-xs text-cockpit-text-muted/50 mt-6">Weathering every storm</p>
       </div>
     </div>
   );

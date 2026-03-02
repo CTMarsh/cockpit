@@ -8,7 +8,6 @@ import {
   Shuffle,
   FileText,
   Network,
-  Rocket,
   LogOut,
   Menu,
   X,
@@ -44,12 +43,14 @@ export function Layout({ onLogout }: { onLogout?: () => void }) {
       <div className="p-5 border-b border-cockpit-border">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-cockpit-accent flex items-center justify-center">
-              <Rocket className="w-5 h-5 text-white" />
-            </div>
+            <img
+              src="/ark-icon.jpg"
+              alt="Ark"
+              className="w-9 h-9 rounded-lg shadow-sm"
+            />
             <div>
               <h1 className="text-lg font-bold tracking-tight">Cockpit</h1>
-              <p className="text-xs text-cockpit-text-muted">Command Center</p>
+              <p className="text-xs text-cockpit-text-muted">NoahsArk</p>
             </div>
           </div>
           <button
@@ -107,9 +108,7 @@ export function Layout({ onLogout }: { onLogout?: () => void }) {
           <Menu className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-md bg-cockpit-accent flex items-center justify-center">
-            <Rocket className="w-4 h-4 text-white" />
-          </div>
+          <img src="/ark-icon.jpg" alt="Ark" className="w-7 h-7 rounded-md" />
           <span className="font-bold text-sm">Cockpit</span>
         </div>
       </div>
