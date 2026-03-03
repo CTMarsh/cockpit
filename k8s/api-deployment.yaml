@@ -19,8 +19,7 @@ spec:
       labels:
         app.kubernetes.io/name: cockpit-api
     spec:
-      # hostPID lets the container see host processes (for sysmon)
-      hostPID: true
+      serviceAccountName: cockpit-api
       imagePullSecrets:
         - name: gitlab-registry
       containers:
@@ -31,21 +30,12 @@ spec:
           env:
             - name: API_PORT
               value: "4000"
-            - name: PROC_ROOT
-              value: "/host/proc"
           envFrom:
             - secretRef:
                 name: cockpit-secrets
           volumeMounts:
             - name: cockpit-data
               mountPath: /app/data
-            - name: host-proc
-              mountPath: /host/proc
-              readOnly: true
-          securityContext:
-            capabilities:
-              add:
-                - NET_ADMIN
           # Startup probe — gives the app up to 5 minutes to start
           # (Bun JIT compiles all TS modules on first run, ~90s+ and ~4Gi RAM)
           startupProbe:
@@ -69,12 +59,7 @@ spec:
               memory: "512Mi"
               cpu: "200m"
             # No memory limit — Bun startup is memory-intensive
-            # TODO: Set limit after observing steady-state usage
       volumes:
         - name: cockpit-data
           persistentVolumeClaim:
             claimName: cockpit-data
-        - name: host-proc
-          hostPath:
-            path: /proc
-            type: Directory

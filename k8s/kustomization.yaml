@@ -6,6 +6,7 @@ namespace: cockpit
 resources:
   - namespace.yaml
   - pvc.yaml
+  - rbac.yaml
   - nginx-configmap.yaml
   - services.yaml
   - api-deployment.yaml
