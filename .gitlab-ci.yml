@@ -60,6 +60,8 @@ build:api:
       --dockerfile "$CI_PROJECT_DIR/Dockerfile.api"
       --destination "$API_IMAGE:$CI_COMMIT_SHORT_SHA"
       --destination "$API_IMAGE:latest"
+      --cache=true
+      --cache-repo="$CI_REGISTRY_IMAGE/cache/api"
   only:
     - master
 
@@ -75,6 +77,8 @@ build:web:
       --dockerfile "$CI_PROJECT_DIR/Dockerfile.web"
       --destination "$WEB_IMAGE:$CI_COMMIT_SHORT_SHA"
       --destination "$WEB_IMAGE:latest"
+      --cache=true
+      --cache-repo="$CI_REGISTRY_IMAGE/cache/web"
   only:
     - master
 
