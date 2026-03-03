@@ -45,25 +45,40 @@ lint:
   allow_failure: true
 
 # ── Stage 2: Build & Push Container Images ────────────────
-build:images:
-  stage: build
-  image: docker:27
-  services:
-    - docker:27-dind
-  variables:
-    DOCKER_TLS_CERTDIR: "/certs"
+# Uses Kaniko — builds images without Docker daemon (no DinD/privileged needed)
+# Kaniko auth template — creates Docker config for registry push
+.kaniko-auth: &kaniko-auth
   before_script:
-    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - mkdir -p /kaniko/.docker
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(printf '%s:%s' "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD" | base64)\"}}}" > /kaniko/.docker/config.json
+
+build:api:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  <<: *kaniko-auth
   script:
-    - echo "=== Building API image ==="
-    - docker build -f Dockerfile.api -t "$API_IMAGE:$CI_COMMIT_SHORT_SHA" -t "$API_IMAGE:latest" .
-    - echo "=== Building Web image ==="
-    - docker build -f Dockerfile.web -t "$WEB_IMAGE:$CI_COMMIT_SHORT_SHA" -t "$WEB_IMAGE:latest" .
-    - echo "=== Pushing images ==="
-    - docker push "$API_IMAGE:$CI_COMMIT_SHORT_SHA"
-    - docker push "$API_IMAGE:latest"
-    - docker push "$WEB_IMAGE:$CI_COMMIT_SHORT_SHA"
-    - docker push "$WEB_IMAGE:latest"
+    - /kaniko/executor
+      --context "$CI_PROJECT_DIR"
+      --dockerfile "$CI_PROJECT_DIR/Dockerfile.api"
+      --destination "$API_IMAGE:$CI_COMMIT_SHORT_SHA"
+      --destination "$API_IMAGE:latest"
+  only:
+    - master
+
+build:web:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: [""]
+  <<: *kaniko-auth
+  script:
+    - /kaniko/executor
+      --context "$CI_PROJECT_DIR"
+      --dockerfile "$CI_PROJECT_DIR/Dockerfile.web"
+      --destination "$WEB_IMAGE:$CI_COMMIT_SHORT_SHA"
+      --destination "$WEB_IMAGE:latest"
   only:
     - master
 
@@ -74,7 +89,8 @@ deploy:k8s:
     name: bitnami/kubectl:1.30
     entrypoint: [""]
   needs:
-    - job: build:images
+    - job: build:api
+    - job: build:web
   script:
     - echo "=== Updating image tags ==="
     - kubectl set image deployment/cockpit-api api="$API_IMAGE:$CI_COMMIT_SHORT_SHA" -n cockpit
@@ -96,7 +112,8 @@ deploy:lxc:
   stage: deploy
   image: alpine:latest
   needs:
-    - job: build:images
+    - job: build:api
+    - job: build:web
   before_script:
     - apk add --no-cache openssh-client rsync curl
     - mkdir -p ~/.ssh
