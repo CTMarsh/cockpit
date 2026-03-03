@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cockpit-api
+  namespace: cockpit
+  labels:
+    app.kubernetes.io/name: cockpit-api
+    app.kubernetes.io/part-of: cockpit
+spec:
+  selector:
+    app.kubernetes.io/name: cockpit-api
+  ports:
+    - port: 4000
+      targetPort: 4000
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cockpit-web
+  namespace: cockpit
+  labels:
+    app.kubernetes.io/name: cockpit-web
+    app.kubernetes.io/part-of: cockpit
+spec:
+  selector:
+    app.kubernetes.io/name: cockpit-web
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP

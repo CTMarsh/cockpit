@@ -4,6 +4,11 @@ stages:
   - deploy
 
 variables:
+  # ── Container Registry ──
+  REGISTRY: "$CI_REGISTRY"
+  API_IMAGE: "$CI_REGISTRY_IMAGE/api"
+  WEB_IMAGE: "$CI_REGISTRY_IMAGE/web"
+  # ── Legacy LXC (kept until k3s migration complete) ──
   LXC_HOST: "10.0.80.132"
   LXC_USER: "root"
   DEPLOY_DIR: "/opt/cockpit"
@@ -39,31 +44,59 @@ lint:
     - merge_requests
   allow_failure: true
 
-# ── Stage 2: Build Frontend ─────────────────────────────────
-build:web:
+# ── Stage 2: Build & Push Container Images ────────────────
+build:images:
   stage: build
-  image: oven/bun:1
+  image: docker:27
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
   script:
-    - echo "=== Installing dependencies ==="
-    - bun install --frozen-lockfile || bun install
-    - echo "=== Building frontend ==="
-    - cd apps/web && bun run build
-    - echo "=== Build complete ==="
-    - ls -la dist/
-  artifacts:
-    paths:
-      - apps/web/dist/
-    expire_in: 1 hour
+    - echo "=== Building API image ==="
+    - docker build -f Dockerfile.api -t "$API_IMAGE:$CI_COMMIT_SHORT_SHA" -t "$API_IMAGE:latest" .
+    - echo "=== Building Web image ==="
+    - docker build -f Dockerfile.web -t "$WEB_IMAGE:$CI_COMMIT_SHORT_SHA" -t "$WEB_IMAGE:latest" .
+    - echo "=== Pushing images ==="
+    - docker push "$API_IMAGE:$CI_COMMIT_SHORT_SHA"
+    - docker push "$API_IMAGE:latest"
+    - docker push "$WEB_IMAGE:$CI_COMMIT_SHORT_SHA"
+    - docker push "$WEB_IMAGE:latest"
   only:
     - master
 
-# ── Stage 3: Deploy to Production ───────────────────────────
-deploy:production:
+# ── Stage 3: Deploy to Kubernetes ─────────────────────────
+deploy:k8s:
+  stage: deploy
+  image:
+    name: bitnami/kubectl:1.30
+    entrypoint: [""]
+  needs:
+    - job: build:images
+  script:
+    - echo "=== Updating image tags ==="
+    - kubectl set image deployment/cockpit-api api="$API_IMAGE:$CI_COMMIT_SHORT_SHA" -n cockpit
+    - kubectl set image deployment/cockpit-web web="$WEB_IMAGE:$CI_COMMIT_SHORT_SHA" -n cockpit
+    - echo "=== Waiting for rollout ==="
+    - kubectl rollout status deployment/cockpit-api -n cockpit --timeout=120s
+    - kubectl rollout status deployment/cockpit-web -n cockpit --timeout=120s
+    - echo "=== Deployment complete ==="
+  only:
+    - master
+  environment:
+    name: production
+    url: https://dashboard.noahsark.me
+    kubernetes:
+      namespace: cockpit
+
+# ── Legacy: Deploy to LXC (remove after k3s migration) ───
+deploy:lxc:
   stage: deploy
   image: alpine:latest
   needs:
-    - job: build:web
-      artifacts: true
+    - job: build:images
   before_script:
     - apk add --no-cache openssh-client rsync curl
     - mkdir -p ~/.ssh
@@ -91,6 +124,7 @@ deploy:production:
     - echo "=== Deployment complete ==="
   only:
     - master
+  when: manual
   environment:
-    name: production
+    name: lxc-legacy
     url: https://dashboard.noahsark.me

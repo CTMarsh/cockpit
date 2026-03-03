@@ -1,0 +1,31 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cockpit-ingress
+  namespace: cockpit
+  labels:
+    app.kubernetes.io/part-of: cockpit
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: dashboard.noahsark.me
+      http:
+        paths:
+          # API routes — /api/ goes to the API service
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: cockpit-api
+                port:
+                  number: 4000
+          # Everything else goes to the web frontend
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: cockpit-web
+                port:
+                  number: 80

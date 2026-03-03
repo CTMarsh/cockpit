@@ -1,0 +1,6 @@
+# GitLab Agent for Kubernetes configuration
+# This agent connects your k3s cluster to GitLab for CI/CD deployments
+
+ci_access:
+  projects:
+    - id: ctmarsh/cockpit

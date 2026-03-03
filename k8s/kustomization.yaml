@@ -1,0 +1,12 @@
+apiVersion: kustomize.io/v1beta1
+kind: Kustomization
+
+namespace: cockpit
+
+resources:
+  - namespace.yaml
+  - pvc.yaml
+  - services.yaml
+  - api-deployment.yaml
+  - web-deployment.yaml
+  - ingress.yaml
