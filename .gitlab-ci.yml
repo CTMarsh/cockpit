@@ -1,5 +1,6 @@
 stages:
   - lint
+  - version
   - build
   - deploy
 
@@ -39,7 +40,53 @@ lint:
     - master
     - merge_requests
 
-# ── Stage 2: Build & Push Container Images ────────────────
+# ── Stage 2: Auto-Version Bump ─────────────────────────────
+# Reads latest git tag, bumps patch (v2.1.1 → v2.1.2), pushes new tag.
+# For major/minor bumps, create the tag manually (e.g. v2.2.0).
+version:
+  stage: version
+  image: alpine:3.19
+  variables:
+    GIT_DEPTH: 0
+    GIT_STRATEGY: fetch
+  before_script:
+    - apk add --no-cache git
+  script:
+    - |
+      # Get latest tag, default to v0.0.0 if none exist
+      LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+      echo "Latest tag: $LATEST_TAG"
+
+      # Strip 'v' prefix, split into major.minor.patch
+      VERSION="${LATEST_TAG#v}"
+      MAJOR=$(echo "$VERSION" | cut -d. -f1)
+      MINOR=$(echo "$VERSION" | cut -d. -f2)
+      PATCH=$(echo "$VERSION" | cut -d. -f3)
+
+      # Bump patch
+      NEW_PATCH=$((PATCH + 1))
+      NEW_VERSION="v${MAJOR}.${MINOR}.${NEW_PATCH}"
+      echo "Bumping: $LATEST_TAG → $NEW_VERSION"
+
+      # Create and push tag
+      git config user.email "ci@noahsark.me"
+      git config user.name "Cockpit CI"
+      git tag -a "$NEW_VERSION" -m "Auto-version: $NEW_VERSION"
+      git remote set-url origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+      git push origin "$NEW_VERSION"
+
+      # Export for downstream jobs
+      echo "APP_VERSION=${NEW_VERSION}" > version.env
+      echo "Version $NEW_VERSION tagged and pushed"
+  artifacts:
+    reports:
+      dotenv: version.env
+  only:
+    - master
+  except:
+    - tags
+
+# ── Stage 3: Build & Push Container Images ─────────────────
 # Uses Kaniko — builds images without Docker daemon (no DinD/privileged needed)
 # Kaniko auth template — creates Docker config for registry push
 .kaniko-auth: &kaniko-auth
@@ -70,18 +117,23 @@ build:web:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
   <<: *kaniko-auth
+  needs:
+    - job: version
+      artifacts: true
   script:
+    - echo "Building web with version $APP_VERSION"
     - /kaniko/executor
       --context "$CI_PROJECT_DIR"
       --dockerfile "$CI_PROJECT_DIR/Dockerfile.web"
       --destination "$WEB_IMAGE:$CI_COMMIT_SHORT_SHA"
       --destination "$WEB_IMAGE:latest"
+      --build-arg "APP_VERSION=$APP_VERSION"
       --cache=true
       --cache-repo="$CI_REGISTRY_IMAGE/cache/web"
   only:
     - master
 
-# ── Stage 3: Deploy to Kubernetes ─────────────────────────
+# ── Stage 4: Deploy to Kubernetes ─────────────────────────
 deploy:k8s:
   stage: deploy
   image:
@@ -95,8 +147,8 @@ deploy:k8s:
     - kubectl set image deployment/cockpit-api api="$API_IMAGE:$CI_COMMIT_SHORT_SHA" -n cockpit
     - kubectl set image deployment/cockpit-web web="$WEB_IMAGE:$CI_COMMIT_SHORT_SHA" -n cockpit
     - echo "=== Waiting for rollout ==="
-    - kubectl rollout status deployment/cockpit-api -n cockpit --timeout=120s
-    - kubectl rollout status deployment/cockpit-web -n cockpit --timeout=120s
+    - kubectl rollout status deployment/cockpit-api -n cockpit --timeout=600s
+    - kubectl rollout status deployment/cockpit-web -n cockpit --timeout=600s
     - echo "=== Deployment complete ==="
   only:
     - master

@@ -108,7 +108,7 @@ export function Layout({ onLogout }: { onLogout?: () => void }) {
           <LogOut className="w-4 h-4" />
         </button>
         </div>
-        <div className="text-[10px] text-cockpit-text-muted/40 mt-1.5">v{(globalThis as any).__APP_VERSION__ || "2.0.0"}</div>
+        <div className="text-[10px] text-cockpit-text-muted/40 mt-1.5">v{__APP_VERSION__}</div>
       </div>
     </>
   );
