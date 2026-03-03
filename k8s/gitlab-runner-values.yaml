@@ -1,0 +1,36 @@
+## GitLab Runner Helm chart values for k3s-noahsark
+gitlabUrl: https://gitlab.noahsark.me
+runnerToken: glrt-VrYN1GmsO04lr-s-XrWnkG86MQp0OjEKdToxCw.01.120jixhu6
+
+## Runner configuration
+runners:
+  config: |
+    [[runners]]
+      [runners.kubernetes]
+        namespace = "gitlab-runner"
+        image = "alpine:latest"
+        privileged = false
+        cpu_request = "200m"
+        memory_request = "256Mi"
+        cpu_limit = "2"
+        memory_limit = "4Gi"
+        service_cpu_request = "100m"
+        service_memory_request = "128Mi"
+      [runners.kubernetes.pod_labels]
+        "gitlab-runner" = "k3s"
+
+## Concurrent jobs — matches worker count
+concurrent: 6
+
+## Runner pod resources
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "256Mi"
+    cpu: "500m"
+
+## RBAC
+rbac:
+  create: true

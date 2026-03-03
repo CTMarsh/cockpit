@@ -190,7 +190,7 @@ homelabRoutes.post("/containers/:id/:action", async (c) => {
     const res = await fetch(`${dockerHost}/containers/${id}/${action}`, { method: "POST" });
     if (!res.ok && res.status !== 304) {
       const text = await res.text();
-      return c.json({ error: text }, res.status);
+      return c.json({ error: text }, res.status as 400 | 500);
     }
     return c.json({ ok: true, action, containerId: id });
   } catch {

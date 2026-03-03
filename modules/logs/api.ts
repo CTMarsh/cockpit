@@ -42,7 +42,7 @@ logsRoutes.get("/container/:id", async (c) => {
 
     // Docker log multiplexing: each line prefixed with 8-byte header
     // Strip the header bytes for clean output
-    const lines = raw.split("\n").map((line) => {
+    const lines = raw.split("\n").map((line: string) => {
       // Remove Docker stream header (first 8 bytes if present)
       if (line.length > 8) {
         const header = line.charCodeAt(0);

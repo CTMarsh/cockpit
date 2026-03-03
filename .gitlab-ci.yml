@@ -29,16 +29,15 @@ lint:
     - echo "=== Installing dependencies ==="
     - bun install --frozen-lockfile || bun install
     - echo "=== TypeScript Type Check (API) ==="
-    - cd apps/api && bunx tsc --noEmit --pretty 2>&1 || true
+    - cd apps/api && bunx tsc --noEmit --pretty
     - cd ../..
     - echo "=== TypeScript Type Check (Web) ==="
-    - cd apps/web && bunx tsc --noEmit --pretty 2>&1 || true
+    - cd apps/web && bunx tsc --noEmit --pretty
     - cd ../..
     - echo "=== Lint passed ==="
   only:
     - master
     - merge_requests
-  allow_failure: true
 
 # ── Stage 2: Build & Push Container Images ────────────────
 # Uses Kaniko — builds images without Docker daemon (no DinD/privileged needed)
