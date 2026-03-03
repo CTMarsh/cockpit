@@ -7,8 +7,13 @@ metadata:
     app.kubernetes.io/part-of: cockpit
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - dashboard.noahsark.me
+      secretName: cockpit-tls
   rules:
     - host: dashboard.noahsark.me
       http:

@@ -86,7 +86,7 @@ build:web:
 deploy:k8s:
   stage: deploy
   image:
-    name: bitnami/kubectl:1.30
+    name: bitnami/kubectl:latest
     entrypoint: [""]
   needs:
     - job: build:api

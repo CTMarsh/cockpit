@@ -8,6 +8,9 @@ metadata:
     app.kubernetes.io/part-of: cockpit
 spec:
   replicas: 1
+  # Recreate strategy — PVC is ReadWriteOnce, can't attach to two pods
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: cockpit-api
@@ -43,25 +46,30 @@ spec:
             capabilities:
               add:
                 - NET_ADMIN
+          # Startup probe — gives the app up to 5 minutes to start
+          # (Bun JIT compiles all TS modules on first run, ~90s+ and ~4Gi RAM)
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: 4000
+            failureThreshold: 30
+            periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /api/health
               port: 4000
-            initialDelaySeconds: 10
             periodSeconds: 30
           readinessProbe:
             httpGet:
               path: /api/health
               port: 4000
-            initialDelaySeconds: 5
             periodSeconds: 10
           resources:
             requests:
-              memory: "128Mi"
-              cpu: "100m"
-            limits:
               memory: "512Mi"
-              cpu: "500m"
+              cpu: "200m"
+            # No memory limit — Bun startup is memory-intensive
+            # TODO: Set limit after observing steady-state usage
       volumes:
         - name: cockpit-data
           persistentVolumeClaim:
