@@ -45,15 +45,30 @@ lint:
 test:
   stage: test
   image: oven/bun:1
+  variables:
+    COCKPIT_USER: testadmin
+    COCKPIT_PASS: testpass123
+    SESSION_SECRET: ci-test-secret
   script:
     - bun install --frozen-lockfile || bun install
+    - echo "=== Starting API server in background ==="
+    - bun run apps/api/src/index.ts &
+    - |
+      # Wait for API to be ready (up to 120s for Bun JIT compilation)
+      for i in $(seq 1 60); do
+        if curl -sf http://localhost:4000/api/health > /dev/null 2>&1; then
+          echo "API ready after ~$((i*2))s"
+          break
+        fi
+        sleep 2
+      done
     - echo "=== Running API tests ==="
     - bun test apps/api/src/
     - echo "=== Tests passed ==="
   only:
     - master
     - merge_requests
-  allow_failure: true  # Until test suite is comprehensive
+  allow_failure: true
 
 # ── Stage 3: Auto-Version Bump ─────────────────────────────
 # Reads latest git tag, bumps patch (v2.1.1 → v2.1.2), pushes new tag.
