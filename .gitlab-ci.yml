@@ -106,6 +106,7 @@ deploy:k8s:
     url: https://dashboard.noahsark.me
     kubernetes:
       namespace: cockpit
+      agent: ctmarsh/cockpit:cockpit-k3s
 
 # ── Legacy: Deploy to LXC (remove after k3s migration) ───
 deploy:lxc:
