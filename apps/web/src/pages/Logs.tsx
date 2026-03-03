@@ -7,8 +7,8 @@ import {
   ArrowDown,
   Pause,
   Play,
-  AlertCircle,
 } from "lucide-react";
+import { ErrorBanner } from "../components/ErrorBanner";
 
 interface LogSource {
   id: string;
@@ -92,12 +92,7 @@ export function LogsPage() {
         </h2>
       </div>
 
-      {sourceError && (
-        <div className="bg-cockpit-danger/10 border border-cockpit-danger/20 rounded-lg px-4 py-3 flex items-center justify-between">
-          <span className="text-sm text-cockpit-danger flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {sourceError}</span>
-          <button onClick={() => { setSourceError(""); api<{ sources: LogSource[] }>("/logs/sources").then((d) => setSources(d.sources)).catch(() => setSourceError("Failed to load log sources")); }} className="text-cockpit-danger hover:text-cockpit-danger/80 text-sm flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Retry</button>
-        </div>
-      )}
+      <ErrorBanner message={sourceError} onRetry={() => { setSourceError(""); api<{ sources: LogSource[] }>("/logs/sources").then((d) => setSources(d.sources)).catch(() => setSourceError("Failed to load log sources")); }} />
 
       {/* Controls */}
       <div className="flex flex-wrap gap-3 items-center">

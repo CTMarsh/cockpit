@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { Shuffle, Sparkles, Clock, BarChart3, Heart, Copy, Check, Plus, Terminal, X, AlertCircle, RefreshCw } from "lucide-react";
+import { Shuffle, Sparkles, Clock, BarChart3, Heart, Copy, Check, Plus, Terminal, X } from "lucide-react";
+import { ErrorBanner } from "../components/ErrorBanner";
 
 interface ProjectIdea {
   id: number;
@@ -117,12 +118,7 @@ export function RandomizerPage() {
             What Should I Build?
           </h2>
           <p className="text-cockpit-text-muted mt-1">Get inspired with random project ideas</p>
-      {error && (
-        <div className="bg-cockpit-danger/10 border border-cockpit-danger/20 rounded-lg px-4 py-3 flex items-center justify-between mt-2">
-          <span className="text-sm text-cockpit-danger flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {error}</span>
-          <button onClick={() => { loadFilters(); generate(); }} className="text-cockpit-danger hover:text-cockpit-danger/80 text-sm flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Retry</button>
-        </div>
-      )}
+      <ErrorBanner message={error} onRetry={() => { loadFilters(); generate(); }} />
         </div>
         <button
           onClick={() => setShowAddForm(!showAddForm)}

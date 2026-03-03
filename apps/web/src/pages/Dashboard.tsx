@@ -16,9 +16,8 @@ import {
   Power,
   ArrowRight,
   ExternalLink,
-  RefreshCw,
-  AlertCircle,
 } from "lucide-react";
+import { ErrorBanner } from "../components/ErrorBanner";
 
 interface DashStats {
   bookmarkCount: number;
@@ -67,16 +66,7 @@ export function DashboardPage() {
         <p className="text-cockpit-text-muted mt-1">NoahsArk Command Center — weathering every storm</p>
       </div>
 
-      {error && (
-        <div className="bg-cockpit-danger/10 border border-cockpit-danger/20 rounded-lg px-4 py-3 flex items-center justify-between">
-          <span className="text-sm text-cockpit-danger flex items-center gap-2">
-            <AlertCircle className="w-4 h-4" /> {error}
-          </span>
-          <button onClick={loadStats} className="text-cockpit-danger hover:text-cockpit-danger/80 text-sm flex items-center gap-1">
-            <RefreshCw className="w-3 h-3" /> Retry
-          </button>
-        </div>
-      )}
+      <ErrorBanner message={error} onRetry={loadStats} />
 
       {/* Module Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

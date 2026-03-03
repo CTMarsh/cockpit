@@ -3,7 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { FileText, Plus, Save, ArrowLeft, Search, Wifi, WifiOff, Pencil, Check, Trash2, Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered, Code, Link, Quote, Minus, Strikethrough, Table, Image, CheckSquare, WrapText, Undo2, Redo2, Eye, EyeOff, AlertCircle, RefreshCw } from "lucide-react";
+import { FileText, Plus, Save, ArrowLeft, Search, Wifi, WifiOff, Pencil, Check, Trash2, Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered, Code, Link, Quote, Minus, Strikethrough, Table, Image, CheckSquare, WrapText, Undo2, Redo2, Eye, EyeOff } from "lucide-react";
+import { ErrorBanner } from "../components/ErrorBanner";
 
 interface DocMeta {
   id: string;
@@ -454,12 +455,7 @@ export function MarkdownPage() {
             Markdown Editor
           </h2>
           <p className="text-cockpit-text-muted mt-1">Write and preview markdown documents</p>
-          {error && (
-            <div className="bg-cockpit-danger/10 border border-cockpit-danger/20 rounded-lg px-4 py-3 flex items-center justify-between mt-2">
-              <span className="text-sm text-cockpit-danger flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {error}</span>
-              <button onClick={loadDocs} className="text-cockpit-danger hover:text-cockpit-danger/80 text-sm flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Retry</button>
-            </div>
-          )}
+          <ErrorBanner message={error} onRetry={loadDocs} />
         </div>
         <button onClick={createDoc} className="flex items-center justify-center gap-2 px-5 py-2.5 bg-cockpit-accent hover:bg-cockpit-accent-hover rounded-lg text-sm font-medium transition-colors w-full sm:w-auto">
           <Plus className="w-4 h-4" /> New Document

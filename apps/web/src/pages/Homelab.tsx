@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { RefreshCw, Circle, Server, Box, Play, Square, RotateCcw, Pencil, Check, X, Plus, Trash2, AlertCircle } from "lucide-react";
+import { RefreshCw, Circle, Server, Box, Play, Square, RotateCcw, Pencil, Check, X, Plus, Trash2 } from "lucide-react";
+import { ErrorBanner } from "../components/ErrorBanner";
 
 interface ServiceStatus {
   id: string;
@@ -163,12 +164,7 @@ export function HomelabPage() {
         </button>
       </div>
 
-      {error && (
-        <div className="bg-cockpit-danger/10 border border-cockpit-danger/20 rounded-lg px-4 py-3 flex items-center justify-between">
-          <span className="text-sm text-cockpit-danger flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {error}</span>
-          <button onClick={refresh} className="text-cockpit-danger hover:text-cockpit-danger/80 text-sm flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Retry</button>
-        </div>
-      )}
+      <ErrorBanner message={error} onRetry={refresh} />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
