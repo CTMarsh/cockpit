@@ -75,8 +75,8 @@ version:
       git remote set-url origin "https://cockpit-bot:${BOT_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
       git push origin "$NEW_VERSION"
 
-      # Export for downstream jobs
-      echo "APP_VERSION=${NEW_VERSION}" > version.env
+      # Export for downstream jobs (strip 'v' prefix — UI adds its own)
+      echo "APP_VERSION=${NEW_VERSION#v}" > version.env
       echo "Version $NEW_VERSION tagged and pushed"
   artifacts:
     reports:
