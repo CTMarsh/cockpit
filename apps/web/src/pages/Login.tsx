@@ -39,7 +39,7 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
       {/* Gradient overlay — fades from right (form) to left (artwork) on desktop */}
       <div className="absolute inset-0 bg-gradient-to-t lg:bg-gradient-to-l from-cockpit-bg via-cockpit-bg/80 to-cockpit-bg/20" />
 
-      <div className="w-full max-w-sm relative z-10 px-4 lg:mr-24">
+      <div className="w-full max-w-sm relative z-10 px-4 lg:mr-48">
         <div className="text-center mb-8">
           <img
             src="/ark-icon.jpg"
