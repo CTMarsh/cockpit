@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { api } from "../api";
 import { Bookmark, Search, Plus, X, Tag, ExternalLink, Pencil, Check, Download, Upload, AlertCircle, RefreshCw } from "lucide-react";
 
@@ -22,7 +22,7 @@ export function BookmarksPage() {
   const [editTags, setEditTags] = useState("");
   const [error, setError] = useState("");
 
-  const allTags = [...new Set(bookmarks.flatMap((b) => b.tags))].sort();
+  const allTags = useMemo(() => [...new Set(bookmarks.flatMap((b) => b.tags))].sort(), [bookmarks]);
 
   async function load() {
     setError("");
@@ -75,9 +75,10 @@ export function BookmarksPage() {
     load();
   }, [search]);
 
-  const filtered = tagFilter
-    ? bookmarks.filter((b) => b.tags.includes(tagFilter))
-    : bookmarks;
+  const filtered = useMemo(
+    () => tagFilter ? bookmarks.filter((b) => b.tags.includes(tagFilter)) : bookmarks,
+    [bookmarks, tagFilter]
+  );
 
   return (
     <div className="space-y-6">

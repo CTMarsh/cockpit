@@ -1,0 +1,13 @@
+node_modules
+.git
+.gitignore
+*.md
+LICENSE
+dist
+.env*
+.vscode
+.idea
+k8s
+.gitlab-ci.yml
+docker-compose*.yml
+.dockerignore

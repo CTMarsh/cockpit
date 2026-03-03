@@ -13,6 +13,12 @@ data:
         root /usr/share/nginx/html;
         index index.html;
 
+        # Gzip compression
+        gzip on;
+        gzip_vary on;
+        gzip_min_length 256;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript image/svg+xml;
+
         # API proxy — uses Kubernetes service name
         location /api/ {
             proxy_pass http://cockpit-api:4000;
@@ -23,8 +29,21 @@ data:
             proxy_cache_bypass $http_upgrade;
         }
 
-        # SPA fallback
+        # Static assets — long cache (Vite adds content hash to filenames)
+        location /assets/ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+
+        # Images and icons — moderate cache
+        location ~* \.(jpg|jpeg|png|gif|ico|svg|webp)$ {
+            expires 7d;
+            add_header Cache-Control "public";
+        }
+
+        # SPA fallback — no cache for HTML (so updates are picked up)
         location / {
             try_files $uri $uri/ /index.html;
+            add_header Cache-Control "no-cache";
         }
     }

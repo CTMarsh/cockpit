@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { api } from "../api";
 import {
   ScrollText,
@@ -69,9 +69,10 @@ export function LogsPage() {
     }
   }, [lines, autoScroll]);
 
-  const filteredLines = search
-    ? lines.filter((l) => l.toLowerCase().includes(search.toLowerCase()))
-    : lines;
+  const filteredLines = useMemo(
+    () => search ? lines.filter((l) => l.toLowerCase().includes(search.toLowerCase())) : lines,
+    [lines, search]
+  );
 
   function getSeverityColor(line: string): string {
     const lower = line.toLowerCase();
