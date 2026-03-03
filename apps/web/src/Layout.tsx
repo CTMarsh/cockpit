@@ -26,7 +26,7 @@ const modules = [
   { path: "/randomizer", label: "Build Ideas", icon: Shuffle },
   { path: "/markdown", label: "Markdown", icon: FileText },
   { path: "/graph", label: "Knowledge Graph", icon: Network },
-  { path: "/monitor", label: "System Monitor", icon: Activity },
+  { path: "/monitor", label: "Cluster Monitor", icon: Activity },
   { path: "/proxmox", label: "Proxmox", icon: MonitorDot },
   { path: "/logs", label: "Log Viewer", icon: ScrollText },
   { path: "/cron", label: "Cron Jobs", icon: Clock },

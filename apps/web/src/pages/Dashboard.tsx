@@ -49,7 +49,7 @@ export function DashboardPage() {
     { path: "/graph", label: "Knowledge Graph", icon: Network, desc: "Visualize connections", stat: "Interactive" },
     { path: "/dedup", label: "Deduplicator", icon: HardDrive, desc: "Find duplicate files", stat: "Scanner" },
     { path: "/randomizer", label: "Build Ideas", icon: Shuffle, desc: "Random project ideas", stat: "Generator" },
-    { path: "/monitor", label: "System Monitor", icon: Activity, desc: "CPU, memory & processes", stat: "Real-time" },
+    { path: "/monitor", label: "Cluster Monitor", icon: Activity, desc: "Node & pod metrics", stat: "Real-time" },
     { path: "/proxmox", label: "Proxmox", icon: MonitorDot, desc: "VMs & containers on Proxmox", stat: "Hypervisor" },
     { path: "/logs", label: "Log Viewer", icon: ScrollText, desc: "Container & system logs", stat: "Streaming" },
     { path: "/cron", label: "Cron Jobs", icon: Clock, desc: "Scheduled task manager", stat: "Scheduler" },
