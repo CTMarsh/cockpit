@@ -322,16 +322,16 @@ export function HomelabPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
                         {ct.state !== "running" && (
-                          <button onClick={() => containerAction(ct.id, "start", ct.hostUrl)} className="p-1 text-cockpit-text-muted hover:text-cockpit-success transition-colors" title="Start">
+                          <button onClick={() => containerAction(ct.id, "start", ct.hostUrl)} className="p-1 text-cockpit-text-muted hover:text-cockpit-success transition-colors" aria-label="Start container" title="Start">
                             <Play className="w-3.5 h-3.5" />
                           </button>
                         )}
                         {ct.state === "running" && (
-                          <button onClick={() => containerAction(ct.id, "stop", ct.hostUrl)} className="p-1 text-cockpit-text-muted hover:text-cockpit-danger transition-colors" title="Stop">
+                          <button onClick={() => containerAction(ct.id, "stop", ct.hostUrl)} className="p-1 text-cockpit-text-muted hover:text-cockpit-danger transition-colors" aria-label="Stop container" title="Stop">
                             <Square className="w-3.5 h-3.5" />
                           </button>
                         )}
-                        <button onClick={() => containerAction(ct.id, "restart", ct.hostUrl)} className="p-1 text-cockpit-text-muted hover:text-cockpit-accent transition-colors" title="Restart">
+                        <button onClick={() => containerAction(ct.id, "restart", ct.hostUrl)} className="p-1 text-cockpit-text-muted hover:text-cockpit-accent transition-colors" aria-label="Restart container" title="Restart">
                           <RotateCcw className="w-3.5 h-3.5" />
                         </button>
                       </div>

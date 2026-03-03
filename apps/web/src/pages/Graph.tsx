@@ -26,6 +26,7 @@ interface GraphEdge {
 
 export function GraphPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<GraphEdge[]>([]);
@@ -33,6 +34,7 @@ export function GraphPage() {
   const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [error, setError] = useState("");
+  const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 700 });
   const nodesRef = useRef<GraphNode[]>([]);
   const edgesRef = useRef<GraphEdge[]>([]);
   const animRef = useRef<number>(0);
@@ -41,6 +43,22 @@ export function GraphPage() {
   const viewRef = useRef({ zoom: 1, panX: 0, panY: 0 });
   const isPanningRef = useRef(false);
   const lastPanRef = useRef({ x: 0, y: 0 });
+
+  // Resize observer for responsive canvas
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width } = entry.contentRect;
+        if (width > 0) {
+          setCanvasSize({ width: Math.floor(width), height: Math.floor(Math.max(500, width * 0.55)) });
+        }
+      }
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
 
   async function load() {
     setError("");
@@ -320,7 +338,7 @@ export function GraphPage() {
 
       <ErrorBanner message={error} onRetry={load} />
 
-      <div className="relative bg-cockpit-surface border border-cockpit-border rounded-2xl overflow-hidden">
+      <div ref={containerRef} className="relative bg-cockpit-surface border border-cockpit-border rounded-2xl overflow-hidden">
         {/* Zoom controls */}
         <div className="absolute top-3 right-3 flex flex-col gap-1 z-10">
           <button onClick={() => zoom(0.2)} className="p-1.5 bg-cockpit-bg/80 border border-cockpit-border rounded-lg text-cockpit-text-muted hover:text-cockpit-text">
@@ -333,7 +351,7 @@ export function GraphPage() {
             <Maximize className="w-4 h-4" />
           </button>
         </div>
-        <canvas ref={canvasRef} width={1200} height={700} className="w-full" />
+        <canvas ref={canvasRef} width={canvasSize.width} height={canvasSize.height} className="w-full" />
       </div>
 
       {summary.totalNodes === 0 && (

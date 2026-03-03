@@ -11,6 +11,7 @@ import {
   Send,
 } from "lucide-react";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 
 interface WolDevice {
   id: string;
@@ -28,6 +29,7 @@ export function WakeOnLanPage() {
   const [waking, setWaking] = useState<string | null>(null);
 
   const [error, setError] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // Quick-wake state
   const [quickMac, setQuickMac] = useState("");
@@ -71,8 +73,8 @@ export function WakeOnLanPage() {
   }
 
   async function deleteDevice(id: string) {
-    if (!confirm("Remove this device?")) return;
     await api(`/wol/devices/${id}`, { method: "DELETE" });
+    setConfirmDeleteId(null);
     fetchDevices();
   }
 
@@ -237,8 +239,9 @@ export function WakeOnLanPage() {
                   </div>
                 </div>
                 <button
-                  onClick={() => deleteDevice(device.id)}
+                  onClick={() => setConfirmDeleteId(device.id)}
                   className="p-1 rounded text-cockpit-text-muted/30 hover:text-cockpit-danger opacity-0 group-hover:opacity-100 transition-opacity"
+                  aria-label="Remove device"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -279,6 +282,16 @@ export function WakeOnLanPage() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!confirmDeleteId}
+        title="Remove Device"
+        message="Remove this device from the Wake-on-LAN list? You can re-add it later."
+        confirmLabel="Remove"
+        danger
+        onConfirm={() => confirmDeleteId && deleteDevice(confirmDeleteId)}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
   ToggleRight,
 } from "lucide-react";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 
 interface CronRun {
   id: number;
@@ -52,6 +53,7 @@ export function CronJobsPage() {
   const [runs, setRuns] = useState<CronRun[]>([]);
 
   const [error, setError] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // Form state
   const [name, setName] = useState("");
@@ -135,8 +137,8 @@ export function CronJobsPage() {
   }
 
   async function deleteJob(id: string) {
-    if (!confirm("Delete this cron job?")) return;
     await api(`/cron/jobs/${id}`, { method: "DELETE" });
+    setConfirmDeleteId(null);
     fetchJobs();
   }
 
@@ -285,13 +287,13 @@ export function CronJobsPage() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-1">
-                  <button onClick={() => runNow(job.id)} className="p-1.5 rounded hover:bg-cockpit-success/10 text-cockpit-success" title="Run now">
+                  <button onClick={() => runNow(job.id)} className="p-1.5 rounded hover:bg-cockpit-success/10 text-cockpit-success" aria-label="Run now" title="Run now">
                     <Play className="w-3.5 h-3.5" />
                   </button>
-                  <button onClick={() => startEdit(job)} className="p-1.5 rounded hover:bg-white/5 text-cockpit-text-muted" title="Edit">
+                  <button onClick={() => startEdit(job)} className="p-1.5 rounded hover:bg-white/5 text-cockpit-text-muted" aria-label="Edit job" title="Edit">
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
-                  <button onClick={() => deleteJob(job.id)} className="p-1.5 rounded hover:bg-cockpit-danger/10 text-cockpit-danger" title="Delete">
+                  <button onClick={() => setConfirmDeleteId(job.id)} className="p-1.5 rounded hover:bg-cockpit-danger/10 text-cockpit-danger" aria-label="Delete job" title="Delete">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -336,6 +338,16 @@ export function CronJobsPage() {
           ))
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!confirmDeleteId}
+        title="Delete Cron Job"
+        message="This will permanently delete the job and its execution history. This cannot be undone."
+        confirmLabel="Delete"
+        danger
+        onConfirm={() => confirmDeleteId && deleteJob(confirmDeleteId)}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </div>
   );
 }
