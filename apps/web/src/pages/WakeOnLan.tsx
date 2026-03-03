@@ -9,6 +9,7 @@ import {
   Zap,
   RefreshCw,
   Send,
+  AlertCircle,
 } from "lucide-react";
 
 interface WolDevice {
@@ -26,6 +27,8 @@ export function WakeOnLanPage() {
   const [showForm, setShowForm] = useState(false);
   const [waking, setWaking] = useState<string | null>(null);
 
+  const [error, setError] = useState("");
+
   // Quick-wake state
   const [quickMac, setQuickMac] = useState("");
 
@@ -36,10 +39,13 @@ export function WakeOnLanPage() {
   const [broadcast, setBroadcast] = useState("255.255.255.255");
 
   async function fetchDevices() {
+    setError("");
     try {
       const d = await api<{ devices: WolDevice[] }>("/wol/devices");
       setDevices(d.devices);
-    } catch {}
+    } catch {
+      setError("Failed to load devices");
+    }
     setLoading(false);
   }
 
@@ -115,6 +121,13 @@ export function WakeOnLanPage() {
           </button>
         </div>
       </div>
+
+      {error && (
+        <div className="bg-cockpit-danger/10 border border-cockpit-danger/20 rounded-lg px-4 py-3 flex items-center justify-between">
+          <span className="text-sm text-cockpit-danger flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {error}</span>
+          <button onClick={fetchDevices} className="text-cockpit-danger hover:text-cockpit-danger/80 text-sm flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Retry</button>
+        </div>
+      )}
 
       {/* Quick Wake */}
       <div className="bg-cockpit-surface border border-cockpit-border rounded-xl p-4">

@@ -12,6 +12,8 @@ import {
   XCircle,
   ToggleLeft,
   ToggleRight,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 
 interface CronRun {
@@ -50,16 +52,21 @@ export function CronJobsPage() {
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
   const [runs, setRuns] = useState<CronRun[]>([]);
 
+  const [error, setError] = useState("");
+
   // Form state
   const [name, setName] = useState("");
   const [schedule, setSchedule] = useState("0 * * * *");
   const [command, setCommand] = useState("");
 
   async function fetchJobs() {
+    setError("");
     try {
       const d = await api<{ jobs: CronJob[] }>("/cron/jobs");
       setJobs(d.jobs);
-    } catch {}
+    } catch {
+      setError("Failed to load cron jobs");
+    }
   }
 
   useEffect(() => {
@@ -163,6 +170,13 @@ export function CronJobsPage() {
           New Job
         </button>
       </div>
+
+      {error && (
+        <div className="bg-cockpit-danger/10 border border-cockpit-danger/20 rounded-lg px-4 py-3 flex items-center justify-between">
+          <span className="text-sm text-cockpit-danger flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {error}</span>
+          <button onClick={fetchJobs} className="text-cockpit-danger hover:text-cockpit-danger/80 text-sm flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Retry</button>
+        </div>
+      )}
 
       {/* Add/Edit Form */}
       {showForm && (

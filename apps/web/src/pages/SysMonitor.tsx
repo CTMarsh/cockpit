@@ -87,6 +87,7 @@ export function SysMonitorPage() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [processes, setProcesses] = useState<Process[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [processFilter, setProcessFilter] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("cpu");
   const [sortAsc, setSortAsc] = useState(false);
@@ -102,6 +103,7 @@ export function SysMonitorPage() {
 
   async function refresh() {
     setLoading(true);
+    setError("");
     try {
       const [m, p] = await Promise.all([
         api<Metrics>("/sysmon/metrics"),
@@ -124,7 +126,9 @@ export function SysMonitorPage() {
         netTxHistory.current = [...netTxHistory.current, txDelta].slice(-60);
       }
       prevNetRef.current = { rx: totalRx, tx: totalTx };
-    } catch {}
+    } catch {
+      setError("Failed to fetch system metrics");
+    }
     setLoading(false);
   }
 
@@ -184,6 +188,17 @@ export function SysMonitorPage() {
           Refresh
         </button>
       </div>
+
+      {error && (
+        <div className="bg-cockpit-danger/10 border border-cockpit-danger/20 rounded-lg px-4 py-3 flex items-center justify-between">
+          <span className="text-sm text-cockpit-danger flex items-center gap-2">
+            <Activity className="w-4 h-4" /> {error}
+          </span>
+          <button onClick={refresh} className="text-cockpit-danger hover:text-cockpit-danger/80 text-sm flex items-center gap-1">
+            <RefreshCw className="w-3 h-3" /> Retry
+          </button>
+        </div>
+      )}
 
       {metrics && (
         <>

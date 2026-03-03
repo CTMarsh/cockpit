@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { Bookmark, Search, Plus, X, Tag, ExternalLink, Pencil, Check, Download, Upload } from "lucide-react";
+import { Bookmark, Search, Plus, X, Tag, ExternalLink, Pencil, Check, Download, Upload, AlertCircle, RefreshCw } from "lucide-react";
 
 interface BookmarkItem {
   id: string;
@@ -20,13 +20,19 @@ export function BookmarksPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editTags, setEditTags] = useState("");
+  const [error, setError] = useState("");
 
   const allTags = [...new Set(bookmarks.flatMap((b) => b.tags))].sort();
 
   async function load() {
-    const q = search ? `?q=${encodeURIComponent(search)}` : "";
-    const data = await api<any>(`/bookmarks${q}`);
-    setBookmarks(data.bookmarks || []);
+    setError("");
+    try {
+      const q = search ? `?q=${encodeURIComponent(search)}` : "";
+      const data = await api<any>(`/bookmarks${q}`);
+      setBookmarks(data.bookmarks || []);
+    } catch {
+      setError("Failed to load bookmarks");
+    }
   }
 
   async function addBookmark(e: React.FormEvent) {
@@ -81,6 +87,12 @@ export function BookmarksPage() {
           Bookmarks
         </h2>
         <p className="text-cockpit-text-muted mt-1">Save, tag, and search your bookmarks</p>
+      {error && (
+        <div className="bg-cockpit-danger/10 border border-cockpit-danger/20 rounded-lg px-4 py-3 flex items-center justify-between mt-2">
+          <span className="text-sm text-cockpit-danger flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {error}</span>
+          <button onClick={load} className="text-cockpit-danger hover:text-cockpit-danger/80 text-sm flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Retry</button>
+        </div>
+      )}
         <div className="flex flex-wrap gap-2 mt-2">
           <button
             onClick={async () => {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { Shuffle, Sparkles, Clock, BarChart3, Heart, Copy, Check, Plus, Terminal, X } from "lucide-react";
+import { Shuffle, Sparkles, Clock, BarChart3, Heart, Copy, Check, Plus, Terminal, X, AlertCircle, RefreshCw } from "lucide-react";
 
 interface ProjectIdea {
   id: number;
@@ -38,10 +38,16 @@ export function RandomizerPage() {
   const [copied, setCopied] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newIdea, setNewIdea] = useState({ title: "", description: "", stack: "", difficulty: "intermediate", category: "", estimatedHours: "4-8" });
+  const [error, setError] = useState("");
 
   async function loadFilters() {
-    const data = await api<Filters>("/randomizer/filters");
-    setFilters(data);
+    setError("");
+    try {
+      const data = await api<Filters>("/randomizer/filters");
+      setFilters(data);
+    } catch {
+      setError("Failed to load filters");
+    }
   }
 
   async function loadFavorites() {
@@ -111,6 +117,12 @@ export function RandomizerPage() {
             What Should I Build?
           </h2>
           <p className="text-cockpit-text-muted mt-1">Get inspired with random project ideas</p>
+      {error && (
+        <div className="bg-cockpit-danger/10 border border-cockpit-danger/20 rounded-lg px-4 py-3 flex items-center justify-between mt-2">
+          <span className="text-sm text-cockpit-danger flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {error}</span>
+          <button onClick={() => { loadFilters(); generate(); }} className="text-cockpit-danger hover:text-cockpit-danger/80 text-sm flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Retry</button>
+        </div>
+      )}
         </div>
         <button
           onClick={() => setShowAddForm(!showAddForm)}

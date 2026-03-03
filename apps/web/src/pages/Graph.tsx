@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api";
-import { Network, RefreshCw, ZoomIn, ZoomOut, Maximize } from "lucide-react";
+import { Network, RefreshCw, ZoomIn, ZoomOut, Maximize, AlertCircle } from "lucide-react";
 
 interface GraphNode {
   id: string;
@@ -31,6 +31,7 @@ export function GraphPage() {
   const [summary, setSummary] = useState({ totalNodes: 0, totalEdges: 0 });
   const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [error, setError] = useState("");
   const nodesRef = useRef<GraphNode[]>([]);
   const edgesRef = useRef<GraphEdge[]>([]);
   const animRef = useRef<number>(0);
@@ -41,7 +42,14 @@ export function GraphPage() {
   const lastPanRef = useRef({ x: 0, y: 0 });
 
   async function load() {
-    const data = await api<any>("/graph/nodes");
+    setError("");
+    let data: any;
+    try {
+      data = await api<any>("/graph/nodes");
+    } catch {
+      setError("Failed to load graph data");
+      return;
+    }
     const loadedNodes = (data.nodes || []).map((n: GraphNode, i: number) => ({
       ...n,
       x: 400 + Math.cos((i / data.nodes.length) * Math.PI * 2) * 200 + Math.random() * 50,
@@ -308,6 +316,13 @@ export function GraphPage() {
           </button>
         </div>
       </div>
+
+      {error && (
+        <div className="bg-cockpit-danger/10 border border-cockpit-danger/20 rounded-lg px-4 py-3 flex items-center justify-between">
+          <span className="text-sm text-cockpit-danger flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {error}</span>
+          <button onClick={load} className="text-cockpit-danger hover:text-cockpit-danger/80 text-sm flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Retry</button>
+        </div>
+      )}
 
       <div className="relative bg-cockpit-surface border border-cockpit-border rounded-2xl overflow-hidden">
         {/* Zoom controls */}

@@ -1,5 +1,6 @@
 stages:
   - lint
+  - test
   - version
   - build
   - deploy
@@ -40,7 +41,21 @@ lint:
     - master
     - merge_requests
 
-# ── Stage 2: Auto-Version Bump ─────────────────────────────
+# ── Stage 2: Tests ────────────────────────────────────────
+test:
+  stage: test
+  image: oven/bun:1
+  script:
+    - bun install --frozen-lockfile || bun install
+    - echo "=== Running API tests ==="
+    - bun test apps/api/src/
+    - echo "=== Tests passed ==="
+  only:
+    - master
+    - merge_requests
+  allow_failure: true  # Until test suite is comprehensive
+
+# ── Stage 3: Auto-Version Bump ─────────────────────────────
 # Reads latest git tag, bumps patch (v2.1.1 → v2.1.2), pushes new tag.
 # For major/minor bumps, create the tag manually (e.g. v2.2.0).
 version:
@@ -86,7 +101,7 @@ version:
   except:
     - tags
 
-# ── Stage 3: Build & Push Container Images ─────────────────
+# ── Stage 4: Build & Push Container Images ─────────────────
 # Uses Kaniko — builds images without Docker daemon (no DinD/privileged needed)
 # Kaniko auth template — creates Docker config for registry push
 .kaniko-auth: &kaniko-auth
@@ -133,7 +148,7 @@ build:web:
   only:
     - master
 
-# ── Stage 4: Deploy to Kubernetes ─────────────────────────
+# ── Stage 5: Deploy to Kubernetes ─────────────────────────
 deploy:k8s:
   stage: deploy
   image:

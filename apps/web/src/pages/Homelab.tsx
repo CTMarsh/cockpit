@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { RefreshCw, Circle, Server, Box, Play, Square, RotateCcw, Pencil, Check, X, Plus, Trash2 } from "lucide-react";
+import { RefreshCw, Circle, Server, Box, Play, Square, RotateCcw, Pencil, Check, X, Plus, Trash2, AlertCircle } from "lucide-react";
 
 interface ServiceStatus {
   id: string;
@@ -47,6 +47,7 @@ export function HomelabPage() {
   const [newHostName, setNewHostName] = useState("");
   const [newHostUrl, setNewHostUrl] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [summary, setSummary] = useState({ total: 0, up: 0, down: 0 });
 
   const [newName, setNewName] = useState("");
@@ -57,11 +58,14 @@ export function HomelabPage() {
 
   async function refresh() {
     setLoading(true);
+    setError("");
     try {
       const data = await api<any>("/homelab/services");
       setServices(data.services);
       setSummary(data.summary);
-    } catch {}
+    } catch {
+      setError("Failed to load services");
+    }
     try {
       const data = await api<any>("/homelab/containers");
       setContainers(data.containers || []);
@@ -158,6 +162,13 @@ export function HomelabPage() {
           Refresh
         </button>
       </div>
+
+      {error && (
+        <div className="bg-cockpit-danger/10 border border-cockpit-danger/20 rounded-lg px-4 py-3 flex items-center justify-between">
+          <span className="text-sm text-cockpit-danger flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {error}</span>
+          <button onClick={refresh} className="text-cockpit-danger hover:text-cockpit-danger/80 text-sm flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Retry</button>
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
