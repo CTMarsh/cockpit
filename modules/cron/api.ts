@@ -29,6 +29,20 @@ db.run(`
 `);
 db.run(`CREATE INDEX IF NOT EXISTS idx_cron_runs_job ON cron_runs(job_id, started_at)`);
 
+// ── Command sanitization ──
+const DANGEROUS_PATTERNS = /[;|&`$(){}]|>>|<<|\beval\b|\bexec\b/;
+const MAX_COMMAND_LENGTH = 1000;
+
+function validateCommand(command: string): string | null {
+  if (!command || command.length > MAX_COMMAND_LENGTH) {
+    return "Command too long or empty";
+  }
+  if (DANGEROUS_PATTERNS.test(command)) {
+    return "Command contains disallowed shell metacharacters (;|&`$(){})";
+  }
+  return null;
+}
+
 const stmts = {
   listJobs: db.prepare("SELECT * FROM cron_jobs ORDER BY created_at DESC"),
   getJob: db.prepare("SELECT * FROM cron_jobs WHERE id = ?"),
@@ -136,9 +150,19 @@ cronRoutes.post("/jobs", async (c) => {
     return c.json({ error: "name, schedule, and command are required" }, 400);
   }
 
+  if (name.length > 200) {
+    return c.json({ error: "Name must be 200 characters or fewer" }, 400);
+  }
+
   // Validate cron expression format
   if (schedule.trim().split(/\s+/).length !== 5) {
     return c.json({ error: "Invalid cron expression. Use: minute hour day month weekday" }, 400);
+  }
+
+  // Validate command safety
+  const cmdError = validateCommand(command);
+  if (cmdError) {
+    return c.json({ error: cmdError }, 400);
   }
 
   const id = crypto.randomUUID();
@@ -158,6 +182,17 @@ cronRoutes.put("/jobs/:id", async (c) => {
     command?: string;
     enabled?: boolean;
   }>();
+
+  if (name !== undefined && name.length > 200) {
+    return c.json({ error: "Name must be 200 characters or fewer" }, 400);
+  }
+
+  if (command !== undefined) {
+    const cmdError = validateCommand(command);
+    if (cmdError) {
+      return c.json({ error: cmdError }, 400);
+    }
+  }
 
   stmts.updateJob.run(
     name ?? existing.name,

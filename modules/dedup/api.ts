@@ -1,9 +1,35 @@
 import { Hono } from "hono";
 import { createHash } from "crypto";
 import { readdir, stat, readFile } from "fs/promises";
-import { join } from "path";
+import { join, resolve, normalize } from "path";
 
 export const dedupRoutes = new Hono();
+
+// ── Path traversal prevention ──
+// Allowed base directories for scanning (configurable via env)
+const ALLOWED_SCAN_DIRS = (process.env.DEDUP_ALLOWED_DIRS || "/data,/home,/tmp").split(",").map(d => d.trim());
+const MAX_PATH_LENGTH = 500;
+
+function isPathAllowed(requestedPath: string): { allowed: boolean; resolved: string; error?: string } {
+  if (!requestedPath || requestedPath.length > MAX_PATH_LENGTH) {
+    return { allowed: false, resolved: "", error: "Path too long or empty" };
+  }
+
+  // Block path traversal attempts
+  if (requestedPath.includes("..")) {
+    return { allowed: false, resolved: "", error: "Path traversal (..) is not allowed" };
+  }
+
+  const resolved = resolve(normalize(requestedPath));
+
+  // Must be under an allowed directory
+  const isAllowed = ALLOWED_SCAN_DIRS.some(dir => resolved.startsWith(resolve(dir)));
+  if (!isAllowed) {
+    return { allowed: false, resolved, error: `Path must be under one of: ${ALLOWED_SCAN_DIRS.join(", ")}` };
+  }
+
+  return { allowed: true, resolved };
+}
 
 interface DuplicateGroup {
   hash: string;
@@ -25,6 +51,9 @@ interface ScanResult {
 const scans: Map<string, ScanResult> = new Map();
 
 dedupRoutes.get("/health", (c) => c.json({ module: "dedup", status: "ok" }));
+
+// Report allowed scan directories
+dedupRoutes.get("/allowed-dirs", (c) => c.json({ directories: ALLOWED_SCAN_DIRS }));
 
 async function walkDir(dir: string, files: string[] = []): Promise<string[]> {
   try {
@@ -55,10 +84,15 @@ dedupRoutes.post("/scan", async (c) => {
   const body = await c.req.json<{ directory: string }>();
   if (!body.directory) return c.json({ error: "directory is required" }, 400);
 
+  const pathCheck = isPathAllowed(body.directory);
+  if (!pathCheck.allowed) {
+    return c.json({ error: pathCheck.error }, 400);
+  }
+
   const id = crypto.randomUUID();
   const scan: ScanResult = {
     id,
-    directory: body.directory,
+    directory: pathCheck.resolved,
     status: "scanning",
     totalFiles: 0,
     duplicateGroups: [],
@@ -70,7 +104,7 @@ dedupRoutes.post("/scan", async (c) => {
   // Run scan async
   (async () => {
     try {
-      const files = await walkDir(body.directory);
+      const files = await walkDir(pathCheck.resolved);
       scan.totalFiles = files.length;
 
       // Hash all files and group by hash
@@ -136,11 +170,17 @@ dedupRoutes.post("/delete", async (c) => {
     return c.json({ error: "files array is required" }, 400);
   }
 
+  const { unlink } = await import("fs/promises");
   const results: { file: string; deleted: boolean; error?: string }[] = [];
   for (const file of body.files) {
+    // Validate each file path is within allowed directories
+    const fileCheck = isPathAllowed(file);
+    if (!fileCheck.allowed) {
+      results.push({ file, deleted: false, error: fileCheck.error || "Path not allowed" });
+      continue;
+    }
     try {
-      const { unlink } = await import("fs/promises");
-      await unlink(file);
+      await unlink(fileCheck.resolved);
       results.push({ file, deleted: true });
     } catch (err: any) {
       results.push({ file, deleted: false, error: err.message });

@@ -21,6 +21,49 @@ function parseBookmark(row: any) {
   return { ...row, tags: JSON.parse(row.tags || "[]") };
 }
 
+// ── SSRF prevention ──
+const PRIVATE_IP_RANGES = [
+  /^127\./,              // loopback
+  /^10\./,               // class A private
+  /^172\.(1[6-9]|2\d|3[01])\./,  // class B private
+  /^192\.168\./,         // class C private
+  /^169\.254\./,         // link-local
+  /^0\./,                // current network
+  /^::1$/,               // IPv6 loopback
+  /^fc00:/i,             // IPv6 unique local
+  /^fe80:/i,             // IPv6 link-local
+];
+
+function isUrlSafe(urlString: string): { safe: boolean; error?: string } {
+  try {
+    const url = new URL(urlString);
+
+    // Only allow http and https
+    if (!["http:", "https:"].includes(url.protocol)) {
+      return { safe: false, error: "Only http and https URLs are allowed" };
+    }
+
+    // Block localhost hostnames
+    const hostname = url.hostname.toLowerCase();
+    if (hostname === "localhost" || hostname === "0.0.0.0" || hostname === "[::1]") {
+      return { safe: false, error: "Internal addresses are not allowed" };
+    }
+
+    // Block private IP ranges
+    for (const pattern of PRIVATE_IP_RANGES) {
+      if (pattern.test(hostname)) {
+        return { safe: false, error: "Internal addresses are not allowed" };
+      }
+    }
+
+    return { safe: true };
+  } catch {
+    return { safe: false, error: "Invalid URL format" };
+  }
+}
+
+const MAX_URL_LENGTH = 2000;
+
 bookmarksRoutes.get("/health", (c) => c.json({ module: "bookmarks", status: "ok" }));
 
 bookmarksRoutes.get("/", (c) => {
@@ -39,6 +82,15 @@ bookmarksRoutes.get("/", (c) => {
 bookmarksRoutes.post("/", async (c) => {
   const body = await c.req.json<{ url: string; tags?: string[] }>();
   if (!body.url) return c.json({ error: "url is required" }, 400);
+
+  if (body.url.length > MAX_URL_LENGTH) {
+    return c.json({ error: "URL must be 2000 characters or fewer" }, 400);
+  }
+
+  const urlCheck = isUrlSafe(body.url);
+  if (!urlCheck.safe) {
+    return c.json({ error: urlCheck.error }, 400);
+  }
 
   let title = body.url;
   let summary = "";
@@ -116,6 +168,7 @@ bookmarksRoutes.post("/import", async (c) => {
   let imported = 0;
   for (const b of body.bookmarks) {
     if (!b.url) continue;
+    if (b.url.length > MAX_URL_LENGTH || !isUrlSafe(b.url).safe) continue;
     const id = crypto.randomUUID();
     const tags = JSON.stringify(b.tags || []);
     stmts.insert.run(id, b.url, b.title || b.url, b.summary || "", tags, null);
