@@ -361,8 +361,8 @@ describe("Markdown Documents", () => {
 
 // ── Knowledge Graph ──────────────────────────────────────────
 describe("Knowledge Graph", () => {
-  test("GET /api/graph/data returns nodes and edges", async () => {
-    const res = await authedFetch("/api/graph/data");
+  test("GET /api/graph/nodes returns nodes and edges", async () => {
+    const res = await authedFetch("/api/graph/nodes");
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(Array.isArray(data.nodes)).toBe(true);
@@ -376,7 +376,8 @@ describe("Knowledge Graph", () => {
     });
     expect(res.status).toBe(201);
     const data = await res.json();
-    expect(data.label).toBe("related");
+    expect(data.id).toBeDefined();
+    expect(data.created).toBe(true);
   });
 });
 
