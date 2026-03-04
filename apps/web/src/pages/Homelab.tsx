@@ -39,6 +39,27 @@ interface HostStatus {
   error?: string;
 }
 
+function Sparkline({ data }: { data: { status: string }[] }) {
+  if (!data.length) return null;
+  const points = data.slice(0, 48).reverse(); // last 24h at ~30min intervals
+  const w = 60, h = 16;
+  const segW = w / Math.max(points.length - 1, 1);
+  return (
+    <svg width={w} height={h} className="shrink-0" aria-label="Uptime sparkline">
+      {points.map((p, i) => (
+        <rect
+          key={i}
+          x={i * segW}
+          y={0}
+          width={Math.max(segW - 0.5, 1)}
+          height={h}
+          className={p.status === "up" ? "fill-cockpit-success/60" : "fill-cockpit-danger/60"}
+        />
+      ))}
+    </svg>
+  );
+}
+
 export function HomelabPage() {
   const [services, setServices] = useState<ServiceStatus[]>([]);
   const [containers, setContainers] = useState<Container[]>([]);
@@ -50,6 +71,7 @@ export function HomelabPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [summary, setSummary] = useState({ total: 0, up: 0, down: 0 });
+  const [sparklines, setSparklines] = useState<Record<string, { status: string }[]>>({});
 
   const [newName, setNewName] = useState("");
   const [newUrl, setNewUrl] = useState("");
@@ -136,6 +158,22 @@ export function HomelabPage() {
     await api(`/homelab/docker-hosts/${id}`, { method: "DELETE" });
     refresh();
   }
+
+  // Fetch sparkline history for all services
+  useEffect(() => {
+    if (services.length === 0) return;
+    Promise.all(
+      services.map((s) =>
+        api<{ history: { status: string }[] }>(`/homelab/services/${s.id}/history?limit=48`)
+          .then((d) => [s.id, d.history] as const)
+          .catch(() => [s.id, [] as { status: string }[]] as const)
+      )
+    ).then((results) => {
+      const map: Record<string, { status: string }[]> = {};
+      for (const [id, history] of results) map[id] = history;
+      setSparklines(map);
+    });
+  }, [services]);
 
   useEffect(() => {
     refresh();
@@ -244,6 +282,12 @@ export function HomelabPage() {
                       </div>
                       <span className="text-xs text-cockpit-text-muted w-12 text-right">{s.uptimePercent}%</span>
                     </div>
+                    {sparklines[s.id]?.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Sparkline data={sparklines[s.id]} />
+                        <span className="text-[10px] text-cockpit-text-muted">24h</span>
+                      </div>
+                    )}
                   </div>
                 </>
               )}

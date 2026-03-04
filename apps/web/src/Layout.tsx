@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   LayoutDashboard,
   Server,
@@ -20,6 +20,48 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 
+const ROUTE_LABELS: Record<string, string> = {
+  "": "Dashboard",
+  homelab: "Homelab",
+  bookmarks: "Bookmarks",
+  dedup: "Deduplicator",
+  randomizer: "Build Ideas",
+  markdown: "Markdown",
+  graph: "Knowledge Graph",
+  monitor: "Cluster Monitor",
+  proxmox: "Proxmox",
+  logs: "Log Viewer",
+  cron: "Cron Jobs",
+  wol: "Wake-on-LAN",
+};
+
+function Breadcrumbs() {
+  const location = useLocation();
+  const segments = location.pathname.split("/").filter(Boolean);
+  if (segments.length === 0) return null;
+
+  return (
+    <nav className="flex items-center gap-1.5 text-xs text-cockpit-text-muted mb-4">
+      <NavLink to="/" className="hover:text-cockpit-text transition-colors">Dashboard</NavLink>
+      {segments.map((seg, i) => {
+        const path = "/" + segments.slice(0, i + 1).join("/");
+        const label = ROUTE_LABELS[seg] || decodeURIComponent(seg);
+        const isLast = i === segments.length - 1;
+        return (
+          <span key={path} className="flex items-center gap-1.5">
+            <span className="opacity-40">/</span>
+            {isLast ? (
+              <span className="text-cockpit-text">{label}</span>
+            ) : (
+              <NavLink to={path} className="hover:text-cockpit-text transition-colors">{label}</NavLink>
+            )}
+          </span>
+        );
+      })}
+    </nav>
+  );
+}
+
 const modules = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
   { path: "/homelab", label: "Homelab", icon: Server },
@@ -38,12 +80,47 @@ const modules = [
 export function Layout({ onLogout }: { onLogout?: () => void }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("cockpit-sidebar-collapsed") === "true");
+  const [healthStatus, setHealthStatus] = useState<"ok" | "degraded" | "down">("ok");
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const location = useLocation();
 
   // Close sidebar on navigation (mobile)
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname]);
+
+  // Poll API health every 30s
+  useEffect(() => {
+    async function checkHealth() {
+      try {
+        const res = await fetch("/api/health", { credentials: "include" });
+        setHealthStatus(res.ok ? "ok" : "degraded");
+      } catch {
+        setHealthStatus("down");
+      }
+    }
+    checkHealth();
+    const interval = setInterval(checkHealth, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Keyboard shortcut: ? to toggle help overlay
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    const tag = (e.target as HTMLElement).tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (e.target as HTMLElement).isContentEditable) return;
+    if (e.key === "?" && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      setShowShortcuts((prev) => !prev);
+    }
+    if (e.key === "Escape" && showShortcuts) {
+      setShowShortcuts(false);
+    }
+  }, [showShortcuts]);
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
 
   function toggleCollapsed() {
     setCollapsed((prev) => {
@@ -119,10 +196,19 @@ export function Layout({ onLogout }: { onLogout?: () => void }) {
       <div className={`border-t border-cockpit-border ${collapsed ? "p-2" : "p-4"}`}>
         <div className={`flex items-center ${collapsed ? "lg:justify-center" : "justify-between"}`}>
           <div className={`text-xs text-cockpit-text-muted ${collapsed ? "lg:hidden" : ""}`}>
-            <span className="inline-block w-2 h-2 rounded-full bg-cockpit-success mr-2" />
-            All systems nominal
+            <span className={`inline-block w-2 h-2 rounded-full mr-2 ${
+              healthStatus === "ok" ? "bg-cockpit-success" : healthStatus === "degraded" ? "bg-cockpit-accent" : "bg-cockpit-danger"
+            }`} />
+            {healthStatus === "ok" ? "All systems nominal" : healthStatus === "degraded" ? "Service degraded" : "API unreachable"}
           </div>
-          {collapsed && <span className="hidden lg:inline-block w-2 h-2 rounded-full bg-cockpit-success" title="All systems nominal" />}
+          {collapsed && (
+            <span
+              className={`hidden lg:inline-block w-2 h-2 rounded-full ${
+                healthStatus === "ok" ? "bg-cockpit-success" : healthStatus === "degraded" ? "bg-cockpit-accent" : "bg-cockpit-danger"
+              }`}
+              title={healthStatus === "ok" ? "All systems nominal" : healthStatus === "degraded" ? "Service degraded" : "API unreachable"}
+            />
+          )}
           <button
             onClick={handleLogout}
             className={`text-cockpit-text-muted hover:text-cockpit-danger transition-colors ${collapsed ? "lg:hidden" : ""}`}
@@ -173,9 +259,54 @@ export function Layout({ onLogout }: { onLogout?: () => void }) {
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto pt-14 lg:pt-0">
         <div className="p-4 sm:p-6 lg:p-8">
+          <Breadcrumbs />
           <Outlet />
         </div>
       </main>
+
+      {/* Keyboard Shortcuts Overlay */}
+      {showShortcuts && (
+        <>
+          <div className="fixed inset-0 z-[70] bg-black/50" onClick={() => setShowShortcuts(false)} />
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none">
+            <div className="bg-cockpit-surface border border-cockpit-border rounded-2xl p-6 max-w-md w-full shadow-2xl pointer-events-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold">Keyboard Shortcuts</h3>
+                <button onClick={() => setShowShortcuts(false)} className="text-cockpit-text-muted hover:text-cockpit-text">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-3">
+                <div className="text-xs text-cockpit-text-muted uppercase font-medium tracking-wider">Global</div>
+                {[
+                  ["?", "Toggle this help"],
+                  ["Esc", "Close overlay / modal"],
+                ].map(([key, desc]) => (
+                  <div key={key} className="flex items-center justify-between text-sm">
+                    <span className="text-cockpit-text-muted">{desc}</span>
+                    <kbd className="px-2 py-0.5 bg-cockpit-bg border border-cockpit-border rounded text-xs font-mono">{key}</kbd>
+                  </div>
+                ))}
+                <div className="text-xs text-cockpit-text-muted uppercase font-medium tracking-wider mt-4">Markdown Editor</div>
+                {[
+                  ["Ctrl+B", "Bold"],
+                  ["Ctrl+I", "Italic"],
+                  ["Ctrl+S", "Save document"],
+                  ["Ctrl+Shift+P", "Toggle preview"],
+                ].map(([key, desc]) => (
+                  <div key={key} className="flex items-center justify-between text-sm">
+                    <span className="text-cockpit-text-muted">{desc}</span>
+                    <kbd className="px-2 py-0.5 bg-cockpit-bg border border-cockpit-border rounded text-xs font-mono">{key}</kbd>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 text-xs text-cockpit-text-muted text-center">
+                Press <kbd className="px-1.5 py-0.5 bg-cockpit-bg border border-cockpit-border rounded text-[10px] font-mono">?</kbd> to close
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
