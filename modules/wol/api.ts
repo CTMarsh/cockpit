@@ -179,6 +179,17 @@ wolRoutes.post("/wake-mac", async (c) => {
   const { mac, broadcast } = await c.req.json<{ mac: string; broadcast?: string }>();
   if (!mac) return c.json({ error: "mac is required" }, 400);
 
+  // Validate MAC format
+  const cleanMac = mac.replace(/[:-]/g, "");
+  if (!/^[0-9a-fA-F]{12}$/.test(cleanMac)) {
+    return c.json({ error: "Invalid MAC address format" }, 400);
+  }
+
+  // Validate broadcast if provided
+  if (broadcast && (!IP_HOSTNAME_RE.test(broadcast) || broadcast.startsWith("-"))) {
+    return c.json({ error: "Invalid broadcast address" }, 400);
+  }
+
   try {
     await sendWoL(mac, broadcast || "255.255.255.255");
     return c.json({ ok: true, mac });

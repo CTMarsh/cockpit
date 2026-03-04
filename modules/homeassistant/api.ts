@@ -67,6 +67,10 @@ haRoutes.get("/services", async (c) => {
 haRoutes.post("/services/:domain/:service", async (c) => {
   if (!haAvailable()) return c.json({ error: "Home Assistant not configured" }, 503);
   const { domain, service } = c.req.param();
+  // Validate domain and service to prevent path injection
+  if (!/^[a-z0-9_]+$/.test(domain) || !/^[a-z0-9_]+$/.test(service)) {
+    return c.json({ error: "Invalid domain or service name" }, 400);
+  }
   const body = await c.req.json().catch(() => ({}));
   const result = await haFetch(`/api/services/${domain}/${service}`, "POST", body);
   if (result === null) return c.json({ error: "Failed to call service" }, 502);
@@ -79,10 +83,14 @@ haRoutes.get("/history", async (c) => {
   const entityId = c.req.query("entity_id");
   const hours = Number(c.req.query("hours")) || 24;
   if (!entityId) return c.json({ error: "entity_id required" }, 400);
+  // Validate entity_id format (domain.name) to prevent query string injection
+  if (!/^[a-z0-9_]+\.[a-z0-9_]+$/.test(entityId)) {
+    return c.json({ error: "Invalid entity_id format" }, 400);
+  }
 
   const end = new Date();
   const start = new Date(end.getTime() - hours * 60 * 60 * 1000);
-  const path = `/api/history/period/${start.toISOString()}?filter_entity_id=${entityId}&end_time=${end.toISOString()}&minimal_response`;
+  const path = `/api/history/period/${start.toISOString()}?filter_entity_id=${encodeURIComponent(entityId)}&end_time=${end.toISOString()}&minimal_response`;
   const data = await haFetch(path);
   if (!data || !Array.isArray(data) || data.length === 0) return c.json({ available: true, history: [] });
   return c.json({ available: true, history: data[0] });

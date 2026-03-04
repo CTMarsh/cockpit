@@ -97,6 +97,9 @@ sysmonRoutes.get("/nodes", async (c) => {
 // ── GET /api/sysmon/pods — k8s pod list ──
 sysmonRoutes.get("/pods", async (c) => {
   const namespace = c.req.query("namespace") || "";
+  if (namespace && !/^[a-z0-9][a-z0-9.\-]{0,252}$/.test(namespace)) {
+    return c.json({ error: "Invalid namespace" }, 400);
+  }
   const path = namespace ? `/api/v1/namespaces/${namespace}/pods` : "/api/v1/pods";
 
   const data = await k8sApi(path);

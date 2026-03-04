@@ -144,7 +144,8 @@ export default {
     message(ws: any, message: string) {
       try {
         const data = JSON.parse(message);
-        const docId = data.docId || ws.data?.docId || "default";
+        // Use only the docId from upgrade time — ignore client-supplied docId to prevent room hijacking
+        const docId = ws.data?.docId || "default";
         const clients = wsClients.get(docId);
         if (clients) {
           for (const client of clients) {

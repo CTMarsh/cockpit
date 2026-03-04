@@ -6,6 +6,13 @@ import {
 
 export const minioRoutes = new Hono();
 
+// S3 bucket name validation (3-63 chars, lowercase, numbers, hyphens, dots)
+const BUCKET_NAME_RE = /^[a-z0-9][a-z0-9.\-]{1,61}[a-z0-9]$/;
+// Object key: no .., no null bytes, no control chars
+function validateObjectKey(key: string): boolean {
+  return !!key && !key.includes("..") && !key.includes("\0") && !/[\x00-\x1f]/.test(key);
+}
+
 // ── GET /health — availability check ──
 minioRoutes.get("/health", (c) => {
   return c.json({ available: s3Available() });
@@ -33,7 +40,9 @@ minioRoutes.post("/buckets", async (c) => {
 // ── DELETE /buckets/:name — delete a bucket ──
 minioRoutes.delete("/buckets/:name", async (c) => {
   if (!s3Available()) return c.json({ error: "S3 not configured" }, 503);
-  const ok = await deleteBucket(c.req.param("name"));
+  const name = c.req.param("name");
+  if (!BUCKET_NAME_RE.test(name)) return c.json({ error: "Invalid bucket name" }, 400);
+  const ok = await deleteBucket(name);
   if (!ok) return c.json({ error: "Failed to delete bucket (must be empty)" }, 400);
   return c.json({ ok: true });
 });
@@ -42,6 +51,7 @@ minioRoutes.delete("/buckets/:name", async (c) => {
 minioRoutes.get("/objects/:bucket", async (c) => {
   if (!s3Available()) return c.json({ available: false, prefixes: [], objects: [] });
   const bucket = c.req.param("bucket");
+  if (!BUCKET_NAME_RE.test(bucket)) return c.json({ error: "Invalid bucket name" }, 400);
   const prefix = c.req.query("prefix") || "";
   const result = await listPrefixes(bucket, prefix);
   return c.json({ available: true, bucket, prefix, ...result });
@@ -52,15 +62,20 @@ minioRoutes.get("/download/:bucket/:key{.+}", async (c) => {
   if (!s3Available()) return c.json({ error: "S3 not configured" }, 503);
   const bucket = c.req.param("bucket");
   const key = c.req.param("key");
+  if (!BUCKET_NAME_RE.test(bucket)) return c.json({ error: "Invalid bucket name" }, 400);
+  if (!validateObjectKey(key)) return c.json({ error: "Invalid object key" }, 400);
+
   const res = await getObject(bucket, key);
   if (!res.ok) return c.json({ error: "Object not found" }, 404);
 
-  const filename = key.split("/").pop() || key;
-  const ct = guessContentType(filename);
+  // Sanitize filename for Content-Disposition header (strip control chars and quotes)
+  const rawFilename = key.split("/").pop() || key;
+  const safeFilename = rawFilename.replace(/["\\\x00-\x1f\x7f]/g, "_");
+  const ct = guessContentType(rawFilename);
   return new Response(res.body, {
     headers: {
       "Content-Type": ct,
-      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Disposition": `attachment; filename="${safeFilename}"`,
     },
   });
 });
@@ -70,6 +85,8 @@ minioRoutes.put("/upload/:bucket/:key{.+}", async (c) => {
   if (!s3Available()) return c.json({ error: "S3 not configured" }, 503);
   const bucket = c.req.param("bucket");
   const key = c.req.param("key");
+  if (!BUCKET_NAME_RE.test(bucket)) return c.json({ error: "Invalid bucket name" }, 400);
+  if (!validateObjectKey(key)) return c.json({ error: "Invalid object key" }, 400);
   const body = new Uint8Array(await c.req.arrayBuffer());
   const ct = c.req.header("content-type") || "application/octet-stream";
   const ok = await putObject(bucket, key, body, ct);
@@ -82,6 +99,8 @@ minioRoutes.delete("/objects/:bucket/:key{.+}", async (c) => {
   if (!s3Available()) return c.json({ error: "S3 not configured" }, 503);
   const bucket = c.req.param("bucket");
   const key = c.req.param("key");
+  if (!BUCKET_NAME_RE.test(bucket)) return c.json({ error: "Invalid bucket name" }, 400);
+  if (!validateObjectKey(key)) return c.json({ error: "Invalid object key" }, 400);
   const ok = await deleteObject(bucket, key);
   if (!ok) return c.json({ error: "Delete failed" }, 502);
   return c.json({ ok: true });

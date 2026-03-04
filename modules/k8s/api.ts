@@ -3,6 +3,14 @@ import { k8sApi, k8sStream } from "../k8s-client";
 
 export const k8sRoutes = new Hono();
 
+// Kubernetes resource name validation (RFC 1123 DNS label)
+const K8S_NAME_RE = /^[a-z0-9][a-z0-9.\-]{0,252}$/;
+
+function validateK8sName(value: string, label: string): string | null {
+  if (!value || !K8S_NAME_RE.test(value)) return `Invalid ${label}`;
+  return null;
+}
+
 // ── GET /namespaces — list all namespaces ──
 k8sRoutes.get("/namespaces", async (c) => {
   const data = await k8sApi("/api/v1/namespaces");
@@ -14,6 +22,7 @@ k8sRoutes.get("/namespaces", async (c) => {
 // ── GET /workloads — list deployments, statefulsets, daemonsets ──
 k8sRoutes.get("/workloads", async (c) => {
   const ns = c.req.query("namespace") || "";
+  if (ns && !K8S_NAME_RE.test(ns)) return c.json({ error: "Invalid namespace" }, 400);
   const prefix = ns ? `/apis/apps/v1/namespaces/${ns}` : "/apis/apps/v1";
 
   const [deploys, statefulsets, daemonsets] = await Promise.all([
@@ -74,8 +83,12 @@ k8sRoutes.get("/workloads", async (c) => {
 // ── GET /pods/:ns/:name/logs — pod log snapshot ──
 k8sRoutes.get("/pods/:ns/:name/logs", async (c) => {
   const { ns, name } = c.req.param();
-  const tail = c.req.query("tail") || "100";
+  let err = validateK8sName(ns, "namespace") || validateK8sName(name, "pod name");
+  if (err) return c.json({ error: err }, 400);
+
+  const tail = String(Math.min(Math.max(parseInt(c.req.query("tail") || "100") || 100, 1), 10000));
   const container = c.req.query("container") || "";
+  if (container && !K8S_NAME_RE.test(container)) return c.json({ error: "Invalid container name" }, 400);
   const qs = `tailLines=${tail}${container ? `&container=${container}` : ""}`;
 
   const res = await k8sStream(`/api/v1/namespaces/${ns}/pods/${name}/log?${qs}`);
@@ -88,8 +101,12 @@ k8sRoutes.get("/pods/:ns/:name/logs", async (c) => {
 // ── GET /pods/:ns/:name/logs/stream — SSE log stream ──
 k8sRoutes.get("/pods/:ns/:name/logs/stream", async (c) => {
   const { ns, name } = c.req.param();
+  let err = validateK8sName(ns, "namespace") || validateK8sName(name, "pod name");
+  if (err) return c.json({ error: err }, 400);
+
   const container = c.req.query("container") || "";
-  const tail = c.req.query("tail") || "50";
+  if (container && !K8S_NAME_RE.test(container)) return c.json({ error: "Invalid container name" }, 400);
+  const tail = String(Math.min(Math.max(parseInt(c.req.query("tail") || "50") || 50, 1), 10000));
   const qs = `follow=true&tailLines=${tail}${container ? `&container=${container}` : ""}`;
 
   const res = await k8sStream(`/api/v1/namespaces/${ns}/pods/${name}/log?${qs}`);
@@ -131,6 +148,8 @@ k8sRoutes.get("/pods/:ns/:name/logs/stream", async (c) => {
 // ── POST /deployments/:ns/:name/restart — rolling restart ──
 k8sRoutes.post("/deployments/:ns/:name/restart", async (c) => {
   const { ns, name } = c.req.param();
+  let err = validateK8sName(ns, "namespace") || validateK8sName(name, "deployment name");
+  if (err) return c.json({ error: err }, 400);
   const patch = {
     spec: {
       template: {
@@ -156,6 +175,8 @@ k8sRoutes.post("/deployments/:ns/:name/restart", async (c) => {
 // ── PATCH /deployments/:ns/:name/scale — scale replicas ──
 k8sRoutes.patch("/deployments/:ns/:name/scale", async (c) => {
   const { ns, name } = c.req.param();
+  let err = validateK8sName(ns, "namespace") || validateK8sName(name, "deployment name");
+  if (err) return c.json({ error: err }, 400);
   const body = await c.req.json();
   const replicas = Number(body.replicas);
 
@@ -176,7 +197,9 @@ k8sRoutes.patch("/deployments/:ns/:name/scale", async (c) => {
 // ── DELETE /pods/:ns/:name — delete pod ──
 k8sRoutes.delete("/pods/:ns/:name", async (c) => {
   const { ns, name } = c.req.param();
-  const grace = Number(c.req.query("grace") ?? "30");
+  let err = validateK8sName(ns, "namespace") || validateK8sName(name, "pod name");
+  if (err) return c.json({ error: err }, 400);
+  const grace = Math.max(0, Math.min(Number(c.req.query("grace") ?? "30") || 30, 600));
 
   const res = await k8sApi(
     `/api/v1/namespaces/${ns}/pods/${name}`,
@@ -191,6 +214,7 @@ k8sRoutes.delete("/pods/:ns/:name", async (c) => {
 // ── GET /watch — SSE watch for pod and deployment events ──
 k8sRoutes.get("/watch", async (c) => {
   const ns = c.req.query("namespace") || "";
+  if (ns && !K8S_NAME_RE.test(ns)) return c.json({ error: "Invalid namespace" }, 400);
   const path = ns
     ? `/api/v1/namespaces/${ns}/pods?watch=true`
     : "/api/v1/pods?watch=true";
@@ -251,6 +275,7 @@ k8sRoutes.get("/watch", async (c) => {
 // ── GET /events — recent cluster events ──
 k8sRoutes.get("/events", async (c) => {
   const ns = c.req.query("namespace") || "";
+  if (ns && !K8S_NAME_RE.test(ns)) return c.json({ error: "Invalid namespace" }, 400);
   const path = ns
     ? `/api/v1/namespaces/${ns}/events?limit=100`
     : "/api/v1/events?limit=100";

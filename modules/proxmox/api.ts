@@ -96,7 +96,16 @@ proxmoxRoutes.get("/resources", async (c) => {
 // POST /api/proxmox/vms/:vmid/action — start/stop/reboot a VM or CT
 proxmoxRoutes.post("/vms/:vmid/action", async (c) => {
   const vmid = parseInt(c.req.param("vmid"));
+  if (isNaN(vmid) || vmid < 100 || vmid > 999999) {
+    return c.json({ error: "Invalid VMID" }, 400);
+  }
+
   const { action, node, type } = await c.req.json<{ action: string; node: string; type: string }>();
+
+  // Validate node name — alphanumeric + hyphens only
+  if (!node || !/^[a-zA-Z0-9\-]{1,64}$/.test(node)) {
+    return c.json({ error: "Invalid node name" }, 400);
+  }
 
   if (!["start", "stop", "reboot", "shutdown", "reset"].includes(action)) {
     return c.json({ error: "Invalid action. Use: start, stop, reboot, shutdown, reset" }, 400);
