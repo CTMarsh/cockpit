@@ -16,6 +16,10 @@ import { cronRoutes } from "../../../modules/cron/api";
 import { wolRoutes } from "../../../modules/wol/api";
 import { k8sRoutes } from "../../../modules/k8s/api";
 import { haRoutes } from "../../../modules/homeassistant/api";
+import { backupRoutes } from "../../../modules/backup/api";
+import { alertsRoutes } from "../../../modules/alerts/api";
+import { deployHistoryRoutes } from "../../../modules/deploy-history/api";
+import { minioRoutes } from "../../../modules/minio/api";
 
 const app = new Hono();
 
@@ -36,7 +40,7 @@ app.use("/api/*", authMiddleware);
 
 // Health check
 app.get("/api/health", (c) =>
-  c.json({ status: "ok", name: "Cockpit API", version: process.env.APP_VERSION || "unknown", modules: 13 })
+  c.json({ status: "ok", name: "Cockpit API", version: process.env.APP_VERSION || "unknown", modules: 17 })
 );
 
 // Dashboard stats — aggregated overview
@@ -99,6 +103,10 @@ app.route("/api/cron", cronRoutes);
 app.route("/api/wol", wolRoutes);
 app.route("/api/k8s", k8sRoutes);
 app.route("/api/ha", haRoutes);
+app.route("/api/backup", backupRoutes);
+app.route("/api/alerts", alertsRoutes);
+app.route("/api/deploy-history", deployHistoryRoutes);
+app.route("/api/minio", minioRoutes);
 
 // WebSocket endpoint for markdown collaboration
 const wsClients = new Map<string, Set<any>>();

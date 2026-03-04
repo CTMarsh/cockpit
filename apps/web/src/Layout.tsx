@@ -20,6 +20,8 @@ import {
   PanelLeftOpen,
   Box,
   Home,
+  Bell,
+  Database,
 } from "lucide-react";
 
 const ROUTE_LABELS: Record<string, string> = {
@@ -37,6 +39,8 @@ const ROUTE_LABELS: Record<string, string> = {
   wol: "Wake-on-LAN",
   k8s: "k3s Cluster",
   homeassistant: "Home Assistant",
+  alerts: "Alert Rules",
+  minio: "MinIO Browser",
 };
 
 function Breadcrumbs() {
@@ -81,6 +85,8 @@ const modules = [
   { path: "/wol", label: "Wake-on-LAN", icon: Power },
   { path: "/k8s", label: "k3s Cluster", icon: Box },
   { path: "/homeassistant", label: "Home Assistant", icon: Home },
+  { path: "/alerts", label: "Alert Rules", icon: Bell },
+  { path: "/minio", label: "MinIO Browser", icon: Database },
 ];
 
 export function Layout({ onLogout }: { onLogout?: () => void }) {
