@@ -71,8 +71,8 @@ export function GraphPage() {
     }
     const loadedNodes = (data.nodes || []).map((n: GraphNode, i: number) => ({
       ...n,
-      x: 400 + Math.cos((i / data.nodes.length) * Math.PI * 2) * 200 + Math.random() * 50,
-      y: 300 + Math.sin((i / data.nodes.length) * Math.PI * 2) * 200 + Math.random() * 50,
+      x: canvasSize.width / 2 + Math.cos((i / data.nodes.length) * Math.PI * 2) * 200 + Math.random() * 50,
+      y: canvasSize.height / 2 + Math.sin((i / data.nodes.length) * Math.PI * 2) * 200 + Math.random() * 50,
       vx: 0, vy: 0,
     }));
     setNodes(loadedNodes);
@@ -126,8 +126,8 @@ export function GraphPage() {
           node.vx! += (dx / dist) * force;
           node.vy! += (dy / dist) * force;
         }
-        node.vx! += (400 - node.x!) * 0.01;
-        node.vy! += (300 - node.y!) * 0.01;
+        node.vx! += (canvas.width / 2 - node.x!) * 0.01;
+        node.vy! += (canvas.height / 2 - node.y!) * 0.01;
       }
 
       for (const edge of es) {

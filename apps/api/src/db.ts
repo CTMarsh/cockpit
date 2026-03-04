@@ -115,7 +115,7 @@ const serviceCount = db.query("SELECT COUNT(*) as count FROM services").get() as
 if (serviceCount.count === 0) {
   const insert = db.prepare("INSERT INTO services (id, name, url) VALUES (?, ?, ?)");
   insert.run("cockpit-api", "Cockpit API", "http://localhost:4000/api/health");
-  insert.run("google-dns", "Google DNS", "https://dns.google");
+  insert.run("cloudflare-dns", "Cloudflare DNS", "https://one.one.one.one");
 }
 
 export { db };

@@ -34,7 +34,7 @@ app.use("/api/*", authMiddleware);
 
 // Health check
 app.get("/api/health", (c) =>
-  c.json({ status: "ok", name: "Cockpit API", version: "2.1.0", modules: 11 })
+  c.json({ status: "ok", name: "Cockpit API", version: process.env.APP_VERSION || "unknown", modules: 11 })
 );
 
 // Dashboard stats — aggregated overview

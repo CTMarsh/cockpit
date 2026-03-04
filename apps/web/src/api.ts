@@ -13,5 +13,9 @@ export async function api<T = any>(path: string, options?: RequestInit): Promise
     window.location.reload();
     throw new Error("Unauthorized");
   }
+  if (!res.ok) {
+    const body = await res.text().catch(() => res.statusText);
+    throw new Error(body || `HTTP ${res.status}`);
+  }
   return res.json();
 }

@@ -31,7 +31,7 @@ authRoutes.post("/login", async (c) => {
 
   setCookie(c, "cockpit_session", token, {
     httpOnly: true,
-    secure: false, // Set true behind HTTPS reverse proxy
+    secure: true,
     sameSite: "Lax",
     maxAge: SESSION_DURATION_HOURS * 3600,
     path: "/",
