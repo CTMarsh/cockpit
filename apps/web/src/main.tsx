@@ -15,6 +15,7 @@ import { LogsPage } from "./pages/Logs";
 import { CronJobsPage } from "./pages/CronJobs";
 import { WakeOnLanPage } from "./pages/WakeOnLan";
 import { DashboardPage } from "./pages/Dashboard";
+import { ToastProvider } from "./components/Toast";
 import "./index.css";
 
 function App() {
@@ -70,6 +71,8 @@ function App() {
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <ToastProvider>
+      <App />
+    </ToastProvider>
   </React.StrictMode>
 );

@@ -16,6 +16,8 @@ import {
   Power,
   ArrowRight,
   ExternalLink,
+  CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import { ErrorBanner } from "../components/ErrorBanner";
 
@@ -23,6 +25,11 @@ interface DashStats {
   bookmarkCount: number;
   docCount: number;
   serviceCount: number;
+  cronTotal: number;
+  cronEnabled: number;
+  cronFailed: number;
+  clusterNodes: number;
+  clusterOnline: number;
   recentBookmarks: { id: string; title: string; url: string; created_at: string }[];
   recentDocs: { id: string; title: string; updated_at: string }[];
 }
@@ -67,6 +74,69 @@ export function DashboardPage() {
       </div>
 
       <ErrorBanner message={error} onRetry={loadStats} />
+
+      {/* Stats Cards */}
+      {stats && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-cockpit-surface border border-cockpit-border rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-cockpit-text-muted">Services</span>
+              <Server className="w-4 h-4 text-cockpit-accent" />
+            </div>
+            <div className="text-2xl font-bold mt-1">{stats.serviceCount}</div>
+            <div className="text-xs text-cockpit-text-muted mt-1">Monitored endpoints</div>
+          </div>
+          <div className="bg-cockpit-surface border border-cockpit-border rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-cockpit-text-muted">Bookmarks</span>
+              <Bookmark className="w-4 h-4 text-cockpit-accent" />
+            </div>
+            <div className="text-2xl font-bold mt-1">{stats.bookmarkCount}</div>
+            <div className="text-xs text-cockpit-text-muted mt-1">{stats.docCount} documents</div>
+          </div>
+          <div className="bg-cockpit-surface border border-cockpit-border rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-cockpit-text-muted">Cluster</span>
+              {stats.clusterNodes > 0 ? (
+                stats.clusterOnline === stats.clusterNodes
+                  ? <CheckCircle2 className="w-4 h-4 text-cockpit-success" />
+                  : <AlertTriangle className="w-4 h-4 text-cockpit-danger" />
+              ) : (
+                <Activity className="w-4 h-4 text-cockpit-text-muted" />
+              )}
+            </div>
+            <div className="text-2xl font-bold mt-1">
+              {stats.clusterNodes > 0 ? `${stats.clusterOnline}/${stats.clusterNodes}` : "—"}
+            </div>
+            <div className="text-xs mt-1">
+              {stats.clusterNodes > 0 ? (
+                <span className={stats.clusterOnline === stats.clusterNodes ? "text-cockpit-success" : "text-cockpit-danger"}>
+                  {stats.clusterOnline === stats.clusterNodes ? "All nodes online" : `${stats.clusterNodes - stats.clusterOnline} offline`}
+                </span>
+              ) : (
+                <span className="text-cockpit-text-muted">Not configured</span>
+              )}
+            </div>
+          </div>
+          <div className="bg-cockpit-surface border border-cockpit-border rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-cockpit-text-muted">Cron Jobs</span>
+              {stats.cronFailed > 0
+                ? <AlertTriangle className="w-4 h-4 text-cockpit-danger" />
+                : <Clock className="w-4 h-4 text-cockpit-accent" />
+              }
+            </div>
+            <div className="text-2xl font-bold mt-1">{stats.cronEnabled}/{stats.cronTotal}</div>
+            <div className="text-xs mt-1">
+              {stats.cronFailed > 0 ? (
+                <span className="text-cockpit-danger">{stats.cronFailed} failed</span>
+              ) : (
+                <span className="text-cockpit-text-muted">All healthy</span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Module Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

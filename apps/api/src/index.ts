@@ -44,7 +44,43 @@ app.get("/api/dashboard/stats", async (c) => {
   const serviceCount = (db.query("SELECT COUNT(*) as count FROM services").get() as any)?.count || 0;
   const recentBookmarks = db.query("SELECT id, url, title, tags, created_at FROM bookmarks ORDER BY created_at DESC LIMIT 5").all();
   const recentDocs = db.query("SELECT id, title, updated_at FROM documents ORDER BY updated_at DESC LIMIT 5").all();
-  return c.json({ bookmarkCount, docCount, serviceCount, recentBookmarks, recentDocs });
+
+  // Cron stats
+  const cronTotal = (db.query("SELECT COUNT(*) as count FROM cron_jobs").get() as any)?.count || 0;
+  const cronEnabled = (db.query("SELECT COUNT(*) as count FROM cron_jobs WHERE enabled = 1").get() as any)?.count || 0;
+  const cronFailed = (db.query(`
+    SELECT COUNT(DISTINCT j.id) as count FROM cron_jobs j
+    INNER JOIN cron_runs r ON r.job_id = j.id
+    WHERE r.exit_code != 0 AND r.id = (SELECT MAX(r2.id) FROM cron_runs r2 WHERE r2.job_id = j.id)
+  `).get() as any)?.count || 0;
+
+  // Cluster health (best-effort, 3s timeout)
+  let clusterNodes = 0;
+  let clusterOnline = 0;
+  try {
+    const proxmoxUrl = process.env.PROXMOX_URL;
+    const proxmoxToken = process.env.PROXMOX_TOKEN;
+    if (proxmoxUrl && proxmoxToken) {
+      const res = await fetch(`${proxmoxUrl}/api2/json/nodes`, {
+        headers: { Authorization: `PVEAPIToken=${proxmoxToken}` },
+        signal: AbortSignal.timeout(3000),
+      });
+      if (res.ok) {
+        const data = await res.json() as any;
+        const nodes = data.data || [];
+        clusterNodes = nodes.length;
+        clusterOnline = nodes.filter((n: any) => n.status === "online").length;
+      }
+    }
+  } catch {
+    // Proxmox unreachable — graceful fallback
+  }
+
+  return c.json({
+    bookmarkCount, docCount, serviceCount, recentBookmarks, recentDocs,
+    cronTotal, cronEnabled, cronFailed,
+    clusterNodes, clusterOnline,
+  });
 });
 
 // Module routes — each has its own namespace
