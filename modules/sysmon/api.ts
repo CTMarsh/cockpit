@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { k8sApi } from "../k8s-client";
 
 export const sysmonRoutes = new Hono();
 
@@ -16,42 +17,6 @@ async function pveApi(path: string): Promise<any> {
   if (!res.ok) return null;
   const json = await res.json();
   return json.data;
-}
-
-// ── Kubernetes API helper ──
-// In-cluster: use service account token
-// Local dev: use KUBECONFIG env var
-const K8S_API = process.env.K8S_API || "https://kubernetes.default.svc";
-const SA_TOKEN_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/token";
-const SA_CA_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt";
-
-async function k8sApi(path: string): Promise<any> {
-  let token = process.env.K8S_TOKEN || "";
-  let tlsOpts: any = {};
-
-  if (!token) {
-    try {
-      token = await Bun.file(SA_TOKEN_PATH).text();
-      tlsOpts = { rejectUnauthorized: false }; // in-cluster CA handling
-    } catch {
-      // Not running in k8s, try kubeconfig token
-      return null;
-    }
-  }
-
-  if (!token) return null;
-
-  try {
-    const res = await fetch(`${K8S_API}${path}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      // @ts-ignore
-      tls: tlsOpts,
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
-  }
 }
 
 // ── GET /api/sysmon/cluster — aggregate cluster metrics from Proxmox nodes ──

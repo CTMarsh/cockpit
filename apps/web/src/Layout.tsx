@@ -18,6 +18,7 @@ import {
   X,
   PanelLeftClose,
   PanelLeftOpen,
+  Box,
 } from "lucide-react";
 
 const ROUTE_LABELS: Record<string, string> = {
@@ -33,6 +34,7 @@ const ROUTE_LABELS: Record<string, string> = {
   logs: "Log Viewer",
   cron: "Cron Jobs",
   wol: "Wake-on-LAN",
+  k8s: "k3s Cluster",
 };
 
 function Breadcrumbs() {
@@ -75,6 +77,7 @@ const modules = [
   { path: "/logs", label: "Log Viewer", icon: ScrollText },
   { path: "/cron", label: "Cron Jobs", icon: Clock },
   { path: "/wol", label: "Wake-on-LAN", icon: Power },
+  { path: "/k8s", label: "k3s Cluster", icon: Box },
 ];
 
 export function Layout({ onLogout }: { onLogout?: () => void }) {

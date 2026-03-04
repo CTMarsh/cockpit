@@ -15,6 +15,7 @@ import { LogsPage } from "./pages/Logs";
 import { CronJobsPage } from "./pages/CronJobs";
 import { WakeOnLanPage } from "./pages/WakeOnLan";
 import { DashboardPage } from "./pages/Dashboard";
+import { K8sManagerPage } from "./pages/K8sManager";
 import { ToastProvider } from "./components/Toast";
 import "./index.css";
 
@@ -63,6 +64,7 @@ function App() {
           <Route path="/logs" element={<LogsPage />} />
           <Route path="/cron" element={<CronJobsPage />} />
           <Route path="/wol" element={<WakeOnLanPage />} />
+          <Route path="/k8s" element={<K8sManagerPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

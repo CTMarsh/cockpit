@@ -10,24 +10,49 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: cockpit-pod-reader
+  name: cockpit-manager
   labels:
     app.kubernetes.io/part-of: cockpit
 rules:
+  # Pods: list, view, delete (for stuck pod removal), watch (real-time status)
   - apiGroups: [""]
-    resources: ["pods", "namespaces"]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "delete"]
+  # Pod logs: view container logs
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  # Namespaces: list for namespace selector
+  - apiGroups: [""]
+    resources: ["namespaces"]
     verbs: ["get", "list"]
+  # Events: cluster event viewer
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+  # Deployments: list, view, patch (rolling restart via annotation), watch
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "patch"]
+  # Deployment scale: scale replicas up/down
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale"]
+    verbs: ["get", "patch"]
+  # StatefulSets & DaemonSets: read-only workload listing
+  - apiGroups: ["apps"]
+    resources: ["statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: cockpit-pod-reader
+  name: cockpit-manager
   labels:
     app.kubernetes.io/part-of: cockpit
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: cockpit-pod-reader
+  name: cockpit-manager
 subjects:
   - kind: ServiceAccount
     name: cockpit-api
