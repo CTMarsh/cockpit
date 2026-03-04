@@ -177,16 +177,33 @@ homelabRoutes.delete("/docker-hosts/:id", (c) => {
   return c.json({ deleted: id });
 });
 
-// Docker container actions — now supports host query param
+// Docker container actions — now supports host query param (validated against configured hosts)
 homelabRoutes.post("/containers/:id/:action", async (c) => {
   const id = c.req.param("id");
   const action = c.req.param("action");
   const hostUrl = c.req.query("host");
+
+  // Validate container ID — hex chars only
+  if (!/^[a-f0-9]{12,64}$/.test(id)) {
+    return c.json({ error: "Invalid container ID" }, 400);
+  }
+
   if (!["start", "stop", "restart"].includes(action)) {
     return c.json({ error: "Invalid action. Use start, stop, or restart" }, 400);
   }
+
+  // Validate host against configured Docker hosts to prevent SSRF
+  let dockerHost = process.env.DOCKER_HOST || "http://localhost:2375";
+  if (hostUrl) {
+    const configuredHosts = (dockerStmts.getAllHosts.all() as { url: string }[]).map(h => h.url);
+    if (process.env.DOCKER_HOST) configuredHosts.push(process.env.DOCKER_HOST);
+    if (!configuredHosts.includes(hostUrl)) {
+      return c.json({ error: "Unknown Docker host" }, 400);
+    }
+    dockerHost = hostUrl;
+  }
+
   try {
-    const dockerHost = hostUrl || process.env.DOCKER_HOST || "http://localhost:2375";
     const res = await fetch(`${dockerHost}/containers/${id}/${action}`, { method: "POST" });
     if (!res.ok && res.status !== 304) {
       const text = await res.text();

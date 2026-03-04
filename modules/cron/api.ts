@@ -30,17 +30,23 @@ db.run(`
 db.run(`CREATE INDEX IF NOT EXISTS idx_cron_runs_job ON cron_runs(job_id, started_at)`);
 
 // ── Command sanitization ──
-const DANGEROUS_PATTERNS = /[;|&`$(){}]|>>|<<|\beval\b|\bexec\b/;
 const MAX_COMMAND_LENGTH = 1000;
+// Allowlist: only alphanumeric, spaces, slashes, dots, hyphens, underscores, equals, colons, commas, @
+const SAFE_COMMAND_PATTERN = /^[a-zA-Z0-9 /._=:,@+%\-\[\]]+$/;
 
 function validateCommand(command: string): string | null {
   if (!command || command.length > MAX_COMMAND_LENGTH) {
     return "Command too long or empty";
   }
-  if (DANGEROUS_PATTERNS.test(command)) {
-    return "Command contains disallowed shell metacharacters (;|&`$(){})";
+  if (!SAFE_COMMAND_PATTERN.test(command)) {
+    return "Command contains disallowed characters. Only alphanumeric, spaces, slashes, dots, hyphens, underscores, equals, colons, and commas are allowed.";
   }
   return null;
+}
+
+// Split command into args safely (no shell interpretation)
+function splitCommand(command: string): string[] {
+  return command.trim().split(/\s+/).filter(Boolean);
 }
 
 const stmts = {
@@ -106,7 +112,8 @@ setInterval(async () => {
     if (!matchesCron(job.schedule, now)) continue;
 
     try {
-      const proc = Bun.spawn(["sh", "-c", job.command], {
+      const args = splitCommand(job.command);
+      const proc = Bun.spawn(args, {
         stdout: "pipe",
         stderr: "pipe",
         timeout: 300000, // 5 min timeout
@@ -226,7 +233,8 @@ cronRoutes.post("/jobs/:id/run", async (c) => {
   if (!job) return c.json({ error: "Job not found" }, 404);
 
   try {
-    const proc = Bun.spawn(["sh", "-c", job.command], {
+    const args = splitCommand(job.command);
+    const proc = Bun.spawn(args, {
       stdout: "pipe",
       stderr: "pipe",
       timeout: 300000,

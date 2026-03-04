@@ -27,7 +27,9 @@ app.use("*", logger());
 app.use(
   "*",
   cors({
-    origin: ["http://localhost:3000", "http://localhost:5173", "https://dashboard.noahsark.me"],
+    origin: process.env.NODE_ENV === "production"
+      ? ["https://dashboard.noahsark.me"]
+      : ["http://localhost:3000", "http://localhost:5173", "https://dashboard.noahsark.me"],
     credentials: true,
   })
 );
@@ -119,6 +121,14 @@ export default {
   fetch(req: Request, server: any) {
     const url = new URL(req.url);
     if (url.pathname === "/api/ws") {
+      // Authenticate WebSocket connections via session cookie
+      const cookies = req.headers.get("cookie") || "";
+      const sessionMatch = cookies.match(/cockpit_session=([^;]+)/);
+      const token = sessionMatch?.[1];
+      if (!token) return new Response("Unauthorized", { status: 401 });
+      const session = db.query("SELECT * FROM sessions WHERE token = ? AND expires_at > datetime('now')").get(token);
+      if (!session) return new Response("Unauthorized", { status: 401 });
+
       const docId = url.searchParams.get("docId") || "default";
       if (server.upgrade(req, { data: { docId } })) return;
       return new Response("WebSocket upgrade failed", { status: 400 });

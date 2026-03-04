@@ -10,6 +10,11 @@ import {
 } from "lucide-react";
 import { ErrorBanner } from "../components/ErrorBanner";
 
+// Escape HTML entities to prevent XSS when using dangerouslySetInnerHTML
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 interface LogSource {
   id: string;
   name: string;
@@ -225,7 +230,7 @@ export function LogsPage() {
                 {search ? (
                   <span
                     dangerouslySetInnerHTML={{
-                      __html: line.replace(
+                      __html: escapeHtml(line).replace(
                         new RegExp(`(${search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"),
                         '<mark class="bg-cockpit-accent/30 text-cockpit-accent rounded px-0.5">$1</mark>'
                       ),

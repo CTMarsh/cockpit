@@ -65,9 +65,12 @@ async function sendWoL(mac: string, broadcast: string, port = 9): Promise<void> 
   });
 }
 
-// Check if a host is reachable (simple TCP connect to common ports)
+// Validate IP address or hostname (prevent argument injection)
+const IP_HOSTNAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9.\-:]+$/;
+
+// Check if a host is reachable
 async function pingHost(ip: string): Promise<boolean> {
-  if (!ip) return false;
+  if (!ip || !IP_HOSTNAME_RE.test(ip) || ip.startsWith("-")) return false;
   try {
     const proc = Bun.spawn(["ping", "-c", "1", "-W", "1", ip], { stdout: "pipe", stderr: "pipe" });
     await proc.exited;
@@ -127,9 +130,22 @@ wolRoutes.put("/devices/:id", async (c) => {
     broadcast?: string;
   }>();
 
+  // Validate MAC if provided
+  if (mac !== undefined) {
+    const cleanMac = mac.replace(/[:-]/g, "");
+    if (!/^[0-9a-fA-F]{12}$/.test(cleanMac)) {
+      return c.json({ error: "Invalid MAC address format" }, 400);
+    }
+  }
+
+  // Validate IP if provided
+  if (ip !== undefined && ip !== "" && !IP_HOSTNAME_RE.test(ip)) {
+    return c.json({ error: "Invalid IP address format" }, 400);
+  }
+
   stmts.updateDevice.run(
     name ?? existing.name,
-    mac ?? existing.mac,
+    mac ? mac.toUpperCase() : existing.mac,
     ip ?? existing.ip,
     broadcast ?? existing.broadcast,
     id

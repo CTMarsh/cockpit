@@ -61,10 +61,16 @@ backupRoutes.post("/trigger", async (c) => {
   }
 });
 
-// ── POST /restore/:key — download a backup (returns gzipped file) ──
+// ── GET /download/:key — download a backup (returns gzipped file) ──
 backupRoutes.get("/download/:key{.+}", async (c) => {
   if (!s3Available()) return c.json({ error: "S3 not configured" }, 503);
   const key = c.req.param("key");
+
+  // Prevent path traversal — key must start with backups/ and contain no ..
+  if (!key.startsWith("backups/") || key.includes("..") || key.includes("\0")) {
+    return c.json({ error: "Invalid backup key" }, 400);
+  }
+
   const { getObject } = await import("../s3-client");
   const res = await getObject(BACKUP_BUCKET, key);
   if (!res.ok) return c.json({ error: "Backup not found" }, 404);

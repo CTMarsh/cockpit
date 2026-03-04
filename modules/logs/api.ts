@@ -4,6 +4,11 @@ export const logsRoutes = new Hono();
 
 const DOCKER_HOST = process.env.DOCKER_HOST || "http://localhost:2375";
 
+// Validation: Docker container ID must be hex (12 or 64 chars)
+const CONTAINER_ID_RE = /^[a-f0-9]{12,64}$/;
+// Validation: systemd unit name
+const UNIT_NAME_RE = /^[a-zA-Z0-9._@:-]+$/;
+
 async function dockerApi(path: string): Promise<any> {
   const res = await fetch(`${DOCKER_HOST}${path}`);
   if (!res.ok) throw new Error(`Docker API ${res.status}: ${await res.text()}`);
@@ -30,12 +35,19 @@ logsRoutes.get("/sources", async (c) => {
 // GET /api/logs/container/:id — get container logs
 logsRoutes.get("/container/:id", async (c) => {
   const id = c.req.param("id");
-  const tail = c.req.query("tail") || "200";
-  const since = c.req.query("since") || "";
+  if (!CONTAINER_ID_RE.test(id)) {
+    return c.json({ lines: [], error: "Invalid container ID" }, 400);
+  }
+
+  const tailRaw = c.req.query("tail") || "200";
+  const tail = String(Math.min(Math.max(parseInt(tailRaw) || 200, 1), 10000));
+  const sinceRaw = c.req.query("since") || "";
+  // Validate since as numeric Unix timestamp or ISO date
+  const since = /^(\d+|[\d\-T:.Z]+)$/.test(sinceRaw) ? sinceRaw : "";
 
   try {
     let url = `/containers/${id}/logs?stdout=true&stderr=true&tail=${tail}&timestamps=true`;
-    if (since) url += `&since=${since}`;
+    if (since) url += `&since=${encodeURIComponent(since)}`;
 
     const res = await dockerApi(url);
     const raw = await res.text();
@@ -62,7 +74,13 @@ logsRoutes.get("/container/:id", async (c) => {
 // GET /api/logs/system — read system journal (if available)
 logsRoutes.get("/system", async (c) => {
   const unit = c.req.query("unit") || "";
-  const lines = c.req.query("lines") || "200";
+  const linesRaw = c.req.query("lines") || "200";
+  const lines = String(Math.min(Math.max(parseInt(linesRaw) || 200, 1), 10000));
+
+  // Validate unit name to prevent argument injection
+  if (unit && !UNIT_NAME_RE.test(unit)) {
+    return c.json({ lines: [], error: "Invalid unit name" }, 400);
+  }
 
   try {
     const args = ["journalctl", "--no-pager", "-n", lines, "-o", "short-iso"];
