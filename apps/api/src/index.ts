@@ -15,6 +15,7 @@ import { logsRoutes } from "../../../modules/logs/api";
 import { cronRoutes } from "../../../modules/cron/api";
 import { wolRoutes } from "../../../modules/wol/api";
 import { k8sRoutes } from "../../../modules/k8s/api";
+import { haRoutes } from "../../../modules/homeassistant/api";
 
 const app = new Hono();
 
@@ -35,7 +36,7 @@ app.use("/api/*", authMiddleware);
 
 // Health check
 app.get("/api/health", (c) =>
-  c.json({ status: "ok", name: "Cockpit API", version: process.env.APP_VERSION || "unknown", modules: 12 })
+  c.json({ status: "ok", name: "Cockpit API", version: process.env.APP_VERSION || "unknown", modules: 13 })
 );
 
 // Dashboard stats — aggregated overview
@@ -97,6 +98,7 @@ app.route("/api/logs", logsRoutes);
 app.route("/api/cron", cronRoutes);
 app.route("/api/wol", wolRoutes);
 app.route("/api/k8s", k8sRoutes);
+app.route("/api/ha", haRoutes);
 
 // WebSocket endpoint for markdown collaboration
 const wsClients = new Map<string, Set<any>>();

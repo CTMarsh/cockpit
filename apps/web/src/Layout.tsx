@@ -19,6 +19,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Box,
+  Home,
 } from "lucide-react";
 
 const ROUTE_LABELS: Record<string, string> = {
@@ -35,6 +36,7 @@ const ROUTE_LABELS: Record<string, string> = {
   cron: "Cron Jobs",
   wol: "Wake-on-LAN",
   k8s: "k3s Cluster",
+  homeassistant: "Home Assistant",
 };
 
 function Breadcrumbs() {
@@ -78,6 +80,7 @@ const modules = [
   { path: "/cron", label: "Cron Jobs", icon: Clock },
   { path: "/wol", label: "Wake-on-LAN", icon: Power },
   { path: "/k8s", label: "k3s Cluster", icon: Box },
+  { path: "/homeassistant", label: "Home Assistant", icon: Home },
 ];
 
 export function Layout({ onLogout }: { onLogout?: () => void }) {
