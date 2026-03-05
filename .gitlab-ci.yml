@@ -191,3 +191,39 @@ deploy:k8s:
   environment:
     name: production
     url: https://dashboard.noahsark.me
+
+# ── Push Notification on Deploy ───────────────────────────
+# Sends a push notification via the notify service after deployment
+notify:success:
+  stage: deploy
+  image: curlimages/curl:latest
+  needs:
+    - job: deploy:k8s
+  script:
+    - |
+      curl -sf -X POST "https://notify.noahsark.me/api/webhook/${NOTIFY_PROJECT_SLUG}" \
+        -H "Content-Type: application/json" \
+        -H "X-API-Key: $NOTIFY_API_KEY" \
+        -d "{\"title\": \"✅ Cockpit Deployed\", \"body\": \"$CI_COMMIT_SHORT_SHA deployed to production\", \"priority\": \"low\", \"data\": {\"url\": \"$CI_PIPELINE_URL\"}}" \
+      || echo "Notify service unreachable — skipping notification"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+  when: on_success
+  allow_failure: true
+
+notify:failure:
+  stage: deploy
+  image: curlimages/curl:latest
+  needs:
+    - job: deploy:k8s
+  script:
+    - |
+      curl -sf -X POST "https://notify.noahsark.me/api/webhook/${NOTIFY_PROJECT_SLUG}" \
+        -H "Content-Type: application/json" \
+        -H "X-API-Key: $NOTIFY_API_KEY" \
+        -d "{\"title\": \"❌ Cockpit Deploy Failed\", \"body\": \"Pipeline $CI_PIPELINE_ID failed on $CI_COMMIT_SHORT_SHA\", \"priority\": \"high\", \"data\": {\"url\": \"$CI_PIPELINE_URL\"}}" \
+      || echo "Notify service unreachable — skipping notification"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+  when: on_failure
+  allow_failure: true

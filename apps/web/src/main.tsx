@@ -19,6 +19,7 @@ import { K8sManagerPage } from "./pages/K8sManager";
 import { HomeAssistantPage } from "./pages/HomeAssistant";
 import { AlertsPage } from "./pages/Alerts";
 import { MinioBrowserPage } from "./pages/MinioBrowser";
+import { NotifyPage } from "./pages/Notify";
 import { ToastProvider } from "./components/Toast";
 import "./index.css";
 
@@ -71,6 +72,7 @@ function App() {
           <Route path="/homeassistant" element={<HomeAssistantPage />} />
           <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/minio" element={<MinioBrowserPage />} />
+          <Route path="/notify" element={<NotifyPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

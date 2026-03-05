@@ -21,6 +21,7 @@ import {
   Box,
   Home,
   Bell,
+  BellRing,
   Database,
 } from "lucide-react";
 
@@ -41,6 +42,7 @@ const ROUTE_LABELS: Record<string, string> = {
   homeassistant: "Home Assistant",
   alerts: "Alert Rules",
   minio: "MinIO Browser",
+  notify: "Notifications",
 };
 
 function Breadcrumbs() {
@@ -86,6 +88,7 @@ const modules = [
   { path: "/k8s", label: "k3s Cluster", icon: Box },
   { path: "/homeassistant", label: "Home Assistant", icon: Home },
   { path: "/alerts", label: "Alert Rules", icon: Bell },
+  { path: "/notify", label: "Notifications", icon: BellRing },
   { path: "/minio", label: "MinIO Browser", icon: Database },
 ];
 

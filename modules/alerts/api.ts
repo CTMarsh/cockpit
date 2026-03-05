@@ -56,6 +56,30 @@ const stmts = {
 const VALID_METRICS = ["cpu", "memory", "disk", "service_down", "pod_restarts"];
 const VALID_OPERATORS = ["gt", "lt", "gte", "lte", "eq"];
 
+// Send alert notification via notify service (best-effort, never blocks)
+async function sendAlertNotification(ruleName: string, message: string) {
+  const notifyUrl = process.env.NOTIFY_URL;
+  const notifySlug = process.env.NOTIFY_ALERT_SLUG;
+  const notifyKey = process.env.NOTIFY_ALERT_API_KEY;
+  if (!notifyUrl || !notifySlug || !notifyKey) return;
+
+  try {
+    await fetch(`${notifyUrl}/api/webhook/${notifySlug}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-API-Key": notifyKey },
+      body: JSON.stringify({
+        title: `🚨 Alert: ${ruleName}`,
+        body: message,
+        priority: "high",
+        data: { source: "cockpit-alerts" },
+      }),
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch {
+    // Best-effort — don't block alert processing
+  }
+}
+
 // ── GET /rules — list all alert rules ──
 alertsRoutes.get("/rules", (c) => {
   const rules = stmts.listRules.all();
@@ -141,9 +165,13 @@ alertsRoutes.post("/test/:id", (c) => {
   const rule = stmts.getRule.get(c.req.param("id")) as any;
   if (!rule) return c.json({ error: "Rule not found" }, 404);
 
+  const msg = `[TEST] ${rule.name} threshold exceeded (test fire)`;
   stmts.insertHistory.run(
-    rule.id, rule.name, rule.metric_type, rule.threshold + 1, rule.threshold,
-    `[TEST] ${rule.name} threshold exceeded (test fire)`
+    rule.id, rule.name, rule.metric_type, rule.threshold + 1, rule.threshold, msg
   );
+
+  // Send push notification (best-effort)
+  sendAlertNotification(rule.name, msg);
+
   return c.json({ ok: true, message: "Test alert fired" });
 });
