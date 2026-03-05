@@ -99,6 +99,8 @@ cockpit/
 - **Default remote is `gitlab`** — there is no `origin`. Never try `git push origin`.
 - **Always push to `gitlab` remote:** `git push gitlab master`
 - The `github` remote exists as a mirror but is not the primary — do not push there unless Chris explicitly asks.
+- **Bot account:** cockpit-bot (Developer role) — cannot push to master directly
+- **Branch protection:** master is protected, only Maintainers can push/merge
 
 ### Issues
 
@@ -143,9 +145,14 @@ Use these labels (avoid creating duplicates):
 - Key pages: Home, Architecture, Modules, CI/CD Pipeline, Roadmap, Development Guide, API Reference, Infrastructure.
 - The Roadmap page should reflect current milestone progress.
 
-### Merge Requests (future)
+### Merge Requests
 
-- Currently pushing directly to master. When branch protection is enabled, use feature branches named `feature/{issue-number}-short-description` or `fix/{issue-number}-short-description`.
+- **Branch protection is active** — cockpit-bot (Developer role) cannot push directly to master.
+- Use feature branches named `feature/{issue-number}-short-description` or `fix/{issue-number}-short-description`.
+- Create MRs targeting master via GitLab API (`POST /api/v4/projects/33/merge_requests`).
+- **Always set Assignee to cockpit-bot (id=5) and Reviewer to ctmarsh (id=1)** on every MR.
+- Squash commits allowed on merge. Delete source branch on merge.
+- Chris (Maintainer) reviews and merges MRs.
 
 ## Key Rules (NON-NEGOTIABLE)
 
