@@ -18,6 +18,13 @@ import {
   Eye,
   EyeOff,
   X,
+  Power,
+  PowerOff,
+  Pencil,
+  Trash,
+  Zap,
+  Shield,
+  ShieldAlert,
 } from "lucide-react";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -41,8 +48,12 @@ interface Device {
   device_token: string;
   platform: string;
   project_id: number;
+  project_name?: string;
+  project_slug?: string;
   label: string;
   active: number;
+  environment: string;
+  last_notified: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -95,6 +106,10 @@ export function NotifyPage() {
   const [selectedNotif, setSelectedNotif] = useState<(Notification & { deliveries?: Delivery[] }) | null>(null);
   const [visibleKeys, setVisibleKeys] = useState<Set<number>>(new Set());
   const [deviceFilter, setDeviceFilter] = useState<number | "all">("all");
+  const [showInactive, setShowInactive] = useState(false);
+  const [editingDevice, setEditingDevice] = useState<Device | null>(null);
+  const [editDeviceLabel, setEditDeviceLabel] = useState("");
+  const [deleteDeviceTarget, setDeleteDeviceTarget] = useState<Device | null>(null);
   const [notifPage, setNotifPage] = useState(0);
   const toast = useToast();
 
@@ -122,13 +137,16 @@ export function NotifyPage() {
 
   const fetchDevices = useCallback(async () => {
     try {
-      const params = deviceFilter !== "all" ? `?project_id=${deviceFilter}` : "";
-      const data = await api<{ devices: Device[] }>(`/notify/devices${params}`);
+      const qp = new URLSearchParams();
+      if (deviceFilter !== "all") qp.set("project_id", String(deviceFilter));
+      if (showInactive) qp.set("active", "false");
+      const qs = qp.toString() ? `?${qp.toString()}` : "";
+      const data = await api<{ devices: Device[] }>(`/notify/devices${qs}`);
       setDevices(data.devices || []);
     } catch (e: any) {
       setError(e.message);
     }
-  }, [deviceFilter]);
+  }, [deviceFilter, showInactive]);
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -219,6 +237,73 @@ export function NotifyPage() {
     try {
       await api(`/notify/test/${project.id}`, { method: "POST" });
       toast.success(`Test notification sent to ${project.name}`);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  }
+
+  // ── Device Management ──
+
+  async function handleToggleDevice(device: Device) {
+    try {
+      await api(`/notify/devices/${device.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ active: !device.active }),
+      });
+      toast.success(device.active ? "Device deactivated" : "Device activated");
+      await fetchDevices();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  }
+
+  async function handleDeleteDevice() {
+    if (!deleteDeviceTarget) return;
+    try {
+      await api(`/notify/devices/${deleteDeviceTarget.id}`, { method: "DELETE" });
+      toast.success("Device deleted");
+      setDeleteDeviceTarget(null);
+      await fetchDevices();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  }
+
+  async function handleEditDeviceLabel() {
+    if (!editingDevice) return;
+    try {
+      await api(`/notify/devices/${editingDevice.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ label: editDeviceLabel }),
+      });
+      toast.success("Device label updated");
+      setEditingDevice(null);
+      await fetchDevices();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  }
+
+  async function handleTestDevice(device: Device) {
+    try {
+      const result = await api<{ success: boolean; error?: string }>(`/notify/devices/${device.id}/test`, {
+        method: "POST",
+      });
+      if (result.success) {
+        toast.success(`Test push sent to ${device.label || "device"}`);
+      } else {
+        toast.error(`Push failed: ${result.error}`);
+      }
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  }
+
+  async function handleCleanupDevices() {
+    try {
+      const result = await api<{ deleted: number }>("/notify/devices/cleanup", { method: "POST" });
+      toast.success(`Cleaned up ${result.deleted} inactive device${result.deleted !== 1 ? "s" : ""}`);
+      await fetchDevices();
     } catch (e: any) {
       toast.error(e.message);
     }
@@ -420,7 +505,7 @@ export function NotifyPage() {
       {/* ── Devices Tab ── */}
       {tab === "devices" && (
         <div className="space-y-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <select
               value={deviceFilter}
               onChange={(e) => setDeviceFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
@@ -431,9 +516,27 @@ export function NotifyPage() {
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
+            <label className="flex items-center gap-2 text-sm text-cockpit-text-muted cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+                className="rounded border-cockpit-border"
+              />
+              Show inactive
+            </label>
             <span className="text-sm text-cockpit-text-muted">
               {devices.length} device{devices.length !== 1 ? "s" : ""}
             </span>
+            {showInactive && devices.some((d) => !d.active) && (
+              <button
+                onClick={handleCleanupDevices}
+                className="ml-auto flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-cockpit-danger/10 text-cockpit-danger hover:bg-cockpit-danger/20 transition-colors"
+              >
+                <Trash className="w-3 h-3" />
+                Clean up inactive
+              </button>
+            )}
           </div>
 
           {devices.length === 0 ? (
@@ -448,25 +551,42 @@ export function NotifyPage() {
                   <tr className="border-b border-cockpit-border text-cockpit-text-muted text-left">
                     <th className="px-4 py-3 font-medium">Device</th>
                     <th className="px-4 py-3 font-medium">Project</th>
-                    <th className="px-4 py-3 font-medium">Platform</th>
+                    <th className="px-4 py-3 font-medium">Environment</th>
                     <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium">Registered</th>
+                    <th className="px-4 py-3 font-medium">Last Notified</th>
+                    <th className="px-4 py-3 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {devices.map((device) => (
-                    <tr key={device.id} className="border-b border-cockpit-border/50 last:border-0">
+                    <tr key={device.id} className={`border-b border-cockpit-border/50 last:border-0 ${!device.active ? "opacity-50" : ""}`}>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <Smartphone className="w-4 h-4 text-cockpit-text-muted" />
                           <span>{device.label || "Unnamed"}</span>
                         </div>
                         <div className="text-xs text-cockpit-text-muted font-mono mt-0.5">
-                          {device.device_token.substring(0, 16)}...
+                          {device.device_token.substring(0, 12)}…
+                        </div>
+                        <div className="text-xs text-cockpit-text-muted mt-0.5">
+                          Registered {new Date(device.created_at).toLocaleDateString()}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-cockpit-text-muted">{getProjectName(device.project_id)}</td>
-                      <td className="px-4 py-3 text-cockpit-text-muted">{device.platform}</td>
+                      <td className="px-4 py-3 text-cockpit-text-muted">
+                        {device.project_name || getProjectName(device.project_id)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${
+                          device.environment === "production"
+                            ? "bg-cockpit-success/10 text-cockpit-success"
+                            : "bg-yellow-500/10 text-yellow-400"
+                        }`}>
+                          {device.environment === "production"
+                            ? <Shield className="w-3 h-3" />
+                            : <ShieldAlert className="w-3 h-3" />}
+                          {device.environment || "production"}
+                        </span>
+                      </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${
                           device.active ? "bg-cockpit-success/10 text-cockpit-success" : "bg-cockpit-danger/10 text-cockpit-danger"
@@ -476,7 +596,43 @@ export function NotifyPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-cockpit-text-muted text-xs">
-                        {new Date(device.created_at).toLocaleDateString()}
+                        {device.last_notified
+                          ? new Date(device.last_notified + "Z").toLocaleString()
+                          : "Never"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleTestDevice(device)}
+                            title="Send test push"
+                            className="p-1.5 rounded hover:bg-cockpit-accent/10 text-cockpit-text-muted hover:text-cockpit-accent transition-colors"
+                          >
+                            <Zap className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => { setEditingDevice(device); setEditDeviceLabel(device.label || ""); }}
+                            title="Edit label"
+                            className="p-1.5 rounded hover:bg-cockpit-accent/10 text-cockpit-text-muted hover:text-cockpit-accent transition-colors"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleToggleDevice(device)}
+                            title={device.active ? "Deactivate" : "Activate"}
+                            className={`p-1.5 rounded hover:bg-cockpit-accent/10 transition-colors ${
+                              device.active ? "text-cockpit-text-muted hover:text-yellow-400" : "text-cockpit-text-muted hover:text-cockpit-success"
+                            }`}
+                          >
+                            {device.active ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
+                          </button>
+                          <button
+                            onClick={() => setDeleteDeviceTarget(device)}
+                            title="Delete device"
+                            className="p-1.5 rounded hover:bg-cockpit-danger/10 text-cockpit-text-muted hover:text-cockpit-danger transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -484,8 +640,52 @@ export function NotifyPage() {
               </table>
             </div>
           )}
+
+          {/* Edit Device Label Modal */}
+          {editingDevice && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setEditingDevice(null)}>
+              <div className="bg-cockpit-surface border border-cockpit-border rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-medium">Edit Device Label</h3>
+                  <button onClick={() => setEditingDevice(null)} className="text-cockpit-text-muted hover:text-cockpit-text">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="text-xs text-cockpit-text-muted font-mono mb-3">
+                  {editingDevice.device_token.substring(0, 24)}…
+                </div>
+                <input
+                  type="text"
+                  value={editDeviceLabel}
+                  onChange={(e) => setEditDeviceLabel(e.target.value)}
+                  placeholder="e.g. Chris's iPhone 16"
+                  className="w-full bg-cockpit-bg border border-cockpit-border rounded-lg px-3 py-2 text-sm mb-4"
+                  autoFocus
+                  onKeyDown={(e) => e.key === "Enter" && handleEditDeviceLabel()}
+                />
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => setEditingDevice(null)} className="px-3 py-1.5 text-sm rounded-lg border border-cockpit-border hover:bg-cockpit-bg transition-colors">
+                    Cancel
+                  </button>
+                  <button onClick={handleEditDeviceLabel} className="px-3 py-1.5 text-sm rounded-lg bg-cockpit-accent text-black hover:bg-cockpit-accent/80 transition-colors">
+                    Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
+
+      {/* Delete Device Confirmation */}
+      <ConfirmDialog
+        open={!!deleteDeviceTarget}
+        title="Delete Device"
+        message={`Permanently delete "${deleteDeviceTarget?.label || "Unnamed"}" and all its delivery history? This cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={handleDeleteDevice}
+        onCancel={() => setDeleteDeviceTarget(null)}
+      />
 
       {/* ── Notifications Tab ── */}
       {tab === "notifications" && (

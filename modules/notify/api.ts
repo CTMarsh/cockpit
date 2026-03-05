@@ -141,6 +141,35 @@ notifyRoutes.get("/devices", async (c) => {
   return c.json({ devices });
 });
 
+// ── Device Management (admin) ──
+
+notifyRoutes.patch("/devices/:id", async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json();
+  const res = await notifyAdmin(`/api/devices/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+  return c.json(await res.json(), res.status as any);
+});
+
+notifyRoutes.delete("/devices/:id", async (c) => {
+  const id = c.req.param("id");
+  const res = await notifyAdmin(`/api/devices/${id}`, { method: "DELETE" });
+  return c.json(await res.json(), res.status as any);
+});
+
+notifyRoutes.post("/devices/:id/test", async (c) => {
+  const id = c.req.param("id");
+  const res = await notifyAdmin(`/api/devices/${id}/test`, { method: "POST" });
+  return c.json(await res.json(), res.status as any);
+});
+
+notifyRoutes.post("/devices/cleanup", async (c) => {
+  const res = await notifyAdmin("/api/devices/cleanup", { method: "POST" });
+  return c.json(await res.json(), res.status as any);
+});
+
 // ── Notifications ──
 
 notifyRoutes.get("/notifications", async (c) => {
