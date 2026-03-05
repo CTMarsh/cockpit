@@ -1,3 +1,9 @@
+# ── Security Scanning Templates ───────────────────────────
+# GitLab CI templates for automated security analysis (#106)
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
 stages:
   - lint
   - test
@@ -27,6 +33,7 @@ cache:
 lint:
   stage: lint
   image: oven/bun:1
+  needs: []
   script:
     - echo "=== Installing dependencies ==="
     - bun install --frozen-lockfile || bun install
@@ -37,14 +44,15 @@ lint:
     - cd apps/web && bunx tsc --noEmit --pretty
     - cd ../..
     - echo "=== Lint passed ==="
-  only:
-    - master
-    - merge_requests
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_MERGE_REQUEST_IID
 
 # ── Stage 2: Tests ────────────────────────────────────────
 test:
   stage: test
   image: oven/bun:1
+  needs: []
   variables:
     COCKPIT_USER: testadmin
     COCKPIT_PASS: testpass123
@@ -65,10 +73,9 @@ test:
     - echo "=== Running API tests ==="
     - bun test apps/api/src/
     - echo "=== Tests passed ==="
-  only:
-    - master
-    - merge_requests
-  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_MERGE_REQUEST_IID
 
 # ── Stage 3: Auto-Version Bump ─────────────────────────────
 # Reads latest git tag, bumps patch (v2.1.1 → v2.1.2), pushes new tag.
@@ -111,10 +118,9 @@ version:
   artifacts:
     reports:
       dotenv: version.env
-  only:
-    - master
-  except:
-    - tags
+    expire_in: 1 hour
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master" && $CI_COMMIT_TAG == null
 
 # ── Stage 4: Build & Push Container Images ─────────────────
 # Uses Kaniko — builds images without Docker daemon (no DinD/privileged needed)
@@ -138,8 +144,8 @@ build:api:
       --destination "$API_IMAGE:latest"
       --cache=true
       --cache-repo="$CI_REGISTRY_IMAGE/cache/api"
-  only:
-    - master
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
 
 build:web:
   stage: build
@@ -160,8 +166,8 @@ build:web:
       --build-arg "APP_VERSION=$APP_VERSION"
       --cache=true
       --cache-repo="$CI_REGISTRY_IMAGE/cache/web"
-  only:
-    - master
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
 
 # ── Stage 5: Deploy to Kubernetes ─────────────────────────
 deploy:k8s:
@@ -180,8 +186,8 @@ deploy:k8s:
     - kubectl rollout status deployment/cockpit-api -n cockpit --timeout=600s
     - kubectl rollout status deployment/cockpit-web -n cockpit --timeout=600s
     - echo "=== Deployment complete ==="
-  only:
-    - master
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
   environment:
     name: production
     url: https://dashboard.noahsark.me
