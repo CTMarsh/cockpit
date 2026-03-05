@@ -60,8 +60,17 @@ notifyRoutes.get("/health", async (c) => {
     const res = await fetch(`${NOTIFY_URL}/api/health`, {
       signal: AbortSignal.timeout(5000),
     });
-    const data = await res.json();
-    return c.json({ reachable: true, ...data });
+    const data = await res.json() as Record<string, any>;
+    // Map notify service response to frontend expected format
+    return c.json({
+      reachable: true,
+      status: data.status,
+      version: data.version,
+      uptime: data.uptime,
+      apns_configured: data.apns_configured,
+      projects_count: data.stats?.projects ?? data.projects_count,
+      devices_count: data.stats?.active_devices ?? data.devices_count,
+    });
   } catch (e: any) {
     return c.json({ reachable: false, error: e.message }, 503);
   }
@@ -80,7 +89,10 @@ notifyRoutes.get("/config", (c) => {
 notifyRoutes.get("/projects", async (c) => {
   const res = await notifyAdmin("/api/projects");
   if (!res.ok) return c.json({ error: "Failed to fetch projects" }, res.status as any);
-  return c.json(await res.json());
+  const data = await res.json();
+  // Notify API returns a plain array; frontend expects { projects: [...] }
+  const projects = Array.isArray(data) ? data : data.projects || [];
+  return c.json({ projects });
 });
 
 notifyRoutes.post("/projects", async (c) => {
@@ -123,7 +135,10 @@ notifyRoutes.get("/devices", async (c) => {
   const params = new URLSearchParams(query);
   const res = await notifyAdmin(`/api/devices?${params.toString()}`);
   if (!res.ok) return c.json({ error: "Failed to fetch devices" }, res.status as any);
-  return c.json(await res.json());
+  const data = await res.json();
+  // Notify API returns a plain array; frontend expects { devices: [...] }
+  const devices = Array.isArray(data) ? data : data.devices || [];
+  return c.json({ devices });
 });
 
 // ── Notifications ──
