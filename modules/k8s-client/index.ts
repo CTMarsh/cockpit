@@ -1,6 +1,8 @@
 // Shared Kubernetes API client — used by sysmon and k8s modules
 // Auth: K8S_TOKEN env var > in-cluster service account token
 
+import { k8sTls } from "../tls-config";
+
 const K8S_API = process.env.K8S_API || "https://kubernetes.default.svc";
 const SA_TOKEN_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/token";
 
@@ -32,8 +34,8 @@ function fetchOpts(token: string, method = "GET", body?: any, contentType?: stri
       ...(body ? { "Content-Type": contentType || "application/json" } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
-    // @ts-ignore — Bun supports this for self-signed certs
-    tls: { rejectUnauthorized: false },
+    // @ts-ignore — Bun supports this
+    tls: k8sTls(),
   };
 }
 
