@@ -4,6 +4,8 @@
  * Zero external dependencies.
  */
 
+import { minioTls } from "../tls-config";
+
 const MINIO_ENDPOINT = process.env.MINIO_ENDPOINT || "";
 const MINIO_ACCESS_KEY = process.env.MINIO_ACCESS_KEY || "";
 const MINIO_SECRET_KEY = process.env.MINIO_SECRET_KEY || "";
@@ -115,7 +117,7 @@ export async function s3Request(opts: S3RequestOptions): Promise<Response> {
     headers: { ...headers, authorization },
     body: bodyBytes.length > 0 ? (bodyBytes as unknown as BodyInit) : undefined,
     // @ts-ignore — Bun supports this
-    tls: { rejectUnauthorized: false },
+    tls: minioTls(),
   });
 }
 

@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { k8sApi } from "../k8s-client";
+import { pveTls } from "../tls-config";
 
 export const sysmonRoutes = new Hono();
 
@@ -11,8 +12,8 @@ async function pveApi(path: string): Promise<any> {
   if (!PVE_URL || !PVE_TOKEN) return null;
   const res = await fetch(`${PVE_URL}/api2/json${path}`, {
     headers: { Authorization: `PVEAPIToken=${PVE_TOKEN}` },
-    // @ts-ignore — Bun supports this for self-signed certs
-    tls: { rejectUnauthorized: false },
+    // @ts-ignore — Bun supports this
+    tls: pveTls(),
   });
   if (!res.ok) return null;
   const json = await res.json();

@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { pveTls } from "../tls-config";
 
 export const proxmoxRoutes = new Hono();
 
@@ -18,9 +19,8 @@ async function pveApi(path: string, method = "GET", body?: any): Promise<any> {
       "Content-Type": "application/json",
     },
     body: body ? JSON.stringify(body) : undefined,
-    // Proxmox uses self-signed certs by default
     // @ts-ignore — Bun supports this
-    tls: { rejectUnauthorized: false },
+    tls: pveTls(),
   });
 
   if (!res.ok) {
