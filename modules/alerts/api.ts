@@ -107,6 +107,9 @@ alertsRoutes.post("/rules", async (c) => {
   if (operator && !VALID_OPERATORS.includes(operator)) {
     return c.json({ error: `operator must be one of: ${VALID_OPERATORS.join(", ")}` }, 400);
   }
+  if (webhook_url) {
+    try { new URL(webhook_url); } catch { return c.json({ error: "Invalid webhook URL" }, 400); }
+  }
 
   const id = crypto.randomUUID();
   stmts.insertRule.run(
@@ -127,6 +130,9 @@ alertsRoutes.put("/rules/:id", async (c) => {
 
   if (metric_type && !VALID_METRICS.includes(metric_type)) {
     return c.json({ error: `metric_type must be one of: ${VALID_METRICS.join(", ")}` }, 400);
+  }
+  if (webhook_url) {
+    try { new URL(webhook_url); } catch { return c.json({ error: "Invalid webhook URL" }, 400); }
   }
 
   const e = existing as any;
@@ -152,7 +158,7 @@ alertsRoutes.delete("/rules/:id", (c) => {
 
 // ── GET /history — alert history ──
 alertsRoutes.get("/history", (c) => {
-  const limit = Number(c.req.query("limit")) || 50;
+  const limit = Math.min(Number(c.req.query("limit")) || 50, 500);
   const ruleId = c.req.query("rule_id");
   const history = ruleId
     ? stmts.listHistoryForRule.all(ruleId, limit)

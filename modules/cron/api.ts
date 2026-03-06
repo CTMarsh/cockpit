@@ -33,6 +33,8 @@ db.run(`CREATE INDEX IF NOT EXISTS idx_cron_runs_job ON cron_runs(job_id, starte
 const MAX_COMMAND_LENGTH = 1000;
 // Allowlist: only alphanumeric, spaces, slashes, dots, hyphens, underscores, equals, colons, commas, @
 const SAFE_COMMAND_PATTERN = /^[a-zA-Z0-9 /._=:,@+%\-\[\]]+$/;
+// Blocked dangerous commands that should never be scheduled
+const BLOCKED_COMMANDS = ['rm', 'dd', 'mkfs', 'fdisk', 'kill', 'killall', 'shutdown', 'reboot', 'halt', 'poweroff'];
 
 function validateCommand(command: string): string | null {
   if (!command || command.length > MAX_COMMAND_LENGTH) {
@@ -40,6 +42,12 @@ function validateCommand(command: string): string | null {
   }
   if (!SAFE_COMMAND_PATTERN.test(command)) {
     return "Command contains disallowed characters. Only alphanumeric, spaces, slashes, dots, hyphens, underscores, equals, colons, and commas are allowed.";
+  }
+  // Check if the binary (first word) is in the blocked list
+  const binary = command.trim().split(/\s+/)[0];
+  const binaryName = binary.split("/").pop() || binary;
+  if (BLOCKED_COMMANDS.includes(binaryName.toLowerCase())) {
+    return `Command '${binaryName}' is blocked for safety. Blocked commands: ${BLOCKED_COMMANDS.join(", ")}`;
   }
   return null;
 }

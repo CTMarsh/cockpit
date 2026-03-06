@@ -41,6 +41,21 @@ app.route("/api/auth", authRoutes);
 // Auth middleware — protects all routes below
 app.use("/api/*", authMiddleware);
 
+// CSRF/Origin validation — reject state-changing requests from unknown origins
+const ALLOWED_ORIGINS = process.env.NODE_ENV === 'production'
+  ? ['https://dashboard.noahsark.me']
+  : ['https://dashboard.noahsark.me', 'http://localhost:3000', 'http://localhost:5173'];
+
+app.use('/api/*', async (c, next) => {
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(c.req.method)) {
+    const origin = c.req.header('origin');
+    if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+      return c.json({ error: 'Forbidden' }, 403);
+    }
+  }
+  await next();
+});
+
 // Health check
 app.get("/api/health", (c) =>
   c.json({ status: "ok", name: "Cockpit API", version: process.env.APP_VERSION || "unknown", modules: 18 })

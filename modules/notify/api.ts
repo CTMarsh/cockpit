@@ -106,6 +106,7 @@ notifyRoutes.post("/projects", async (c) => {
 
 notifyRoutes.put("/projects/:id", async (c) => {
   const id = c.req.param("id");
+  if (!/^\d+$/.test(id)) return c.json({ error: "Invalid ID" }, 400);
   const body = await c.req.json();
   const res = await notifyAdmin(`/api/projects/${id}`, {
     method: "PUT",
@@ -116,12 +117,14 @@ notifyRoutes.put("/projects/:id", async (c) => {
 
 notifyRoutes.delete("/projects/:id", async (c) => {
   const id = c.req.param("id");
+  if (!/^\d+$/.test(id)) return c.json({ error: "Invalid ID" }, 400);
   const res = await notifyAdmin(`/api/projects/${id}`, { method: "DELETE" });
   return c.json(await res.json(), res.status as any);
 });
 
 notifyRoutes.post("/projects/:id/regenerate-key", async (c) => {
   const id = c.req.param("id");
+  if (!/^\d+$/.test(id)) return c.json({ error: "Invalid ID" }, 400);
   const res = await notifyAdmin(`/api/projects/${id}/regenerate-key`, {
     method: "POST",
   });
@@ -145,6 +148,7 @@ notifyRoutes.get("/devices", async (c) => {
 
 notifyRoutes.patch("/devices/:id", async (c) => {
   const id = c.req.param("id");
+  if (!/^\d+$/.test(id)) return c.json({ error: "Invalid ID" }, 400);
   const body = await c.req.json();
   const res = await notifyAdmin(`/api/devices/${id}`, {
     method: "PATCH",
@@ -155,12 +159,14 @@ notifyRoutes.patch("/devices/:id", async (c) => {
 
 notifyRoutes.delete("/devices/:id", async (c) => {
   const id = c.req.param("id");
+  if (!/^\d+$/.test(id)) return c.json({ error: "Invalid ID" }, 400);
   const res = await notifyAdmin(`/api/devices/${id}`, { method: "DELETE" });
   return c.json(await res.json(), res.status as any);
 });
 
 notifyRoutes.post("/devices/:id/test", async (c) => {
   const id = c.req.param("id");
+  if (!/^\d+$/.test(id)) return c.json({ error: "Invalid ID" }, 400);
   const res = await notifyAdmin(`/api/devices/${id}/test`, { method: "POST" });
   return c.json(await res.json(), res.status as any);
 });
@@ -182,6 +188,7 @@ notifyRoutes.get("/notifications", async (c) => {
 
 notifyRoutes.get("/notifications/:id", async (c) => {
   const id = c.req.param("id");
+  if (!/^\d+$/.test(id)) return c.json({ error: "Invalid ID" }, 400);
   const res = await notifyAdmin(`/api/notifications/${id}`);
   if (!res.ok) return c.json({ error: "Failed to fetch notification" }, res.status as any);
   return c.json(await res.json());
@@ -192,6 +199,7 @@ notifyRoutes.get("/notifications/:id", async (c) => {
 notifyRoutes.post("/test/:projectId", async (c) => {
   // Get project details to get slug and API key
   const projectId = c.req.param("projectId");
+  if (!/^\d+$/.test(projectId)) return c.json({ error: "Invalid project ID" }, 400);
   const projRes = await notifyAdmin(`/api/projects/${projectId}`);
   if (!projRes.ok) return c.json({ error: "Project not found" }, 404);
 

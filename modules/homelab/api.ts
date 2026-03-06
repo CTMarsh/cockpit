@@ -3,6 +3,34 @@ import { db } from "../../apps/api/src/db";
 
 export const homelabRoutes = new Hono();
 
+// ── SSRF prevention — block cloud metadata and localhost, allow homelab network ──
+function isHomelabUrlSafe(urlString: string): { safe: boolean; error?: string } {
+  try {
+    const url = new URL(urlString);
+    if (!["http:", "https:"].includes(url.protocol)) {
+      return { safe: false, error: "Only http and https URLs are allowed" };
+    }
+    const hostname = url.hostname.toLowerCase();
+    // Block localhost variants
+    if (hostname === "localhost" || hostname === "0.0.0.0" || hostname === "[::1]") {
+      return { safe: false, error: "Localhost addresses are not allowed" };
+    }
+    // Block cloud metadata endpoint (169.254.169.254)
+    if (/^169\.254\./.test(hostname)) {
+      return { safe: false, error: "Link-local/metadata addresses are not allowed" };
+    }
+    // Block IPv6 loopback and link-local
+    if (/^::1$/.test(hostname) || /^fe80:/i.test(hostname)) {
+      return { safe: false, error: "Internal IPv6 addresses are not allowed" };
+    }
+    // Note: Private IPs (10.x, 172.16.x, 192.168.x) are intentionally ALLOWED
+    // because homelab services legitimately monitor internal hosts on the LAN.
+    return { safe: true };
+  } catch {
+    return { safe: false, error: "Invalid URL format" };
+  }
+}
+
 interface ServiceConfig {
   id: string;
   name: string;
@@ -108,7 +136,7 @@ homelabRoutes.get("/services", async (c) => {
 
 homelabRoutes.get("/services/:id/history", (c) => {
   const id = c.req.param("id");
-  const limit = Number(c.req.query("limit")) || 100;
+  const limit = Math.min(Number(c.req.query("limit")) || 100, 10000);
   const history = stmts.getHistory.all(id, limit);
   return c.json({ history });
 });
@@ -116,6 +144,8 @@ homelabRoutes.get("/services/:id/history", (c) => {
 homelabRoutes.post("/services", async (c) => {
   const body = await c.req.json<{ name: string; url: string; icon?: string; expectedStatus?: number }>();
   if (!body.name || !body.url) return c.json({ error: "name and url are required" }, 400);
+  const urlCheck = isHomelabUrlSafe(body.url);
+  if (!urlCheck.safe) return c.json({ error: urlCheck.error }, 400);
   const id = body.name.toLowerCase().replace(/\s+/g, "-");
   const expectedStatus = body.expectedStatus ?? 0;
   stmts.insert.run(id, body.name, body.url, body.icon || null, expectedStatus);
@@ -127,6 +157,10 @@ homelabRoutes.put("/services/:id", async (c) => {
   const existing = stmts.getById.get(id) as any;
   if (!existing) return c.json({ error: "Service not found" }, 404);
   const body = await c.req.json<{ name?: string; url?: string; expectedStatus?: number }>();
+  if (body.url) {
+    const urlCheck = isHomelabUrlSafe(body.url);
+    if (!urlCheck.safe) return c.json({ error: urlCheck.error }, 400);
+  }
   const name = body.name ?? existing.name;
   const url = body.url ?? existing.url;
   const expectedStatus = body.expectedStatus ?? existing.expected_status;
@@ -157,6 +191,9 @@ homelabRoutes.get("/docker-hosts", (c) => {
 homelabRoutes.post("/docker-hosts", async (c) => {
   const body = await c.req.json<{ name: string; url: string }>();
   if (!body.name || !body.url) return c.json({ error: "name and url are required" }, 400);
+  try { new URL(body.url); } catch { return c.json({ error: "Invalid Docker host URL" }, 400); }
+  const urlCheck = isHomelabUrlSafe(body.url);
+  if (!urlCheck.safe) return c.json({ error: urlCheck.error }, 400);
   const id = body.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
   dockerStmts.insertHost.run(id, body.name, body.url);
   return c.json({ id, name: body.name, url: body.url }, 201);
@@ -167,6 +204,11 @@ homelabRoutes.put("/docker-hosts/:id", async (c) => {
   const existing = dockerStmts.getHost.get(id);
   if (!existing) return c.json({ error: "Docker host not found" }, 404);
   const body = await c.req.json<{ name?: string; url?: string }>();
+  if (body.url) {
+    try { new URL(body.url); } catch { return c.json({ error: "Invalid Docker host URL" }, 400); }
+    const urlCheck = isHomelabUrlSafe(body.url);
+    if (!urlCheck.safe) return c.json({ error: urlCheck.error }, 400);
+  }
   dockerStmts.updateHost.run(body.name || (existing as any).name, body.url || (existing as any).url, id);
   return c.json({ ok: true });
 });

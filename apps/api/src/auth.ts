@@ -10,6 +10,14 @@ const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
+// Periodically clean expired rate-limit entries to prevent memory leaks
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of loginAttempts) {
+    if (now > entry.resetAt) loginAttempts.delete(ip);
+  }
+}, 60000);
+
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const entry = loginAttempts.get(ip);
@@ -48,11 +56,20 @@ const stmts = {
 // Clean expired sessions on startup
 stmts.cleanExpired.run();
 
+// Startup warnings for default credentials
+if (!process.env.COCKPIT_PASS) {
+  console.warn("WARNING: COCKPIT_PASS not set, using default credentials. Set COCKPIT_PASS in production!");
+}
+if (!process.env.COCKPIT_USER) {
+  console.warn("WARNING: COCKPIT_USER not set, using default 'admin'. Set COCKPIT_USER in production!");
+}
+
 export const authRoutes = new Hono();
 
 authRoutes.post("/login", async (c) => {
-  // Rate limiting
-  const ip = c.req.header("x-forwarded-for") || c.req.header("x-real-ip") || "unknown";
+  // Rate limiting — use last entry of X-Forwarded-For (closest proxy) to prevent spoofing
+  const xff = c.req.header("x-forwarded-for");
+  const ip = xff ? xff.split(",").pop()?.trim() || "unknown" : c.req.header("x-real-ip") || "unknown";
   if (!checkRateLimit(ip)) {
     return c.json({ error: "Too many login attempts. Try again later." }, 429);
   }
