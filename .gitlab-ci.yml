@@ -1,3 +1,10 @@
+# ── Workflow: prevent duplicate pipelines ──────────────────
+# MR pipelines take priority; branch pipelines only run when no MR exists
+workflow:
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_BRANCH
+
 # ── Security Scanning Templates ───────────────────────────
 # GitLab CI templates for automated security analysis (#106)
 include:
@@ -34,9 +41,10 @@ lint:
   stage: lint
   image: oven/bun:1
   needs: []
+  interruptible: true
   script:
     - echo "=== Installing dependencies ==="
-    - bun install --frozen-lockfile || bun install
+    - bun install --frozen-lockfile
     - echo "=== TypeScript Type Check (API) ==="
     - cd apps/api && bunx tsc --noEmit --pretty
     - cd ../..
@@ -53,12 +61,23 @@ test:
   stage: test
   image: oven/bun:1
   needs: []
+  interruptible: true
+  cache:
+    key:
+      files:
+        - bun.lock
+    paths:
+      - .bun-cache/
+      - node_modules/
+      - apps/web/node_modules/
+      - apps/api/node_modules/
+    policy: pull
   variables:
     COCKPIT_USER: testadmin
     COCKPIT_PASS: testpass123
     SESSION_SECRET: ci-test-secret
   script:
-    - bun install --frozen-lockfile || bun install
+    - bun install --frozen-lockfile
     - echo "=== Starting API server in background ==="
     - bun run apps/api/src/index.ts &
     - |
@@ -136,6 +155,12 @@ build:api:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
   <<: *kaniko-auth
+  interruptible: true
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
   script:
     - /kaniko/executor
       --context "$CI_PROJECT_DIR"
@@ -153,6 +178,12 @@ build:web:
     name: gcr.io/kaniko-project/executor:v1.23.2-debug
     entrypoint: [""]
   <<: *kaniko-auth
+  interruptible: true
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
   needs:
     - job: version
       artifacts: true
@@ -173,11 +204,17 @@ build:web:
 deploy:k8s:
   stage: deploy
   image:
-    name: bitnami/kubectl:latest
+    name: bitnami/kubectl:1.30
     entrypoint: [""]
   needs:
     - job: build:api
     - job: build:web
+  resource_group: production
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
   script:
     - echo "=== Updating image tags ==="
     - kubectl set image deployment/cockpit-api api="$API_IMAGE:$CI_COMMIT_SHORT_SHA" -n cockpit
@@ -196,7 +233,7 @@ deploy:k8s:
 # Sends a push notification via the notify service after deployment
 notify:success:
   stage: deploy
-  image: curlimages/curl:latest
+  image: curlimages/curl:8.12.1
   needs:
     - job: deploy:k8s
   script:
@@ -213,7 +250,7 @@ notify:success:
 
 notify:failure:
   stage: deploy
-  image: curlimages/curl:latest
+  image: curlimages/curl:8.12.1
   needs:
     - job: deploy:k8s
   script:
