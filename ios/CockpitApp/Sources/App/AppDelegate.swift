@@ -10,6 +10,11 @@ class AppDelegate: NSObject, UIApplicationDelegate, @unchecked Sendable {
         let center = UNUserNotificationCenter.current()
         center.delegate = NotificationDelegate.shared
         requestNotificationPermission(application)
+
+        // Register and schedule background refresh for widget data
+        BackgroundTaskManager.shared.registerTask()
+        BackgroundTaskManager.shared.scheduleRefresh()
+
         return true
     }
 
