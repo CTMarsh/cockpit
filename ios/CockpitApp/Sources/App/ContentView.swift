@@ -64,8 +64,8 @@ struct InfrastructureListView: View {
             NavigationLink("Homelab", destination: HomelabView())
             NavigationLink("Proxmox", destination: ProxmoxView())
             NavigationLink("Cluster Monitor", destination: SysmonView())
-            NavigationLink("k3s Manager", destination: PlaceholderView(title: "k3s Manager"))
-            NavigationLink("Home Assistant", destination: PlaceholderView(title: "Home Assistant"))
+            NavigationLink("k3s Manager", destination: K8sView())
+            NavigationLink("Home Assistant", destination: HomeAssistantView())
         }
         .navigationTitle("Infrastructure")
         .listStyle(.insetGrouped)
@@ -78,9 +78,9 @@ struct ToolsListView: View {
     var body: some View {
         List {
             NavigationLink("Bookmarks", destination: BookmarksView())
-            NavigationLink("Markdown", destination: PlaceholderView(title: "Markdown"))
+            NavigationLink("Markdown", destination: MarkdownView())
             NavigationLink("Graph", destination: PlaceholderView(title: "Graph"))
-            NavigationLink("Dedup", destination: PlaceholderView(title: "Dedup"))
+            NavigationLink("Dedup", destination: DedupView())
             NavigationLink("Randomizer", destination: RandomizerView())
         }
         .navigationTitle("Tools")
@@ -93,13 +93,13 @@ struct ToolsListView: View {
 struct OperationsListView: View {
     var body: some View {
         List {
-            NavigationLink("Logs", destination: PlaceholderView(title: "Logs"))
+            NavigationLink("Logs", destination: LogsView())
             NavigationLink("Cron Jobs", destination: CronView())
             NavigationLink("Wake-on-LAN", destination: WolView())
-            NavigationLink("Alerts", destination: PlaceholderView(title: "Alerts"))
-            NavigationLink("Backups", destination: PlaceholderView(title: "Backups"))
-            NavigationLink("MinIO", destination: PlaceholderView(title: "MinIO"))
-            NavigationLink("Notify", destination: PlaceholderView(title: "Notify"))
+            NavigationLink("Alerts", destination: AlertsView())
+            NavigationLink("Backups", destination: BackupsView())
+            NavigationLink("MinIO", destination: MinIOView())
+            NavigationLink("Notify", destination: NotifyView())
         }
         .navigationTitle("Operations")
         .listStyle(.insetGrouped)
