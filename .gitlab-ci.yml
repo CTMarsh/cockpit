@@ -18,6 +18,7 @@ stages:
   - test
   - version
   - build
+  - build:ios
   - deploy
 
 variables:
@@ -230,6 +231,136 @@ deploy:k8s:
   environment:
     name: production
     url: https://dashboard.noahsark.me
+
+# ── iOS Compile Check (MR only, no signing) ─────────────
+verify:ios:
+  stage: build:ios
+  tags:
+    - macos
+    - ios
+  variables:
+    LANG: en_US.UTF-8
+    LC_ALL: en_US.UTF-8
+  interruptible: true
+  before_script:
+    - eval "$(/opt/homebrew/bin/brew shellenv)"
+    - export PATH="$HOME/bin:$PATH"
+  script:
+    - cd ios
+    - xcodegen generate
+    - xcodebuild build
+      -project CockpitApp.xcodeproj
+      -scheme CockpitApp
+      -configuration Debug
+      -destination 'generic/platform=iOS'
+      CODE_SIGNING_ALLOWED=NO
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+      changes:
+        - ios/CockpitApp/**/*
+        - ios/project.yml
+
+# ── iOS Build (macOS runner, master only) ────────────────
+build:ios:
+  stage: build:ios
+  tags:
+    - macos
+    - ios
+  variables:
+    LANG: en_US.UTF-8
+    LC_ALL: en_US.UTF-8
+  interruptible: true
+  before_script:
+    - eval "$(/opt/homebrew/bin/brew shellenv)"
+    - export PATH="/opt/homebrew/opt/ruby/bin:$HOME/bin:$PATH"
+    - git config --global credential.helper store
+    - ruby --version
+    - bundle --version
+  script:
+    - cd ios
+    - bundle config set --local path 'vendor/bundle'
+    - bundle install
+    - xcodegen generate
+    - bundle exec fastlane build
+  artifacts:
+    paths:
+      - ios/build/*.ipa
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+      changes:
+        - ios/CockpitApp/**/*
+        - ios/project.yml
+
+# ── Deploy to TestFlight (macOS runner, master only) ──────
+deploy:testflight:
+  stage: deploy
+  tags:
+    - macos
+    - ios
+  variables:
+    LANG: en_US.UTF-8
+    LC_ALL: en_US.UTF-8
+  needs:
+    - job: build:ios
+      artifacts: true
+  resource_group: testflight
+  before_script:
+    - eval "$(/opt/homebrew/bin/brew shellenv)"
+    - export PATH="/opt/homebrew/opt/ruby/bin:$HOME/bin:$PATH"
+  script:
+    - cd ios
+    - bundle config set --local path 'vendor/bundle'
+    - bundle install
+    - bundle exec fastlane beta
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+      changes:
+        - ios/CockpitApp/**/*
+        - ios/project.yml
+  environment:
+    name: testflight
+
+# ── TestFlight Notification ──────────────────────────────
+notify:testflight:success:
+  stage: deploy
+  image: curlimages/curl:8.12.1
+  needs:
+    - job: deploy:testflight
+  script:
+    - |
+      curl -sf -X POST "https://notify.noahsark.me/api/webhook/${NOTIFY_PROJECT_SLUG}" \
+        -H "Content-Type: application/json" \
+        -H "X-API-Key: $NOTIFY_API_KEY" \
+        -d "{\"title\": \"✅ Cockpit iOS on TestFlight\", \"body\": \"$CI_COMMIT_SHORT_SHA uploaded to App Store Connect\", \"priority\": \"low\"}" \
+      || echo "Notify service unreachable — skipping notification"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+      changes:
+        - ios/CockpitApp/**/*
+        - ios/project.yml
+  when: on_success
+  allow_failure: true
+
+notify:testflight:failure:
+  stage: deploy
+  image: curlimages/curl:8.12.1
+  needs:
+    - job: deploy:testflight
+  script:
+    - |
+      curl -sf -X POST "https://notify.noahsark.me/api/webhook/${NOTIFY_PROJECT_SLUG}" \
+        -H "Content-Type: application/json" \
+        -H "X-API-Key: $NOTIFY_API_KEY" \
+        -d "{\"title\": \"❌ Cockpit iOS Build Failed\", \"body\": \"Pipeline $CI_PIPELINE_ID failed uploading $CI_COMMIT_SHORT_SHA\", \"priority\": \"high\"}" \
+      || echo "Notify service unreachable — skipping notification"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+      changes:
+        - ios/CockpitApp/**/*
+        - ios/project.yml
+  when: on_failure
+  allow_failure: true
 
 # ── Push Notification on Deploy ───────────────────────────
 # Sends a push notification via the notify service after deployment
