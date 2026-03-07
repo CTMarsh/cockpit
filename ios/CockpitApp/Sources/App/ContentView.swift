@@ -62,8 +62,8 @@ struct InfrastructureListView: View {
     var body: some View {
         List {
             NavigationLink("Homelab", destination: HomelabView())
-            NavigationLink("Proxmox", destination: PlaceholderView(title: "Proxmox"))
-            NavigationLink("Cluster Monitor", destination: PlaceholderView(title: "Cluster Monitor"))
+            NavigationLink("Proxmox", destination: ProxmoxView())
+            NavigationLink("Cluster Monitor", destination: SysmonView())
             NavigationLink("k3s Manager", destination: PlaceholderView(title: "k3s Manager"))
             NavigationLink("Home Assistant", destination: PlaceholderView(title: "Home Assistant"))
         }
@@ -77,11 +77,11 @@ struct InfrastructureListView: View {
 struct ToolsListView: View {
     var body: some View {
         List {
-            NavigationLink("Bookmarks", destination: PlaceholderView(title: "Bookmarks"))
+            NavigationLink("Bookmarks", destination: BookmarksView())
             NavigationLink("Markdown", destination: PlaceholderView(title: "Markdown"))
             NavigationLink("Graph", destination: PlaceholderView(title: "Graph"))
             NavigationLink("Dedup", destination: PlaceholderView(title: "Dedup"))
-            NavigationLink("Randomizer", destination: PlaceholderView(title: "Randomizer"))
+            NavigationLink("Randomizer", destination: RandomizerView())
         }
         .navigationTitle("Tools")
         .listStyle(.insetGrouped)
@@ -94,8 +94,8 @@ struct OperationsListView: View {
     var body: some View {
         List {
             NavigationLink("Logs", destination: PlaceholderView(title: "Logs"))
-            NavigationLink("Cron Jobs", destination: PlaceholderView(title: "Cron Jobs"))
-            NavigationLink("Wake-on-LAN", destination: PlaceholderView(title: "Wake-on-LAN"))
+            NavigationLink("Cron Jobs", destination: CronView())
+            NavigationLink("Wake-on-LAN", destination: WolView())
             NavigationLink("Alerts", destination: PlaceholderView(title: "Alerts"))
             NavigationLink("Backups", destination: PlaceholderView(title: "Backups"))
             NavigationLink("MinIO", destination: PlaceholderView(title: "MinIO"))
