@@ -3,6 +3,7 @@ import Security
 
 enum KeychainHelper {
     private static let service = "com.ctmarsh.noahsark-cockpit"
+    private static let accessGroup = "group.com.ctmarsh.cockpit"
 
     static func save(key: String, value: String) {
         guard let data = value.data(using: .utf8) else { return }
@@ -11,6 +12,7 @@ enum KeychainHelper {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: key,
+            kSecAttrAccessGroup as String: accessGroup,
         ]
 
         // Delete existing item first
@@ -18,7 +20,8 @@ enum KeychainHelper {
 
         var addQuery = query
         addQuery[kSecValueData as String] = data
-        addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        // Use afterFirstUnlock so widget extensions can access in background
+        addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
 
         SecItemAdd(addQuery as CFDictionary, nil)
     }
@@ -28,6 +31,7 @@ enum KeychainHelper {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: key,
+            kSecAttrAccessGroup as String: accessGroup,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
@@ -47,6 +51,7 @@ enum KeychainHelper {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: key,
+            kSecAttrAccessGroup as String: accessGroup,
         ]
         SecItemDelete(query as CFDictionary)
     }
