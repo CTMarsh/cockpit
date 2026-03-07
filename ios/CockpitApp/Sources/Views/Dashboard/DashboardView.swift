@@ -35,12 +35,12 @@ struct DashboardView: View {
                         GridItem(.flexible()),
                         GridItem(.flexible()),
                     ], spacing: 12) {
-                        StatCard(title: "Services", value: "\(stats.serviceCount)", icon: "server.rack", color: Theme.accent)
-                        StatCard(title: "Bookmarks", value: "\(stats.bookmarkCount)", icon: "bookmark.fill", color: Theme.info)
-                        StatCard(title: "Documents", value: "\(stats.docCount)", icon: "doc.text.fill", color: Theme.success)
-                        StatCard(title: "Cron Jobs", value: "\(stats.cronEnabled)/\(stats.cronTotal)", icon: "clock.fill", color: Theme.warning)
-                        StatCard(title: "WoL Devices", value: "\(stats.wolDeviceCount)", icon: "wake", color: Theme.info)
-                        StatCard(title: "Ideas", value: "\(stats.ideaCount)", icon: "lightbulb.fill", color: Theme.accent)
+                        StatCard(title: "Services", value: "\(stats.serviceCount ?? 0)", icon: "server.rack", color: Theme.accent)
+                        StatCard(title: "Bookmarks", value: "\(stats.bookmarkCount ?? 0)", icon: "bookmark.fill", color: Theme.info)
+                        StatCard(title: "Documents", value: "\(stats.docCount ?? 0)", icon: "doc.text.fill", color: Theme.success)
+                        StatCard(title: "Cron Jobs", value: "\(stats.cronEnabled ?? 0)/\(stats.cronTotal ?? 0)", icon: "clock.fill", color: Theme.warning)
+                        StatCard(title: "WoL Devices", value: "\(stats.wolDeviceCount ?? 0)", icon: "wake", color: Theme.info)
+                        StatCard(title: "Ideas", value: "\(stats.ideaCount ?? 0)", icon: "lightbulb.fill", color: Theme.accent)
                     }
                     .padding(.horizontal)
 
@@ -65,11 +65,11 @@ struct DashboardView: View {
                     .padding(.horizontal)
 
                     // Recent items
-                    if !stats.recentBookmarks.isEmpty {
+                    if let recentBookmarks = stats.recentBookmarks, !recentBookmarks.isEmpty {
                         SectionHeader(title: "Recent Bookmarks")
 
                         VStack(spacing: 8) {
-                            ForEach(stats.recentBookmarks) { bookmark in
+                            ForEach(recentBookmarks) { bookmark in
                                 HStack {
                                     Image(systemName: "bookmark.fill")
                                         .foregroundStyle(Theme.accent)

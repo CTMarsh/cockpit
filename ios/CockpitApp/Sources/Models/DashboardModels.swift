@@ -1,22 +1,24 @@
 import Foundation
 
-struct DashboardStats: Decodable {
-    let bookmarkCount: Int
-    let docCount: Int
-    let serviceCount: Int
-    let recentBookmarks: [RecentBookmark]
-    let recentDocs: [RecentDoc]
-    let cronTotal: Int
-    let cronEnabled: Int
-    let cronFailed: Int
-    let wolDeviceCount: Int
-    let graphNodeCount: Int
-    let graphEdgeCount: Int
-    let ideaCount: Int
-    let favoriteCount: Int
+struct DashboardStats: Codable {
+    let bookmarkCount: Int?
+    let docCount: Int?
+    let serviceCount: Int?
+    let recentBookmarks: [RecentBookmark]?
+    let recentDocs: [RecentDoc]?
+    let cronTotal: Int?
+    let cronEnabled: Int?
+    let cronFailed: Int?
+    let wolDeviceCount: Int?
+    let graphNodeCount: Int?
+    let graphEdgeCount: Int?
+    let ideaCount: Int?
+    let favoriteCount: Int?
+    let clusterNodes: Int?
+    let clusterOnline: Int?
 }
 
-struct RecentBookmark: Decodable, Identifiable {
+struct RecentBookmark: Codable, Identifiable {
     let id: Int
     let url: String
     let title: String?
@@ -24,13 +26,13 @@ struct RecentBookmark: Decodable, Identifiable {
     let createdAt: String?
 }
 
-struct RecentDoc: Decodable, Identifiable {
+struct RecentDoc: Codable, Identifiable {
     let id: Int
     let title: String
     let updatedAt: String?
 }
 
-struct HealthResponse: Decodable {
+struct HealthResponse: Codable {
     let status: String
     let name: String
     let version: String
