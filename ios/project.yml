@@ -1,0 +1,48 @@
+name: CockpitApp
+options:
+  bundleIdPrefix: com.ctmarsh
+  deploymentTarget:
+    iOS: "26.0"
+  xcodeVersion: "26.0"
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: WTPX4TSW4N
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "6.0"
+    TARGETED_DEVICE_FAMILY: "1"
+    SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: "NO"
+    SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: "NO"
+    ALWAYS_SEARCH_USER_PATHS: "NO"
+
+targets:
+  CockpitApp:
+    type: application
+    platform: iOS
+    sources:
+      - CockpitApp/Sources
+      - path: CockpitApp/Resources/Assets.xcassets
+        buildPhase: resources
+      - path: CockpitApp/Resources/CockpitApp.entitlements
+        buildPhase: none
+    settings:
+      base:
+        TARGETED_DEVICE_FAMILY: "1"
+        PRODUCT_NAME: NoahsArk Cockpit
+        PRODUCT_BUNDLE_IDENTIFIER: com.ctmarsh.noahsark-cockpit
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: NoahsArk Cockpit
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait"
+        INFOPLIST_KEY_UIBackgroundModes: "remote-notification fetch"
+        INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.utilities"
+        INFOPLIST_KEY_NSFaceIDUsageDescription: "Cockpit uses Face ID for quick login"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_ENTITLEMENTS: CockpitApp/Resources/CockpitApp.entitlements
+    entitlements:
+      path: CockpitApp/Resources/CockpitApp.entitlements
+      properties:
+        aps-environment: production
+    capabilities:
+      Push Notifications: {}
