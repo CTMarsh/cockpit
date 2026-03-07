@@ -206,7 +206,7 @@ build:web:
 deploy:k8s:
   stage: deploy
   image:
-    name: alpine/k8s:1.30.2
+    name: alpine/k8s:1.35.2
     entrypoint: [""]
   needs:
     - job: build:api
