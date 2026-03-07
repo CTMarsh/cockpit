@@ -232,19 +232,36 @@ deploy:k8s:
     name: production
     url: https://dashboard.noahsark.me
 
-# ── iOS Compile Check (MR only, no signing) ─────────────
-verify:ios:
-  stage: build:ios
+# ── iOS: macOS runner shared config ──────────────────────
+.ios-base: &ios-base
   tags:
     - macos
     - ios
   variables:
     LANG: en_US.UTF-8
     LC_ALL: en_US.UTF-8
-  interruptible: true
   before_script:
     - eval "$(/opt/homebrew/bin/brew shellenv)"
-    - export PATH="$HOME/bin:$PATH"
+    - export PATH="/opt/homebrew/opt/ruby/bin:$HOME/bin:$PATH"
+    - |
+      # Create and unlock CI keychain to avoid login keychain prompts
+      security create-keychain -p "" fastlane_ci.keychain 2>/dev/null || true
+      security unlock-keychain -p "" fastlane_ci.keychain
+      security set-keychain-settings -t 3600 fastlane_ci.keychain
+      security list-keychains -d user -s fastlane_ci.keychain login.keychain-db
+
+.ios-changes: &ios-changes
+  changes:
+    - ios/CockpitApp/**/*
+    - ios/project.yml
+    - ios/fastlane/**/*
+    - ios/Gemfile*
+
+# ── Stage: build:ios ─────────────────────────────────────
+build:ios:verify:
+  stage: build:ios
+  <<: *ios-base
+  interruptible: true
   script:
     - cd ios
     - xcodegen generate
@@ -256,67 +273,12 @@ verify:ios:
       CODE_SIGNING_ALLOWED=NO
   rules:
     - if: $CI_MERGE_REQUEST_IID
-      changes:
-        - ios/CockpitApp/**/*
-        - ios/project.yml
+      <<: *ios-changes
 
-# ── iOS Verify Notification ────────────────────────────
-notify:verify:ios:success:
+build:ios:release:
   stage: build:ios
-  image: curlimages/curl:8.12.1
-  needs:
-    - job: verify:ios
-  script:
-    - |
-      curl -sf -X POST "https://notify.noahsark.me/api/webhook/${NOTIFY_PROJECT_SLUG}" \
-        -H "Content-Type: application/json" \
-        -H "X-API-Key: $NOTIFY_API_KEY" \
-        -d "{\"title\": \"✅ Cockpit iOS Build Passed\", \"body\": \"MR compile check passed for $CI_COMMIT_SHORT_SHA\", \"priority\": \"low\"}" \
-      || echo "Notify service unreachable — skipping notification"
-  rules:
-    - if: $CI_MERGE_REQUEST_IID
-      changes:
-        - ios/CockpitApp/**/*
-        - ios/project.yml
-  when: on_success
-  allow_failure: true
-
-notify:verify:ios:failure:
-  stage: build:ios
-  image: curlimages/curl:8.12.1
-  needs:
-    - job: verify:ios
-  script:
-    - |
-      curl -sf -X POST "https://notify.noahsark.me/api/webhook/${NOTIFY_PROJECT_SLUG}" \
-        -H "Content-Type: application/json" \
-        -H "X-API-Key: $NOTIFY_API_KEY" \
-        -d "{\"title\": \"❌ Cockpit iOS Build Failed\", \"body\": \"MR compile check failed for $CI_COMMIT_SHORT_SHA\", \"priority\": \"high\"}" \
-      || echo "Notify service unreachable — skipping notification"
-  rules:
-    - if: $CI_MERGE_REQUEST_IID
-      changes:
-        - ios/CockpitApp/**/*
-        - ios/project.yml
-  when: on_failure
-  allow_failure: true
-
-# ── iOS Build (macOS runner, master only) ────────────────
-build:ios:
-  stage: build:ios
-  tags:
-    - macos
-    - ios
-  variables:
-    LANG: en_US.UTF-8
-    LC_ALL: en_US.UTF-8
+  <<: *ios-base
   interruptible: true
-  before_script:
-    - eval "$(/opt/homebrew/bin/brew shellenv)"
-    - export PATH="/opt/homebrew/opt/ruby/bin:$HOME/bin:$PATH"
-    - git config --global credential.helper store
-    - ruby --version
-    - bundle --version
   script:
     - cd ios
     - bundle config set --local path 'vendor/bundle'
@@ -329,26 +291,16 @@ build:ios:
     expire_in: 1 week
   rules:
     - if: $CI_COMMIT_BRANCH == "master"
-      changes:
-        - ios/CockpitApp/**/*
-        - ios/project.yml
+      <<: *ios-changes
 
-# ── Deploy to TestFlight (macOS runner, master only) ──────
+# ── Stage: deploy (iOS) ─────────────────────────────────
 deploy:testflight:
   stage: deploy
-  tags:
-    - macos
-    - ios
-  variables:
-    LANG: en_US.UTF-8
-    LC_ALL: en_US.UTF-8
+  <<: *ios-base
   needs:
-    - job: build:ios
+    - job: build:ios:release
       artifacts: true
   resource_group: testflight
-  before_script:
-    - eval "$(/opt/homebrew/bin/brew shellenv)"
-    - export PATH="/opt/homebrew/opt/ruby/bin:$HOME/bin:$PATH"
   script:
     - cd ios
     - bundle config set --local path 'vendor/bundle'
@@ -356,50 +308,64 @@ deploy:testflight:
     - bundle exec fastlane beta
   rules:
     - if: $CI_COMMIT_BRANCH == "master"
-      changes:
-        - ios/CockpitApp/**/*
-        - ios/project.yml
+      <<: *ios-changes
   environment:
     name: testflight
 
-# ── TestFlight Notification ──────────────────────────────
-notify:testflight:success:
+# ── iOS Notifications ────────────────────────────────────
+notify:ios:success:
   stage: deploy
   image: curlimages/curl:8.12.1
   needs:
+    - job: build:ios:verify
+      optional: true
     - job: deploy:testflight
+      optional: true
   script:
     - |
+      if [ "$CI_MERGE_REQUEST_IID" ]; then
+        MSG="MR compile check passed for $CI_COMMIT_SHORT_SHA"
+      else
+        MSG="$CI_COMMIT_SHORT_SHA uploaded to TestFlight"
+      fi
       curl -sf -X POST "https://notify.noahsark.me/api/webhook/${NOTIFY_PROJECT_SLUG}" \
         -H "Content-Type: application/json" \
         -H "X-API-Key: $NOTIFY_API_KEY" \
-        -d "{\"title\": \"✅ Cockpit iOS on TestFlight\", \"body\": \"$CI_COMMIT_SHORT_SHA uploaded to App Store Connect\", \"priority\": \"low\"}" \
+        -d "{\"title\": \"✅ Cockpit iOS\", \"body\": \"$MSG\", \"priority\": \"low\"}" \
       || echo "Notify service unreachable — skipping notification"
   rules:
+    - if: $CI_MERGE_REQUEST_IID
+      <<: *ios-changes
     - if: $CI_COMMIT_BRANCH == "master"
-      changes:
-        - ios/CockpitApp/**/*
-        - ios/project.yml
+      <<: *ios-changes
   when: on_success
   allow_failure: true
 
-notify:testflight:failure:
+notify:ios:failure:
   stage: deploy
   image: curlimages/curl:8.12.1
   needs:
+    - job: build:ios:verify
+      optional: true
     - job: deploy:testflight
+      optional: true
   script:
     - |
+      if [ "$CI_MERGE_REQUEST_IID" ]; then
+        MSG="MR compile check failed for $CI_COMMIT_SHORT_SHA"
+      else
+        MSG="Pipeline $CI_PIPELINE_ID failed for $CI_COMMIT_SHORT_SHA"
+      fi
       curl -sf -X POST "https://notify.noahsark.me/api/webhook/${NOTIFY_PROJECT_SLUG}" \
         -H "Content-Type: application/json" \
         -H "X-API-Key: $NOTIFY_API_KEY" \
-        -d "{\"title\": \"❌ Cockpit iOS Build Failed\", \"body\": \"Pipeline $CI_PIPELINE_ID failed uploading $CI_COMMIT_SHORT_SHA\", \"priority\": \"high\"}" \
+        -d "{\"title\": \"❌ Cockpit iOS\", \"body\": \"$MSG\", \"priority\": \"high\"}" \
       || echo "Notify service unreachable — skipping notification"
   rules:
+    - if: $CI_MERGE_REQUEST_IID
+      <<: *ios-changes
     - if: $CI_COMMIT_BRANCH == "master"
-      changes:
-        - ios/CockpitApp/**/*
-        - ios/project.yml
+      <<: *ios-changes
   when: on_failure
   allow_failure: true
 
