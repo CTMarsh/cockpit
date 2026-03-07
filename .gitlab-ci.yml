@@ -3,6 +3,8 @@
 workflow:
   rules:
     - if: $CI_MERGE_REQUEST_IID
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
     - if: $CI_COMMIT_BRANCH
 
 # ── Security Scanning Templates ───────────────────────────
@@ -204,7 +206,7 @@ build:web:
 deploy:k8s:
   stage: deploy
   image:
-    name: bitnami/kubectl:1.30
+    name: alpine/k8s:1.35.2
     entrypoint: [""]
   needs:
     - job: build:api
