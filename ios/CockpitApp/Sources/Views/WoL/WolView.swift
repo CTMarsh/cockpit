@@ -30,6 +30,7 @@ struct WolView: View {
                     ], spacing: 12) {
                         ForEach(service.devices) { device in
                             DeviceCard(device: device, isWaking: wakingId == device.id) {
+                                UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
                                 Task {
                                     wakingId = device.id
                                     let sent = await service.wake(id: device.id)

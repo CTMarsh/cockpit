@@ -36,6 +36,7 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait"
         INFOPLIST_KEY_UIBackgroundModes: "remote-notification fetch"
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: NO
         INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.utilities"
         INFOPLIST_KEY_NSFaceIDUsageDescription: "Cockpit uses Face ID for quick login"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -44,6 +45,7 @@ targets:
       path: CockpitApp/Resources/CockpitApp.entitlements
       properties:
         aps-environment: production
+        com.apple.developer.carplay-driving-task: true
     dependencies:
       - target: CockpitWidgetExtension
     capabilities:

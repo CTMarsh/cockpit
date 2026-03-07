@@ -136,6 +136,7 @@ private struct AlertRuleCard: View {
                 .tint(Theme.accent)
 
                 Button(role: .destructive) {
+                    UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
                     Task { await service.deleteRule(id: rule.id) }
                 } label: {
                     Label("Delete", systemImage: "trash")

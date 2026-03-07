@@ -53,6 +53,17 @@ struct LogsView: View {
                     .padding(.horizontal, 8)
                 }
                 .background(Theme.surface)
+                .refreshable {
+                    if logMode == 0 {
+                        if let source = selectedSource {
+                            await service.fetchContainerLogs(id: source.id)
+                        }
+                    } else {
+                        if let unit = selectedUnit {
+                            await service.fetchSystemLogs(unit: unit.name)
+                        }
+                    }
+                }
             }
         }
         .background(Theme.background)

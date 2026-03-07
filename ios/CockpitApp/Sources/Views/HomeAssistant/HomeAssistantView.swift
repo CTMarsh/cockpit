@@ -2,6 +2,14 @@ import SwiftUI
 
 struct HomeAssistantView: View {
     @ObservedObject private var service = HomeAssistantService.shared
+    @StateObject private var sse = SSEClient { eventType, data in
+        guard let jsonData = data.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+              let entityId = json["entity_id"] as? String,
+              let newState = json["state"] as? String else { return }
+        HomeAssistantService.shared.updateEntityState(entityId: entityId, state: newState)
+    }
+    @State private var isLive = false
 
     var sortedDomains: [String] {
         service.groupedEntities.keys.sorted()
@@ -57,8 +65,37 @@ struct HomeAssistantView: View {
         }
         .background(Theme.background)
         .navigationTitle("Home Assistant")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    if isLive {
+                        sse.disconnect()
+                        isLive = false
+                    } else {
+                        sse.connect(path: "/api/homeassistant/events")
+                        isLive = true
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(isLive ? Theme.success : Theme.textMuted)
+                            .frame(width: 6, height: 6)
+                        Text(isLive ? "Live" : "Paused")
+                            .font(.caption2)
+                    }
+                }
+            }
+        }
         .refreshable { await service.fetchEntities() }
-        .task { await service.fetchEntities() }
+        .task {
+            await service.fetchEntities()
+            sse.connect(path: "/api/homeassistant/events")
+            isLive = true
+        }
+        .onDisappear {
+            sse.disconnect()
+            isLive = false
+        }
     }
 }
 

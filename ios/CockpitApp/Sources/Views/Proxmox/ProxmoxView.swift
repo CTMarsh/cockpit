@@ -68,6 +68,7 @@ struct ProxmoxView: View {
         ) {
             if let action = confirmAction {
                 Button("\(action.action.capitalized) \(action.name)?") {
+                    UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
                     Task {
                         await service.vmAction(vmid: action.vmid, action: action.action, node: action.node, type: action.type)
                     }

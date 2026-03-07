@@ -100,6 +100,7 @@ private struct CronJobCard: View {
 
             HStack(spacing: 12) {
                 Button {
+                    UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
                     isRunning = true
                     Task {
                         _ = await service.runJob(id: job.id)

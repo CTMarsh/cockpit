@@ -108,40 +108,6 @@ struct OperationsListView: View {
     }
 }
 
-struct SettingsView: View {
-    @ObservedObject private var auth = AuthService.shared
-    @ObservedObject private var api = APIClient.shared
-    @State private var serverURL: String = ""
-
-    var body: some View {
-        List {
-            Section("Server") {
-                TextField("Server URL", text: $serverURL)
-                    .textContentType(.URL)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .onAppear { serverURL = api.baseURL }
-                    .onSubmit { api.baseURL = serverURL }
-            }
-
-            Section("Account") {
-                Button("Sign Out", role: .destructive) {
-                    Task { await auth.logout() }
-                }
-            }
-
-            Section("About") {
-                LabeledContent("Version", value: "0.1.0")
-                LabeledContent("Build", value: "1")
-            }
-        }
-        .navigationTitle("Settings")
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(Theme.background)
-    }
-}
-
 struct PlaceholderView: View {
     let title: String
 

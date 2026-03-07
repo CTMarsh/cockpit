@@ -145,6 +145,7 @@ private struct WorkloadCard: View {
             TextField("Replicas", value: $scaleReplicas, format: .number)
                 .keyboardType(.numberPad)
             Button("Scale") {
+                UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
                 Task {
                     _ = await service.scaleDeployment(ns: workload.namespace, name: workload.name, replicas: scaleReplicas)
                     await service.fetchWorkloads()

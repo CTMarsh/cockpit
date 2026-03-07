@@ -25,6 +25,7 @@ struct BackupsView: View {
                 } else {
                     // Trigger button
                     Button {
+                        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
                         Task { _ = await service.triggerBackup() }
                     } label: {
                         if service.isTriggering {

@@ -32,6 +32,23 @@ import Foundation
         } catch { self.error = error.localizedDescription }
     }
 
+    func updateEntityState(entityId: String, state: String) {
+        if let idx = entities.firstIndex(where: { $0.entityId == entityId }) {
+            let old = entities[idx]
+            entities[idx] = HAEntity(
+                entityId: old.entityId,
+                state: state,
+                domain: old.domain,
+                friendlyName: old.friendlyName,
+                icon: old.icon,
+                unit: old.unit,
+                deviceClass: old.deviceClass,
+                lastChanged: old.lastChanged,
+                lastUpdated: old.lastUpdated
+            )
+        }
+    }
+
     func callService(domain: String, service: String, entityId: String?) async -> Bool {
         do {
             var body: [String: String] = [:]
