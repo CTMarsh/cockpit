@@ -79,7 +79,7 @@ struct ToolsListView: View {
         List {
             NavigationLink("Bookmarks", destination: BookmarksView())
             NavigationLink("Markdown", destination: MarkdownView())
-            NavigationLink("Graph", destination: PlaceholderView(title: "Graph"))
+            NavigationLink("Graph", destination: GraphView())
             NavigationLink("Dedup", destination: DedupView())
             NavigationLink("Randomizer", destination: RandomizerView())
         }
