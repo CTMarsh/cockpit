@@ -43,9 +43,7 @@ import Foundation
         do {
             let body: [String: Bool] = ["enabled": enabled]
             let _: GenericOKResponse = try await APIClient.shared.request(path: "/api/alerts/rules/\(id)", method: "PUT", body: body)
-            if let i = rules.firstIndex(where: { $0.id == id }) {
-                await fetchRules()
-            }
+            await fetchRules()
         } catch { self.error = error.localizedDescription }
     }
 

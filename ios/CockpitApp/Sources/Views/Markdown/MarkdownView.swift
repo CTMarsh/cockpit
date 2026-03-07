@@ -82,12 +82,23 @@ struct MarkdownView: View {
 struct MarkdownEditorView: View {
     let documentId: String
     @ObservedObject private var service = MarkdownService.shared
+    @StateObject private var ws = WebSocketClient()
     @State private var content = ""
     @State private var isSaving = false
     @FocusState private var isEditing: Bool
 
     var body: some View {
         VStack(spacing: 0) {
+            if ws.isConnected {
+                HStack(spacing: 4) {
+                    Circle().fill(Theme.success).frame(width: 6, height: 6)
+                    Text("Live").font(.caption2).foregroundStyle(Theme.textMuted)
+                    Spacer()
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 4)
+            }
+
             if service.isLoading {
                 LoadingView()
             } else {
@@ -123,6 +134,15 @@ struct MarkdownEditorView: View {
         .task {
             await service.fetchDocument(id: documentId)
             content = service.currentDocument?.content ?? ""
+            ws.connect(docId: documentId) { message in
+                // Update content from remote collaborator
+                if let data = message.data(using: .utf8),
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let remoteContent = json["content"] as? String {
+                    content = remoteContent
+                }
+            }
         }
+        .onDisappear { ws.disconnect() }
     }
 }

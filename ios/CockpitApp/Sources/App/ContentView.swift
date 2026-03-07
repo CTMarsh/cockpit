@@ -18,10 +18,10 @@ struct ContentView: View {
 }
 
 struct MainTabView: View {
-    @State private var selectedTab = 0
+    @ObservedObject private var router = DeepLinkRouter.shared
 
     var body: some View {
-        TabView(selection: $selectedTab) {
+        TabView(selection: $router.selectedTab) {
             Tab("Dashboard", systemImage: "square.grid.2x2", value: 0) {
                 NavigationStack {
                     DashboardView()

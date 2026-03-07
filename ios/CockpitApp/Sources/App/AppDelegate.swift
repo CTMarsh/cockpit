@@ -40,8 +40,11 @@ class AppDelegate: NSObject, UIApplicationDelegate, @unchecked Sendable {
         let token = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
         print("APNs device token: \(token)")
 
-        // Store token for registration with Notify service
+        // Store token and register with Notify service
         KeychainHelper.save(key: "deviceToken", value: token)
+        Task { @MainActor in
+            await PushRegistration.register(token: token)
+        }
     }
 
     func application(
@@ -80,7 +83,12 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, Se
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        // Deep link handling will be added in Milestone 4
+        let userInfo = response.notification.request.content.userInfo
+        if let module = userInfo["module"] as? String {
+            Task { @MainActor in
+                DeepLinkRouter.shared.navigate(to: module)
+            }
+        }
         completionHandler()
     }
 }
