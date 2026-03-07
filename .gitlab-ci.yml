@@ -18,6 +18,7 @@ stages:
   - test
   - version
   - build
+  - build:ios
   - deploy
 
 variables:
@@ -230,6 +231,143 @@ deploy:k8s:
   environment:
     name: production
     url: https://dashboard.noahsark.me
+
+# ── iOS: macOS runner shared config ──────────────────────
+.ios-base: &ios-base
+  tags:
+    - macos
+    - ios
+  variables:
+    LANG: en_US.UTF-8
+    LC_ALL: en_US.UTF-8
+  before_script:
+    - eval "$(/opt/homebrew/bin/brew shellenv)"
+    - export PATH="/opt/homebrew/opt/ruby/bin:$HOME/bin:$PATH"
+    - |
+      # Create and unlock CI keychain to avoid login keychain prompts
+      security create-keychain -p "" fastlane_ci.keychain 2>/dev/null || true
+      security unlock-keychain -p "" fastlane_ci.keychain
+      security set-keychain-settings -t 3600 fastlane_ci.keychain
+      security list-keychains -d user -s fastlane_ci.keychain login.keychain-db
+
+.ios-changes: &ios-changes
+  changes:
+    - ios/CockpitApp/**/*
+    - ios/project.yml
+    - ios/fastlane/**/*
+    - ios/Gemfile*
+
+# ── Stage: build:ios ─────────────────────────────────────
+build:ios:verify:
+  stage: build:ios
+  <<: *ios-base
+  interruptible: true
+  script:
+    - cd ios
+    - xcodegen generate
+    - xcodebuild build
+      -project CockpitApp.xcodeproj
+      -scheme CockpitApp
+      -configuration Debug
+      -destination 'generic/platform=iOS'
+      CODE_SIGNING_ALLOWED=NO
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+      <<: *ios-changes
+
+build:ios:release:
+  stage: build:ios
+  <<: *ios-base
+  interruptible: true
+  script:
+    - cd ios
+    - bundle config set --local path 'vendor/bundle'
+    - bundle install
+    - xcodegen generate
+    - bundle exec fastlane build
+  artifacts:
+    paths:
+      - ios/build/*.ipa
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+      <<: *ios-changes
+
+# ── Stage: deploy (iOS) ─────────────────────────────────
+deploy:testflight:
+  stage: deploy
+  <<: *ios-base
+  needs:
+    - job: build:ios:release
+      artifacts: true
+  resource_group: testflight
+  script:
+    - cd ios
+    - bundle config set --local path 'vendor/bundle'
+    - bundle install
+    - bundle exec fastlane beta
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+      <<: *ios-changes
+  environment:
+    name: testflight
+
+# ── iOS Notifications ────────────────────────────────────
+notify:ios:success:
+  stage: deploy
+  image: curlimages/curl:8.12.1
+  needs:
+    - job: build:ios:verify
+      optional: true
+    - job: deploy:testflight
+      optional: true
+  script:
+    - |
+      if [ "$CI_MERGE_REQUEST_IID" ]; then
+        MSG="MR compile check passed for $CI_COMMIT_SHORT_SHA"
+      else
+        MSG="$CI_COMMIT_SHORT_SHA uploaded to TestFlight"
+      fi
+      curl -sf -X POST "https://notify.noahsark.me/api/webhook/${NOTIFY_PROJECT_SLUG}" \
+        -H "Content-Type: application/json" \
+        -H "X-API-Key: $NOTIFY_API_KEY" \
+        -d "{\"title\": \"✅ Cockpit iOS\", \"body\": \"$MSG\", \"priority\": \"low\"}" \
+      || echo "Notify service unreachable — skipping notification"
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+      <<: *ios-changes
+    - if: $CI_COMMIT_BRANCH == "master"
+      <<: *ios-changes
+  when: on_success
+  allow_failure: true
+
+notify:ios:failure:
+  stage: deploy
+  image: curlimages/curl:8.12.1
+  needs:
+    - job: build:ios:verify
+      optional: true
+    - job: deploy:testflight
+      optional: true
+  script:
+    - |
+      if [ "$CI_MERGE_REQUEST_IID" ]; then
+        MSG="MR compile check failed for $CI_COMMIT_SHORT_SHA"
+      else
+        MSG="Pipeline $CI_PIPELINE_ID failed for $CI_COMMIT_SHORT_SHA"
+      fi
+      curl -sf -X POST "https://notify.noahsark.me/api/webhook/${NOTIFY_PROJECT_SLUG}" \
+        -H "Content-Type: application/json" \
+        -H "X-API-Key: $NOTIFY_API_KEY" \
+        -d "{\"title\": \"❌ Cockpit iOS\", \"body\": \"$MSG\", \"priority\": \"high\"}" \
+      || echo "Notify service unreachable — skipping notification"
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+      <<: *ios-changes
+    - if: $CI_COMMIT_BRANCH == "master"
+      <<: *ios-changes
+  when: on_failure
+  allow_failure: true
 
 # ── Push Notification on Deploy ───────────────────────────
 # Sends a push notification via the notify service after deployment
