@@ -34,7 +34,9 @@ final class SysmonService: ObservableObject {
         do {
             let response: SysmonNodesResponse = try await api.request(path: "/api/sysmon/nodes")
             nodes = response.nodes
-        } catch {}
+        } catch {
+            if self.error == nil { self.error = error.localizedDescription }
+        }
     }
 
     func fetchPods(namespace: String? = nil) async {
@@ -42,7 +44,9 @@ final class SysmonService: ObservableObject {
             let path = namespace.map { "/api/sysmon/pods?namespace=\($0)" } ?? "/api/sysmon/pods"
             let response: PodsResponse = try await api.request(path: path)
             pods = response.pods ?? []
-        } catch {}
+        } catch {
+            if self.error == nil { self.error = error.localizedDescription }
+        }
     }
 
     func startPolling() {

@@ -48,6 +48,14 @@ struct K8sView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    Button("All Namespaces") {
+                        service.selectedNamespace = ""
+                        Task {
+                            await service.fetchWorkloads()
+                            await service.fetchEvents()
+                        }
+                    }
+                    Divider()
                     ForEach(service.namespaces, id: \.self) { ns in
                         Button(ns) {
                             service.selectedNamespace = ns
@@ -58,8 +66,11 @@ struct K8sView: View {
                         }
                     }
                 } label: {
-                    Label(service.selectedNamespace, systemImage: "line.3.horizontal.decrease.circle")
-                        .font(.caption)
+                    Label(
+                        service.selectedNamespace.isEmpty ? "All Namespaces" : service.selectedNamespace,
+                        systemImage: "line.3.horizontal.decrease.circle"
+                    )
+                    .font(.caption)
                 }
             }
         }

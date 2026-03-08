@@ -15,7 +15,7 @@ struct ProxmoxNode: Decodable, Identifiable {
     var id: String { node }
     let node: String
     let status: String
-    let uptime: Int
+    let uptime: Int?
     let cpuPercent: Double
     let memTotal: Double
     let memUsed: Double

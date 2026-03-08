@@ -18,7 +18,9 @@ final class ProxmoxService: ObservableObject {
     func fetchStatus() async {
         do {
             status = try await api.request(path: "/api/proxmox/status")
-        } catch {}
+        } catch {
+            if self.error == nil { self.error = error.localizedDescription }
+        }
     }
 
     func fetchNodes() async {
