@@ -20,6 +20,19 @@ struct K8sView: View {
 
             if service.isLoading && service.workloads.isEmpty {
                 LoadingView()
+            } else if !service.isAvailable {
+                VStack(spacing: 12) {
+                    Image(systemName: "cube.transparent")
+                        .font(.system(size: 48))
+                        .foregroundStyle(Theme.textMuted)
+                    Text("Kubernetes unavailable")
+                        .foregroundStyle(Theme.textMuted)
+                    Text("KUBECONFIG not configured on server")
+                        .font(.caption)
+                        .foregroundStyle(Theme.textMuted)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 60)
             } else {
                 ScrollView {
                     if selectedTab == 0 {

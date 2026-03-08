@@ -13,15 +13,28 @@ struct ProxmoxView: View {
                 }
 
                 if let status = service.status, !status.configured {
-                    HStack {
-                        Image(systemName: "exclamationmark.triangle")
-                            .foregroundStyle(Theme.warning)
-                        Text("Proxmox not configured on server")
+                    VStack(spacing: 12) {
+                        Image(systemName: "server.rack")
+                            .font(.system(size: 48))
+                            .foregroundStyle(Theme.textMuted)
+                        Text("Proxmox not configured")
+                            .foregroundStyle(Theme.textMuted)
+                        Text("Set PVE_URL and PVE_TOKEN on server")
+                            .font(.caption)
                             .foregroundStyle(Theme.textMuted)
                     }
-                    .padding()
+                    .padding(.top, 60)
                 } else if service.isLoading && service.nodes.isEmpty {
                     LoadingView()
+                } else if service.nodes.isEmpty && service.vms.isEmpty && service.error == nil {
+                    VStack(spacing: 12) {
+                        Image(systemName: "server.rack")
+                            .font(.system(size: 48))
+                            .foregroundStyle(Theme.textMuted)
+                        Text("No Proxmox data")
+                            .foregroundStyle(Theme.textMuted)
+                    }
+                    .padding(.top, 60)
                 } else {
                     // Nodes
                     if !service.nodes.isEmpty {

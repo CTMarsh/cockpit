@@ -6,6 +6,7 @@ import Foundation
     @Published var selectedNamespace: String = "default"
     @Published var workloads: [K8sWorkload] = []
     @Published var events: [K8sEvent] = []
+    @Published var isAvailable = true
     @Published var isLoading = false
     @Published var error: String?
 
@@ -15,6 +16,7 @@ import Foundation
         do {
             let resp: NamespacesResponse = try await APIClient.shared.request(path: "/api/k8s/namespaces")
             namespaces = resp.namespaces
+            isAvailable = resp.available
         } catch { self.error = error.localizedDescription }
     }
 
@@ -23,6 +25,7 @@ import Foundation
         do {
             let resp: WorkloadsResponse = try await APIClient.shared.request(path: "/api/k8s/workloads?namespace=\(selectedNamespace)")
             workloads = resp.workloads
+            isAvailable = resp.available
             self.error = nil
         } catch { self.error = error.localizedDescription }
         isLoading = false

@@ -12,7 +12,10 @@ struct DashboardView: View {
                     HStack {
                         StatusBadge(text: "Online", color: Theme.success)
                         Spacer()
-                        Text("v\(health.version)")
+                        let displayVersion = health.version == "unknown"
+                            ? (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.0")
+                            : health.version
+                        Text("v\(displayVersion)")
                             .font(.caption)
                             .foregroundStyle(Theme.textMuted)
                         Text("\(health.modules) modules")
