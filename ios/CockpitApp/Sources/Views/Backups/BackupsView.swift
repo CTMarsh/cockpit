@@ -2,6 +2,10 @@ import SwiftUI
 
 struct BackupsView: View {
     @ObservedObject private var service = BackupService.shared
+    @State private var downloadingKey: String?
+    @State private var shareURL: URL?
+    @State private var showShareSheet = false
+    @State private var downloadError: String?
 
     var body: some View {
         ScrollView {
@@ -9,6 +13,13 @@ struct BackupsView: View {
                 if let error = service.error {
                     ErrorBanner(message: error)
                         .padding(.horizontal)
+                }
+
+                if let downloadError {
+                    ErrorBanner(message: downloadError) {
+                        self.downloadError = nil
+                    }
+                    .padding(.horizontal)
                 }
 
                 if service.isLoading {
@@ -63,6 +74,22 @@ struct BackupsView: View {
                                 Text(backup.sizeHuman)
                                     .font(.caption)
                                     .foregroundStyle(Theme.textMuted)
+
+                                // Download button
+                                Button {
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                    downloadBackup(backup)
+                                } label: {
+                                    if downloadingKey == backup.key {
+                                        ProgressView()
+                                            .tint(Theme.accent)
+                                    } else {
+                                        Image(systemName: "arrow.down.circle")
+                                            .foregroundStyle(Theme.accent)
+                                            .font(.title3)
+                                    }
+                                }
+                                .disabled(downloadingKey != nil)
                             }
                             .padding(12)
                             .background(Theme.surface)
@@ -78,5 +105,51 @@ struct BackupsView: View {
         .navigationTitle("Backups")
         .refreshable { await service.fetchBackups() }
         .task { await service.fetchBackups() }
+        .sheet(isPresented: $showShareSheet) {
+            if let shareURL {
+                ShareSheet(activityItems: [shareURL])
+            }
+        }
     }
+
+    private func downloadBackup(_ backup: Backup) {
+        guard let url = service.downloadURL(for: backup) else {
+            downloadError = "Invalid download URL"
+            return
+        }
+        downloadingKey = backup.key
+        Task {
+            do {
+                let config = URLSessionConfiguration.default
+                config.httpCookieStorage = HTTPCookieStorage.shared
+                let session = URLSession(configuration: config)
+                let (tempURL, response) = try await session.download(from: url)
+                guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                    downloadError = "Download failed (server error)"
+                    downloadingKey = nil
+                    return
+                }
+                // Move to a named temporary file for sharing
+                let dest = FileManager.default.temporaryDirectory.appendingPathComponent(backup.name)
+                try? FileManager.default.removeItem(at: dest)
+                try FileManager.default.moveItem(at: tempURL, to: dest)
+                shareURL = dest
+                showShareSheet = true
+            } catch {
+                downloadError = error.localizedDescription
+            }
+            downloadingKey = nil
+        }
+    }
+}
+
+/// UIKit share sheet wrapper for SwiftUI
+private struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
