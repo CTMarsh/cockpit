@@ -22,21 +22,9 @@ platform :ios do
       )
     end
 
-    # iOS profiles (main app + widget)
     match(
       type: "appstore",
-      app_identifier: [
-        "com.ctmarsh.noahsark-cockpit",
-        "com.ctmarsh.noahsark-cockpit.widgets"
-      ],
-      readonly: is_ci ? false : true
-    )
-
-    # watchOS profile
-    match(
-      type: "appstore",
-      platform: "watchos",
-      app_identifier: ["com.ctmarsh.noahsark-cockpit.watchkitapp"],
+      app_identifier: APP_IDENTIFIERS,
       readonly: is_ci ? false : true
     )
 
