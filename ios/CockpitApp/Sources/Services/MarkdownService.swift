@@ -10,8 +10,8 @@ import Foundation
     func fetchDocuments() async {
         isLoading = documents.isEmpty
         do {
-            let resp: MarkdownListResponse = try await APIClient.shared.request(path: "/api/markdown/documents")
-            documents = resp.documents
+            let resp: MarkdownListResponse = try await APIClient.shared.request(path: "/api/markdown/docs")
+            documents = resp.docs
             self.error = nil
         } catch { self.error = error.localizedDescription }
         isLoading = false
@@ -20,7 +20,7 @@ import Foundation
     func fetchDocument(id: String) async {
         isLoading = true
         do {
-            currentDocument = try await APIClient.shared.request(path: "/api/markdown/documents/\(id)")
+            currentDocument = try await APIClient.shared.request(path: "/api/markdown/docs/\(id)")
             self.error = nil
         } catch { self.error = error.localizedDescription }
         isLoading = false
@@ -28,8 +28,11 @@ import Foundation
 
     func createDocument(title: String, content: String = "") async -> MarkdownDocument? {
         do {
-            let body = ["title": title, "content": content]
-            let doc: MarkdownDocument = try await APIClient.shared.request(path: "/api/markdown/documents", method: "POST", body: body)
+            let id = UUID().uuidString.lowercased()
+            let docContent = content.isEmpty ? "# \(title)\n" : content
+            let body = ["content": docContent]
+            let _: MarkdownSaveResponse = try await APIClient.shared.request(path: "/api/markdown/docs/\(id)", method: "PUT", body: body)
+            let doc = MarkdownDocument(id: id, title: title, content: docContent, createdAt: nil, updatedAt: nil, wordCount: nil, size: nil)
             documents.insert(doc, at: 0)
             return doc
         } catch { self.error = error.localizedDescription; return nil }
@@ -37,20 +40,17 @@ import Foundation
 
     func updateDocument(id: String, title: String? = nil, content: String? = nil) async {
         do {
-            var body: [String: String] = [:]
-            if let title { body["title"] = title }
-            if let content { body["content"] = content }
-            let doc: MarkdownDocument = try await APIClient.shared.request(path: "/api/markdown/documents/\(id)", method: "PUT", body: body)
-            currentDocument = doc
-            if let i = documents.firstIndex(where: { $0.id == id }) {
-                documents[i] = doc
-            }
+            let docContent = content ?? currentDocument?.content ?? ""
+            let body = ["content": docContent]
+            let _: MarkdownSaveResponse = try await APIClient.shared.request(path: "/api/markdown/docs/\(id)", method: "PUT", body: body)
+            // Refetch to get updated document
+            await fetchDocument(id: id)
         } catch { self.error = error.localizedDescription }
     }
 
     func deleteDocument(id: String) async {
         do {
-            let _: GenericOKResponse = try await APIClient.shared.request(path: "/api/markdown/documents/\(id)", method: "DELETE")
+            let _: GenericOKResponse = try await APIClient.shared.request(path: "/api/markdown/docs/\(id)", method: "DELETE")
             documents.removeAll { $0.id == id }
         } catch { self.error = error.localizedDescription }
     }

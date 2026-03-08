@@ -5,16 +5,16 @@ struct CronJobsResponse: Decodable {
 }
 
 struct CronJob: Decodable, Identifiable {
-    let id: Int
+    let id: String
     let name: String
     let schedule: String
     let command: String
-    let enabled: Int
+    let enabled: Bool
     let createdAt: String?
     let updatedAt: String?
     let lastRun: CronRun?
 
-    var isEnabled: Bool { enabled == 1 }
+    var isEnabled: Bool { enabled }
 }
 
 struct CronRun: Decodable, Identifiable {
