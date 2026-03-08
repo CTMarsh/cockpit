@@ -62,6 +62,8 @@ targets:
       path: CockpitWidgetExtension/Info.plist
       properties:
         CFBundleDisplayName: Cockpit Widgets
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
       base:
         PRODUCT_NAME: CockpitWidgetExtension
