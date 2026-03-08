@@ -25,7 +25,7 @@ platform :ios do
     match(
       type: "appstore",
       app_identifier: APP_IDENTIFIERS,
-      readonly: is_ci ? false : true
+      readonly: true
     )
 
     # Explicitly assign provisioning profiles to all targets
