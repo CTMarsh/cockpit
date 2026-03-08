@@ -14,6 +14,18 @@ struct SysmonView: View {
 
                 if service.isLoading && service.cluster == nil {
                     LoadingView()
+                } else if let cluster = service.cluster, !cluster.configured {
+                    VStack(spacing: 12) {
+                        Image(systemName: "chart.bar.xaxis")
+                            .font(.system(size: 48))
+                            .foregroundStyle(Theme.textMuted)
+                        Text("Cluster monitoring unavailable")
+                            .foregroundStyle(Theme.textMuted)
+                        Text("KUBECONFIG not configured on server")
+                            .font(.caption)
+                            .foregroundStyle(Theme.textMuted)
+                    }
+                    .padding(.top, 60)
                 } else if let cluster = service.cluster {
                     // Cluster overview
                     HStack(spacing: 12) {
