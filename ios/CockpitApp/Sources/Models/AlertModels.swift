@@ -17,6 +17,28 @@ struct AlertRule: Codable, Identifiable {
         case id, name, metricType, threshold, target, enabled, webhookUrl
         case `operator`, cooldownMinutes, createdAt, updatedAt
     }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        metricType = try container.decode(String.self, forKey: .metricType)
+        `operator` = try container.decodeIfPresent(String.self, forKey: .operator)
+        threshold = try container.decode(Double.self, forKey: .threshold)
+        target = try container.decodeIfPresent(String.self, forKey: .target)
+        cooldownMinutes = try container.decodeIfPresent(Int.self, forKey: .cooldownMinutes)
+        webhookUrl = try container.decodeIfPresent(String.self, forKey: .webhookUrl)
+        createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
+        updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
+        // Handle SQLite integer (0/1) or JSON boolean for enabled
+        if let boolValue = try? container.decode(Bool.self, forKey: .enabled) {
+            enabled = boolValue
+        } else if let intValue = try? container.decode(Int.self, forKey: .enabled) {
+            enabled = intValue != 0
+        } else {
+            enabled = true
+        }
+    }
 }
 
 struct AlertHistory: Codable, Identifiable {

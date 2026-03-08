@@ -17,11 +17,11 @@ struct ProxmoxNode: Decodable, Identifiable {
     let status: String
     let uptime: Int
     let cpuPercent: Double
-    let memTotal: Int
-    let memUsed: Int
+    let memTotal: Double
+    let memUsed: Double
     let memPercent: Double
-    let diskTotal: Int
-    let diskUsed: Int
+    let diskTotal: Double
+    let diskUsed: Double
 }
 
 struct ProxmoxResourcesResponse: Decodable {
@@ -36,11 +36,11 @@ struct ProxmoxVM: Decodable, Identifiable {
     let status: String
     let node: String
     let cpuPercent: Double
-    let memMax: Int
-    let memUsed: Int
+    let memMax: Double
+    let memUsed: Double
     let memPercent: Double
-    let diskMax: Int
-    let diskUsed: Int
+    let diskMax: Double
+    let diskUsed: Double
     let uptime: Int
     let tags: String?
 }

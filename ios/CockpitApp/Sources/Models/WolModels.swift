@@ -5,7 +5,7 @@ struct WolDevicesResponse: Decodable {
 }
 
 struct WolDevice: Decodable, Identifiable {
-    let id: Int
+    let id: String
     let name: String
     let mac: String
     let ip: String?

@@ -4,6 +4,7 @@ struct MarkdownView: View {
     @ObservedObject private var service = MarkdownService.shared
     @State private var showNewDoc = false
     @State private var newTitle = ""
+    @State private var deletingDoc: MarkdownDocument?
 
     var body: some View {
         ScrollView {
@@ -48,6 +49,13 @@ struct MarkdownView: View {
                                 .background(Theme.surface)
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
                             }
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    deletingDoc = doc
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
                         }
                     }
                     .padding(.horizontal)
@@ -75,6 +83,17 @@ struct MarkdownView: View {
                 }
             }
             Button("Cancel", role: .cancel) { newTitle = "" }
+        }
+        .confirmationDialog(
+            "Delete \(deletingDoc?.title ?? "document")?",
+            isPresented: Binding(get: { deletingDoc != nil }, set: { if !$0 { deletingDoc = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                if let doc = deletingDoc {
+                    Task { await service.deleteDocument(id: doc.id) }
+                }
+            }
         }
     }
 }

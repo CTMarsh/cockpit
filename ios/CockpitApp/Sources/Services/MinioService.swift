@@ -2,7 +2,7 @@ import Foundation
 
 @MainActor class MinioService: ObservableObject {
     static let shared = MinioService()
-    @Published var buckets: [MinioBucket] = []
+    @Published var buckets: [String] = []
     @Published var objects: [MinioObject] = []
     @Published var prefixes: [String] = []
     @Published var currentBucket: String?
@@ -47,14 +47,14 @@ import Foundation
     func deleteBucket(name: String) async {
         do {
             let _: GenericOKResponse = try await APIClient.shared.request(path: "/api/minio/buckets/\(name)", method: "DELETE")
-            buckets.removeAll { $0.name == name }
+            buckets.removeAll { $0 == name }
         } catch { self.error = error.localizedDescription }
     }
 
     func deleteObject(bucket: String, key: String) async {
         do {
             let _: GenericOKResponse = try await APIClient.shared.request(path: "/api/minio/objects/\(bucket)/\(key)", method: "DELETE")
-            objects.removeAll { $0.name == key }
+            objects.removeAll { $0.key == key }
         } catch { self.error = error.localizedDescription }
     }
 }

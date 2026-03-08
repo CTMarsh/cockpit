@@ -29,7 +29,7 @@ final class WolService: ObservableObject {
         isLoading = false
     }
 
-    func wake(id: Int) async -> Bool {
+    func wake(id: String) async -> Bool {
         do {
             let _: WakeResponse = try await api.request(
                 path: "/api/wol/wake/\(id)",
@@ -60,7 +60,7 @@ final class WolService: ObservableObject {
         }
     }
 
-    func deleteDevice(id: Int) async {
+    func deleteDevice(id: String) async {
         do {
             try await api.send(path: "/api/wol/devices/\(id)", method: "DELETE")
             devices.removeAll { $0.id == id }

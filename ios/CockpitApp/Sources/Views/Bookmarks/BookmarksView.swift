@@ -6,6 +6,7 @@ struct BookmarksView: View {
     @State private var selectedTag: String?
     @State private var showingAdd = false
     @State private var newURL = ""
+    @State private var editingBookmark: Bookmark?
 
     var filteredBookmarks: [Bookmark] {
         guard let tag = selectedTag else { return service.bookmarks }
@@ -43,9 +44,13 @@ struct BookmarksView: View {
                     // Bookmark list
                     LazyVStack(spacing: 8) {
                         ForEach(filteredBookmarks) { bookmark in
-                            BookmarkCard(bookmark: bookmark) {
-                                Task { await service.deleteBookmark(id: bookmark.id) }
-                            }
+                            BookmarkCard(
+                                bookmark: bookmark,
+                                onEdit: { editingBookmark = bookmark },
+                                onDelete: {
+                                    Task { await service.deleteBookmark(id: bookmark.id) }
+                                }
+                            )
                         }
                     }
                     .padding(.horizontal)
@@ -81,6 +86,9 @@ struct BookmarksView: View {
             }
             Button("Cancel", role: .cancel) { newURL = "" }
         }
+        .sheet(item: $editingBookmark) { bookmark in
+            EditBookmarkSheet(bookmark: bookmark)
+        }
         .refreshable {
             await service.fetchBookmarks()
             await service.fetchTags()
@@ -91,6 +99,62 @@ struct BookmarksView: View {
         }
     }
 }
+
+// MARK: - Edit Sheet
+
+private struct EditBookmarkSheet: View {
+    let bookmark: Bookmark
+    @ObservedObject private var service = BookmarkService.shared
+    @Environment(\.dismiss) private var dismiss
+    @State private var title: String
+    @State private var tagsText: String
+    @State private var isSaving = false
+
+    init(bookmark: Bookmark) {
+        self.bookmark = bookmark
+        _title = State(initialValue: bookmark.title ?? "")
+        _tagsText = State(initialValue: bookmark.tagList.joined(separator: ", "))
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Title") {
+                    TextField("Title", text: $title)
+                }
+                Section("Tags (comma-separated)") {
+                    TextField("tag1, tag2", text: $tagsText)
+                        .textInputAutocapitalization(.never)
+                }
+                Section("URL") {
+                    Text(bookmark.url)
+                        .foregroundStyle(Theme.textMuted)
+                        .font(.caption)
+                }
+            }
+            .navigationTitle("Edit Bookmark")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        isSaving = true
+                        let tags = tagsText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+                        Task {
+                            await service.updateBookmark(id: bookmark.id, title: title.isEmpty ? nil : title, tags: tags.isEmpty ? nil : tags)
+                            dismiss()
+                        }
+                    }
+                    .disabled(isSaving)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Subviews
 
 private struct TagPill: View {
     let name: String
@@ -114,7 +178,9 @@ private struct TagPill: View {
 
 private struct BookmarkCard: View {
     let bookmark: Bookmark
+    let onEdit: () -> Void
     let onDelete: () -> Void
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -147,14 +213,20 @@ private struct BookmarkCard: View {
         .background(Theme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.border, lineWidth: 1))
-        .swipeActions(edge: .trailing) {
+        .contextMenu {
+            Button { openURL(URL(string: bookmark.url)!) } label: {
+                Label("Open in Browser", systemImage: "safari")
+            }
+            Button { onEdit() } label: {
+                Label("Edit", systemImage: "pencil")
+            }
             Button(role: .destructive) { onDelete() } label: {
                 Label("Delete", systemImage: "trash")
             }
         }
-        .contextMenu {
-            Button(role: .destructive) { onDelete() } label: {
-                Label("Delete", systemImage: "trash")
+        .onTapGesture {
+            if let url = URL(string: bookmark.url) {
+                openURL(url)
             }
         }
     }

@@ -6,7 +6,7 @@ struct BookmarksResponse: Decodable {
 }
 
 struct Bookmark: Decodable, Identifiable {
-    let id: Int
+    let id: String
     let url: String
     let title: String?
     let summary: String?

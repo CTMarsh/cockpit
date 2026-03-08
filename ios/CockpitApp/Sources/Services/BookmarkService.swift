@@ -53,7 +53,22 @@ final class BookmarkService: ObservableObject {
         }
     }
 
-    func deleteBookmark(id: Int) async {
+    func updateBookmark(id: String, title: String?, tags: [String]?) async {
+        do {
+            try await api.send(
+                path: "/api/bookmarks/\(id)",
+                method: "PUT",
+                body: UpdateBookmarkBody(title: title, tags: tags)
+            )
+            await fetchBookmarks()
+        } catch let apiError as APIError {
+            error = apiError.errorDescription
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    func deleteBookmark(id: String) async {
         do {
             try await api.send(path: "/api/bookmarks/\(id)", method: "DELETE")
             bookmarks.removeAll { $0.id == id }

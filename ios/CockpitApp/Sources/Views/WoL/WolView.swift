@@ -2,7 +2,8 @@ import SwiftUI
 
 struct WolView: View {
     @ObservedObject private var service = WolService.shared
-    @State private var wakingId: Int?
+    @State private var wakingId: String?
+    @State private var showAddDevice = false
 
     var body: some View {
         ScrollView {
@@ -35,13 +36,14 @@ struct WolView: View {
                                     wakingId = device.id
                                     let sent = await service.wake(id: device.id)
                                     if sent {
-                                        // Haptic feedback
                                         let generator = UINotificationFeedbackGenerator()
                                         generator.notificationOccurred(.success)
                                     }
                                     try? await Task.sleep(for: .seconds(1))
                                     wakingId = nil
                                 }
+                            } onDelete: {
+                                Task { await service.deleteDevice(id: device.id) }
                             }
                         }
                     }
@@ -52,16 +54,89 @@ struct WolView: View {
         }
         .background(Theme.background)
         .navigationTitle("Wake-on-LAN")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showAddDevice = true } label: {
+                    Image(systemName: "plus")
+                }
+            }
+        }
+        .sheet(isPresented: $showAddDevice) {
+            AddWolDeviceSheet()
+        }
         .refreshable { await service.fetchDevices() }
         .onAppear { service.startPolling() }
         .onDisappear { service.stopPolling() }
     }
 }
 
+// MARK: - Add Device Sheet
+
+private struct AddWolDeviceSheet: View {
+    @ObservedObject private var service = WolService.shared
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var mac = ""
+    @State private var ip = ""
+    @State private var broadcast = ""
+    @State private var isSaving = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Device Name") {
+                    TextField("Gaming PC", text: $name)
+                }
+                Section("MAC Address") {
+                    TextField("AA:BB:CC:DD:EE:FF", text: $mac)
+                        .textInputAutocapitalization(.never)
+                        .font(.body.monospaced())
+                }
+                Section("IP Address (optional)") {
+                    TextField("10.0.80.100", text: $ip)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.decimalPad)
+                }
+                Section("Broadcast (optional)") {
+                    TextField("10.0.80.255", text: $broadcast)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.decimalPad)
+                }
+            }
+            .navigationTitle("Add Device")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        isSaving = true
+                        Task {
+                            await service.addDevice(
+                                name: name,
+                                mac: mac,
+                                ip: ip.isEmpty ? nil : ip,
+                                broadcast: broadcast.isEmpty ? nil : broadcast
+                            )
+                            dismiss()
+                        }
+                    }
+                    .disabled(name.isEmpty || mac.isEmpty || isSaving)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Device Card
+
 private struct DeviceCard: View {
     let device: WolDevice
     let isWaking: Bool
     let onWake: () -> Void
+    let onDelete: () -> Void
+    @State private var showDeleteConfirm = false
 
     var body: some View {
         VStack(spacing: 10) {
@@ -70,6 +145,11 @@ private struct DeviceCard: View {
                     .fill(device.online == true ? Theme.success : Theme.textMuted)
                     .frame(width: 8, height: 8)
                 Spacer()
+                Button(role: .destructive) { showDeleteConfirm = true } label: {
+                    Image(systemName: "trash")
+                        .font(.caption2)
+                }
+                .tint(Theme.danger.opacity(0.6))
             }
 
             Image(systemName: "desktopcomputer")
@@ -111,5 +191,8 @@ private struct DeviceCard: View {
         .background(Theme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.border, lineWidth: 1))
+        .confirmationDialog("Delete \(device.name)?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) { onDelete() }
+        }
     }
 }
