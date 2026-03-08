@@ -10,12 +10,11 @@ struct Bookmark: Decodable, Identifiable {
     let url: String
     let title: String?
     let summary: String?
-    let tags: String?
+    let tags: [String]?
     let createdAt: String?
 
     var tagList: [String] {
-        guard let tags, !tags.isEmpty else { return [] }
-        return tags.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        tags ?? []
     }
 }
 

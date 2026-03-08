@@ -29,7 +29,7 @@ final class CronService: ObservableObject {
         isLoading = false
     }
 
-    func toggleJob(id: Int, enabled: Bool) async {
+    func toggleJob(id: String, enabled: Bool) async {
         do {
             try await api.send(
                 path: "/api/cron/jobs/\(id)",
@@ -44,7 +44,7 @@ final class CronService: ObservableObject {
         }
     }
 
-    func runJob(id: Int) async -> ManualRunResponse? {
+    func runJob(id: String) async -> ManualRunResponse? {
         do {
             let response: ManualRunResponse = try await api.request(
                 path: "/api/cron/jobs/\(id)/run",
@@ -61,7 +61,7 @@ final class CronService: ObservableObject {
         }
     }
 
-    func fetchRuns(jobId: Int) async -> [CronRun] {
+    func fetchRuns(jobId: String) async -> [CronRun] {
         do {
             let response: CronRunsResponse = try await api.request(path: "/api/cron/jobs/\(jobId)/runs")
             return response.runs
