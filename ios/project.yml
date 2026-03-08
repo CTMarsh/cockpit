@@ -120,8 +120,3 @@ targets:
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: "NO"
     entitlements:
       path: CockpitWatch/CockpitWatch.entitlements
-      properties:
-        com.apple.security.application-groups:
-          - group.com.ctmarsh.cockpit
-        keychain-access-groups:
-          - $(AppIdentifierPrefix)com.ctmarsh.noahsark-cockpit
