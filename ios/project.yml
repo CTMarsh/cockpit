@@ -5,6 +5,18 @@ options:
     iOS: "26.0"
   xcodeVersion: "26.0"
 
+schemes:
+  CockpitApp:
+    build:
+      targets:
+        CockpitApp: all
+        CockpitWidgetExtension: all
+        CockpitWatch: all
+    run:
+      config: Debug
+    archive:
+      config: Release
+
 settings:
   base:
     DEVELOPMENT_TEAM: WTPX4TSW4N

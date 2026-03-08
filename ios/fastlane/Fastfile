@@ -2,7 +2,8 @@ default_platform(:ios)
 
 APP_IDENTIFIERS = [
   "com.ctmarsh.noahsark-cockpit",
-  "com.ctmarsh.noahsark-cockpit.widgets"
+  "com.ctmarsh.noahsark-cockpit.widgets",
+  "com.ctmarsh.noahsark-cockpit.watchkitapp"
 ]
 
 platform :ios do
