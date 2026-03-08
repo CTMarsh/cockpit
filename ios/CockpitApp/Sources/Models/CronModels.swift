@@ -19,10 +19,10 @@ struct CronJob: Decodable, Identifiable {
 
 struct CronRun: Decodable, Identifiable {
     let id: Int
-    let jobId: Int?
+    let jobId: String?
     let startedAt: String?
     let finishedAt: String?
-    let exitCode: Int
+    let exitCode: Int?
     let output: String?
 
     var succeeded: Bool { exitCode == 0 }

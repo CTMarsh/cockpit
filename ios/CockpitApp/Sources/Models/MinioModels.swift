@@ -1,19 +1,11 @@
 import Foundation
 
-struct MinioBucket: Codable, Identifiable {
-    let name: String
-    let creationDate: String?
-
-    var id: String { name }
-}
-
 struct MinioObject: Codable, Identifiable {
-    let name: String
+    let key: String
     let size: Int?
     let lastModified: String?
-    let etag: String?
 
-    var id: String { name }
+    var id: String { key }
     var sizeHuman: String {
         guard let size else { return "—" }
         if size < 1024 { return "\(size) B" }
@@ -24,7 +16,7 @@ struct MinioObject: Codable, Identifiable {
 
 struct BucketsResponse: Codable {
     let available: Bool
-    let buckets: [MinioBucket]
+    let buckets: [String]
 }
 
 struct ObjectsResponse: Codable {

@@ -19,7 +19,7 @@ struct DashboardStats: Codable {
 }
 
 struct RecentBookmark: Codable, Identifiable {
-    let id: Int
+    let id: String
     let url: String
     let title: String?
     let tags: String?
@@ -27,7 +27,7 @@ struct RecentBookmark: Codable, Identifiable {
 }
 
 struct RecentDoc: Codable, Identifiable {
-    let id: Int
+    let id: String
     let title: String
     let updatedAt: String?
 }

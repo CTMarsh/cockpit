@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CronView: View {
     @ObservedObject private var service = CronService.shared
+    @State private var showCreateJob = false
 
     var body: some View {
         ScrollView {
@@ -48,11 +49,71 @@ struct CronView: View {
         }
         .background(Theme.background)
         .navigationTitle("Cron Jobs")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showCreateJob = true } label: {
+                    Image(systemName: "plus")
+                }
+            }
+        }
+        .sheet(isPresented: $showCreateJob) {
+            CreateCronJobSheet()
+        }
         .refreshable { await service.fetchJobs() }
         .onAppear { service.startPolling() }
         .onDisappear { service.stopPolling() }
     }
 }
+
+// MARK: - Create Sheet
+
+private struct CreateCronJobSheet: View {
+    @ObservedObject private var service = CronService.shared
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var schedule = ""
+    @State private var command = ""
+    @State private var isSaving = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Job Name") {
+                    TextField("Backup databases", text: $name)
+                }
+                Section("Schedule (cron expression)") {
+                    TextField("0 * * * *", text: $schedule)
+                        .textInputAutocapitalization(.never)
+                        .font(.body.monospaced())
+                }
+                Section("Command") {
+                    TextField("/usr/bin/backup.sh", text: $command)
+                        .textInputAutocapitalization(.never)
+                        .font(.body.monospaced())
+                }
+            }
+            .navigationTitle("New Cron Job")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Create") {
+                        isSaving = true
+                        Task {
+                            await service.createJob(name: name, schedule: schedule, command: command)
+                            dismiss()
+                        }
+                    }
+                    .disabled(name.isEmpty || schedule.isEmpty || command.isEmpty || isSaving)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Job Card
 
 private struct CronJobCard: View {
     let job: CronJob
@@ -60,6 +121,7 @@ private struct CronJobCard: View {
     @State private var showRuns = false
     @State private var runs: [CronRun] = []
     @State private var isRunning = false
+    @State private var showDeleteConfirm = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -91,9 +153,11 @@ private struct CronJobCard: View {
                     Image(systemName: lastRun.succeeded ? "checkmark.circle.fill" : "xmark.circle.fill")
                         .foregroundStyle(lastRun.succeeded ? Theme.success : Theme.danger)
                         .font(.caption)
-                    Text("Exit \(lastRun.exitCode)")
-                        .font(.caption)
-                        .foregroundStyle(Theme.textMuted)
+                    if let exitCode = lastRun.exitCode {
+                        Text("Exit \(exitCode)")
+                            .font(.caption)
+                            .foregroundStyle(Theme.textMuted)
+                    }
                     Spacer()
                 }
             }
@@ -128,6 +192,14 @@ private struct CronJobCard: View {
                         .font(.caption)
                 }
                 .tint(Theme.textMuted)
+
+                Spacer()
+
+                Button(role: .destructive) { showDeleteConfirm = true } label: {
+                    Image(systemName: "trash")
+                        .font(.caption)
+                }
+                .tint(Theme.danger)
             }
 
             if showRuns && !runs.isEmpty {
@@ -141,9 +213,11 @@ private struct CronJobCard: View {
                                 .font(.caption2.monospaced())
                                 .foregroundStyle(Theme.textMuted)
                             Spacer()
-                            Text("exit \(run.exitCode)")
-                                .font(.caption2.monospaced())
-                                .foregroundStyle(Theme.textMuted)
+                            if let exitCode = run.exitCode {
+                                Text("exit \(exitCode)")
+                                    .font(.caption2.monospaced())
+                                    .foregroundStyle(Theme.textMuted)
+                            }
                         }
                     }
                 }
@@ -154,5 +228,10 @@ private struct CronJobCard: View {
         .background(Theme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.border, lineWidth: 1))
+        .confirmationDialog("Delete \(job.name)?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                Task { await service.deleteJob(id: job.id) }
+            }
+        }
     }
 }

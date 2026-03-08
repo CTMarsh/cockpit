@@ -18,14 +18,14 @@ struct MinIOView: View {
                 } else if service.currentBucket == nil {
                     // Bucket list
                     LazyVStack(spacing: 8) {
-                        ForEach(service.buckets) { bucket in
+                        ForEach(service.buckets, id: \.self) { bucket in
                             Button {
-                                Task { await service.fetchObjects(bucket: bucket.name) }
+                                Task { await service.fetchObjects(bucket: bucket) }
                             } label: {
                                 HStack {
                                     Image(systemName: "folder.fill")
                                         .foregroundStyle(Theme.accent)
-                                    Text(bucket.name)
+                                    Text(bucket)
                                         .font(.body.weight(.medium))
                                         .foregroundStyle(Theme.text)
                                     Spacer()
@@ -114,7 +114,7 @@ struct MinIOView: View {
                     Image(systemName: "doc.fill")
                         .foregroundStyle(Theme.textMuted)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(object.name.split(separator: "/").last.map(String.init) ?? object.name)
+                        Text(object.key.split(separator: "/").last.map(String.init) ?? object.key)
                             .font(.body)
                             .foregroundStyle(Theme.text)
                             .lineLimit(1)

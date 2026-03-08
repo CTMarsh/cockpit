@@ -61,6 +61,32 @@ final class CronService: ObservableObject {
         }
     }
 
+    func createJob(name: String, schedule: String, command: String) async {
+        do {
+            try await api.send(
+                path: "/api/cron/jobs",
+                method: "POST",
+                body: CreateCronJobBody(name: name, schedule: schedule, command: command, enabled: true)
+            )
+            await fetchJobs()
+        } catch let apiError as APIError {
+            error = apiError.errorDescription
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    func deleteJob(id: String) async {
+        do {
+            try await api.send(path: "/api/cron/jobs/\(id)", method: "DELETE")
+            jobs.removeAll { $0.id == id }
+        } catch let apiError as APIError {
+            error = apiError.errorDescription
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
     func fetchRuns(jobId: String) async -> [CronRun] {
         do {
             let response: CronRunsResponse = try await api.request(path: "/api/cron/jobs/\(jobId)/runs")

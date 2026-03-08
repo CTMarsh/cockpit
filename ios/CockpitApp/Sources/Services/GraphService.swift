@@ -9,7 +9,7 @@ import Foundation
     func fetchGraph() async {
         isLoading = true
         do {
-            graphData = try await APIClient.shared.request(path: "/api/graph/data")
+            graphData = try await APIClient.shared.request(path: "/api/graph/nodes")
             self.error = nil
         } catch { self.error = error.localizedDescription }
         isLoading = false

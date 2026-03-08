@@ -15,8 +15,8 @@ struct HomelabView: View {
                     LoadingView()
                 } else {
                     // Summary bar
-                    let upCount = service.services.filter { $0.status == "up" }.count
-                    let total = service.services.count
+                    let upCount = service.summary?.up ?? service.services.filter(\.isUp).count
+                    let total = service.summary?.total ?? service.services.count
 
                     HStack {
                         StatusBadge(
@@ -24,13 +24,6 @@ struct HomelabView: View {
                             color: upCount == total ? Theme.success : Theme.warning
                         )
                         Spacer()
-                        Button {
-                            Task { await service.checkServices() }
-                        } label: {
-                            Label("Check All", systemImage: "arrow.clockwise")
-                                .font(.caption)
-                        }
-                        .tint(Theme.accent)
                     }
                     .padding(.horizontal)
 

@@ -5,7 +5,9 @@ final class HomelabService: ObservableObject {
     static let shared = HomelabService()
 
     @Published var services: [ServiceStatus] = []
+    @Published var summary: ServiceSummary?
     @Published var containers: [DockerContainer] = []
+    @Published var hosts: [DockerHost] = []
     @Published var isLoading = false
     @Published var error: String?
 
@@ -19,7 +21,9 @@ final class HomelabService: ObservableObject {
         error = nil
 
         do {
-            services = try await api.request(path: "/api/homelab/services")
+            let response: ServicesResponse = try await api.request(path: "/api/homelab/services")
+            services = response.services
+            summary = response.summary
         } catch let apiError as APIError {
             error = apiError.errorDescription
         } catch {
@@ -31,21 +35,11 @@ final class HomelabService: ObservableObject {
 
     func fetchContainers() async {
         do {
-            containers = try await api.request(path: "/api/homelab/docker/containers")
+            let response: ContainersResponse = try await api.request(path: "/api/homelab/containers")
+            containers = response.containers
+            hosts = response.hosts
         } catch {
             // Container fetch failure is non-fatal if services loaded
-        }
-    }
-
-    func checkServices() async {
-        do {
-            let _: [String: String] = try await api.request(
-                path: "/api/homelab/services/check",
-                method: "POST"
-            )
-            await fetchServices()
-        } catch {
-            self.error = "Failed to trigger health check"
         }
     }
 
