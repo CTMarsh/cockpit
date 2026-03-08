@@ -45,7 +45,6 @@ targets:
       path: CockpitApp/Resources/CockpitApp.entitlements
       properties:
         aps-environment: production
-        com.apple.developer.carplay-driving-task: true
     dependencies:
       - target: CockpitWidgetExtension
     capabilities:
