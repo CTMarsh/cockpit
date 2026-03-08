@@ -68,6 +68,7 @@ final class ProxmoxService: ObservableObject {
     func startPolling() {
         stopPolling()
         pollingTask = Task {
+            await fetchStatus()
             while !Task.isCancelled {
                 await fetchNodes()
                 await fetchVMs()

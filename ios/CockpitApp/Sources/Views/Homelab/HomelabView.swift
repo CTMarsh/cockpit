@@ -13,6 +13,18 @@ struct HomelabView: View {
 
                 if service.isLoading && service.services.isEmpty {
                     LoadingView()
+                } else if service.services.isEmpty && service.error == nil {
+                    VStack(spacing: 12) {
+                        Image(systemName: "server.rack")
+                            .font(.system(size: 48))
+                            .foregroundStyle(Theme.textMuted)
+                        Text("No services configured")
+                            .foregroundStyle(Theme.textMuted)
+                        Text("Add services in the web dashboard")
+                            .font(.caption)
+                            .foregroundStyle(Theme.textMuted)
+                    }
+                    .padding(.top, 60)
                 } else {
                     // Summary bar
                     let upCount = service.summary?.up ?? service.services.filter(\.isUp).count

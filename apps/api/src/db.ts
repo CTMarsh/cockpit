@@ -110,12 +110,25 @@ db.run(`
   )
 `);
 
-// Seed default services if empty
-const serviceCount = db.query("SELECT COUNT(*) as count FROM services").get() as any;
-if (serviceCount.count === 0) {
-  const insert = db.prepare("INSERT INTO services (id, name, url) VALUES (?, ?, ?)");
-  insert.run("cockpit-api", "Cockpit API", "http://localhost:4000/api/health");
-  insert.run("cloudflare-dns", "Cloudflare DNS", "https://one.one.one.one");
+// Seed default homelab services (INSERT OR IGNORE preserves any user customizations)
+{
+  const seed = db.prepare(
+    "INSERT OR IGNORE INTO services (id, name, url, icon, expected_status) VALUES (?, ?, ?, ?, ?)"
+  );
+  const defaults: [string, string, string, string, number][] = [
+    ["cockpit", "Cockpit Dashboard", "https://dashboard.noahsark.me", "layout-dashboard", 0],
+    ["gitlab", "GitLab", "https://gitlab.noahsark.me", "gitlab", 0],
+    ["proxmox", "Proxmox VE", "https://pve.noahsark.me:8006", "server", 0],
+    ["home-assistant", "Home Assistant", "https://hass.noahsark.me", "home", 0],
+    ["minio", "MinIO Console", "https://minio.noahsark.me:9001", "database", 0],
+    ["notify", "Notify", "https://notify.noahsark.me", "bell", 0],
+    ["traefik", "Traefik Dashboard", "https://traefik.noahsark.me", "network", 0],
+    ["rancher", "Rancher", "https://rancher.noahsark.me", "monitor", 0],
+    ["cloudflare-dns", "Cloudflare DNS", "https://one.one.one.one", "cloud", 0],
+  ];
+  for (const [id, name, url, icon, expected] of defaults) {
+    seed.run(id, name, url, icon, expected);
+  }
 }
 
 export { db };
