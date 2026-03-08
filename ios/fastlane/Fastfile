@@ -22,11 +22,40 @@ platform :ios do
       )
     end
 
+    # iOS profiles (main app + widget)
     match(
       type: "appstore",
-      app_identifier: APP_IDENTIFIERS,
+      app_identifier: [
+        "com.ctmarsh.noahsark-cockpit",
+        "com.ctmarsh.noahsark-cockpit.widgets"
+      ],
       readonly: is_ci ? false : true
     )
+
+    # watchOS profile
+    match(
+      type: "appstore",
+      platform: "watchos",
+      app_identifier: ["com.ctmarsh.noahsark-cockpit.watchkitapp"],
+      readonly: is_ci ? false : true
+    )
+
+    # Explicitly assign provisioning profiles to all targets
+    [
+      { target: "CockpitApp", bundle_id: "com.ctmarsh.noahsark-cockpit", identity: "iPhone Distribution" },
+      { target: "CockpitWidgetExtension", bundle_id: "com.ctmarsh.noahsark-cockpit.widgets", identity: "iPhone Distribution" },
+      { target: "CockpitWatch", bundle_id: "com.ctmarsh.noahsark-cockpit.watchkitapp", identity: "iPhone Distribution" }
+    ].each do |t|
+      update_code_signing_settings(
+        use_automatic_signing: false,
+        path: "CockpitApp.xcodeproj",
+        targets: [t[:target]],
+        team_id: "WTPX4TSW4N",
+        bundle_identifier: t[:bundle_id],
+        profile_name: "match AppStore #{t[:bundle_id]}",
+        code_sign_identity: t[:identity]
+      )
+    end
   end
 
   lane :build do
