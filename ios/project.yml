@@ -58,13 +58,14 @@ targets:
       - CockpitApp/Widgets
       - path: CockpitWidgetExtension/CockpitWidgetExtension.entitlements
         buildPhase: none
+    info:
+      path: CockpitWidgetExtension/Info.plist
+      properties:
+        CFBundleDisplayName: Cockpit Widgets
     settings:
       base:
         PRODUCT_NAME: CockpitWidgetExtension
         PRODUCT_BUNDLE_IDENTIFIER: com.ctmarsh.noahsark-cockpit.widgets
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: Cockpit Widgets
-        INFOPLIST_KEY_NSExtension_NSExtensionPointIdentifier: com.apple.widgetkit-extension
         CODE_SIGN_ENTITLEMENTS: CockpitWidgetExtension/CockpitWidgetExtension.entitlements
         TARGETED_DEVICE_FAMILY: "1"
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
