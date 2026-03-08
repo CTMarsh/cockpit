@@ -3,6 +3,8 @@ import SwiftUI
 struct NotifyView: View {
     @ObservedObject private var service = NotifyModuleService.shared
     @State private var selectedTab = 0
+    @State private var deviceToDelete: NotifyDevice?
+    @State private var showDeleteDevice = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -63,6 +65,17 @@ struct NotifyView: View {
             await service.fetchDevices()
             await service.fetchNotifications()
         }
+        .confirmDialog(
+            title: "Delete Device",
+            message: "Remove \"\(deviceToDelete?.name ?? "this device")\" from the notify service? It will no longer receive push notifications.",
+            destructiveLabel: "Delete Device",
+            isPresented: $showDeleteDevice,
+            onConfirm: {
+                guard let device = deviceToDelete else { return }
+                Task { await service.deleteDevice(id: device.id) }
+                deviceToDelete = nil
+            }
+        )
     }
 
     private var projectsContent: some View {
@@ -122,10 +135,27 @@ struct NotifyView: View {
                         text: device.enabled ? "Active" : "Disabled",
                         color: device.enabled ? Theme.success : Theme.textMuted
                     )
+
+                    Button {
+                        deviceToDelete = device
+                        showDeleteDevice = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .foregroundStyle(Theme.danger)
+                            .font(.caption)
+                    }
                 }
                 .padding(12)
                 .background(Theme.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
+                .contextMenu {
+                    Button(role: .destructive) {
+                        deviceToDelete = device
+                        showDeleteDevice = true
+                    } label: {
+                        Label("Delete Device", systemImage: "trash")
+                    }
+                }
             }
         }
         .padding(.horizontal)

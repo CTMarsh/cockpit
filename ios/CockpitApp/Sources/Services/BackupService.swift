@@ -19,6 +19,11 @@ import Foundation
         isLoading = false
     }
 
+    func downloadURL(for backup: Backup) -> URL? {
+        let base = APIClient.shared.baseURL
+        return URL(string: "\(base)/api/backup/download/\(backup.key)")
+    }
+
     func triggerBackup() async -> Bool {
         isTriggering = true
         do {
