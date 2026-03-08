@@ -38,6 +38,7 @@ struct GraphView: View {
         let scene = ForceGraphScene(size: CGSize(width: 400, height: 800))
         scene.scaleMode = .resizeFill
         scene.backgroundColor = .clear
+        scene.setupCamera()
         scene.loadGraph(data: data)
         return scene
     }
@@ -50,6 +51,14 @@ class ForceGraphScene: SKScene {
     private var graphEdges: [(SKShapeNode, String, String)] = []
     private var velocities: [String: CGVector] = [:]
     private var selectedNode: SKShapeNode?
+    private var cameraNode = SKCameraNode()
+    private var lastPanPoint: CGPoint?
+
+    func setupCamera() {
+        cameraNode.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        addChild(cameraNode)
+        camera = cameraNode
+    }
 
     func loadGraph(data: GraphData) {
         removeAllChildren()
@@ -187,22 +196,55 @@ class ForceGraphScene: SKScene {
         }
     }
 
-    // MARK: - Touch Handling
+    // MARK: - Touch Handling (Drag nodes + Pan camera)
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first else { return }
         let location = touch.location(in: self)
         let tappedNodes = nodes(at: location)
         selectedNode = tappedNodes.compactMap { $0 as? SKShapeNode }.first(where: { graphNodes.values.contains($0) })
+
+        if selectedNode == nil {
+            lastPanPoint = touch.location(in: view)
+        }
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let touch = touches.first, let node = selectedNode else { return }
-        node.position = touch.location(in: self)
-        if let id = node.name { velocities[id] = .zero }
+        guard let touch = touches.first else { return }
+
+        if let node = selectedNode {
+            // Drag node
+            node.position = touch.location(in: self)
+            if let id = node.name { velocities[id] = .zero }
+        } else if let lastPan = lastPanPoint {
+            // Pan camera
+            let currentPoint = touch.location(in: view)
+            let dx = currentPoint.x - lastPan.x
+            let dy = currentPoint.y - lastPan.y
+            let scale = cameraNode.xScale
+            cameraNode.position.x -= dx * scale
+            cameraNode.position.y += dy * scale // Y is flipped in SpriteKit
+            lastPanPoint = currentPoint
+        }
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         selectedNode = nil
+        lastPanPoint = nil
+    }
+
+    override func didMove(to view: SKView) {
+        let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
+        view.addGestureRecognizer(pinch)
+    }
+
+    @objc private func handlePinch(_ gesture: UIPinchGestureRecognizer) {
+        guard let cam = camera else { return }
+        if gesture.state == .changed {
+            let newScale = cam.xScale / gesture.scale
+            let clamped = max(0.3, min(3.0, newScale))
+            cam.setScale(clamped)
+            gesture.scale = 1.0
+        }
     }
 }

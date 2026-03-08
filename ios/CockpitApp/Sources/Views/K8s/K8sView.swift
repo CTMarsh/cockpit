@@ -113,8 +113,8 @@ private struct WorkloadCard: View {
                 .foregroundStyle(Theme.textMuted)
                 .lineLimit(1)
 
-            if workload.type == "Deployment" {
-                HStack(spacing: 12) {
+            HStack(spacing: 12) {
+                if workload.type == "Deployment" {
                     Button {
                         Task {
                             _ = await service.restartDeployment(ns: workload.namespace, name: workload.name)
@@ -135,6 +135,14 @@ private struct WorkloadCard: View {
                     }
                     .tint(Theme.accent)
                 }
+
+                Button {
+                    showLogs = true
+                } label: {
+                    Label("Logs", systemImage: "doc.text")
+                        .font(.caption)
+                }
+                .tint(Theme.info)
             }
         }
         .padding(14)
@@ -152,6 +160,88 @@ private struct WorkloadCard: View {
                 }
             }
             Button("Cancel", role: .cancel) {}
+        }
+        .sheet(isPresented: $showLogs) {
+            PodLogSheet(workloadName: workload.name, namespace: workload.namespace)
+        }
+    }
+}
+
+// MARK: - Pod Log Sheet (SSE Streaming)
+
+@MainActor
+private class PodLogViewModel: ObservableObject {
+    @Published var logLines: [String] = []
+    @Published var isStreaming = false
+    var sse: SSEClient?
+
+    func startStreaming(namespace: String, workloadName: String) {
+        let client = SSEClient { [weak self] _, data in
+            self?.logLines.append(data)
+        }
+        client.connect(path: "/api/k8s/pods/\(namespace)/\(workloadName)/logs/stream")
+        sse = client
+        isStreaming = true
+    }
+
+    func stopStreaming() {
+        sse?.disconnect()
+        sse = nil
+        isStreaming = false
+    }
+}
+
+private struct PodLogSheet: View {
+    let workloadName: String
+    let namespace: String
+    @StateObject private var vm = PodLogViewModel()
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 1) {
+                        ForEach(Array(vm.logLines.enumerated()), id: \.offset) { idx, line in
+                            Text(line)
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(Theme.text)
+                                .textSelection(.enabled)
+                                .id(idx)
+                        }
+                    }
+                    .padding(8)
+                }
+                .onChange(of: vm.logLines.count) { _, _ in
+                    if let last = vm.logLines.indices.last {
+                        proxy.scrollTo(last, anchor: .bottom)
+                    }
+                }
+            }
+            .background(Theme.background)
+            .navigationTitle("Logs: \(workloadName)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(vm.isStreaming ? Theme.success : Theme.textMuted)
+                            .frame(width: 6, height: 6)
+                        Text(vm.isStreaming ? "Live" : "Disconnected")
+                            .font(.caption2)
+                            .foregroundStyle(Theme.textMuted)
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .task {
+            vm.startStreaming(namespace: namespace, workloadName: workloadName)
+        }
+        .onDisappear {
+            vm.stopStreaming()
         }
     }
 }

@@ -85,6 +85,8 @@ struct MarkdownEditorView: View {
     @StateObject private var ws = WebSocketClient()
     @State private var content = ""
     @State private var isSaving = false
+    @State private var debounceTask: Task<Void, Never>?
+    @State private var isRemoteUpdate = false
     @FocusState private var isEditing: Bool
 
     var body: some View {
@@ -108,6 +110,15 @@ struct MarkdownEditorView: View {
                     .scrollContentBackground(.hidden)
                     .background(Theme.surface)
                     .focused($isEditing)
+                    .onChange(of: content) { _, newValue in
+                        guard ws.isConnected, !isRemoteUpdate else { return }
+                        debounceTask?.cancel()
+                        debounceTask = Task {
+                            try? await Task.sleep(for: .seconds(1))
+                            guard !Task.isCancelled else { return }
+                            ws.send(content: newValue, docId: documentId)
+                        }
+                    }
             }
         }
         .background(Theme.background)
@@ -139,7 +150,9 @@ struct MarkdownEditorView: View {
                 if let data = message.data(using: .utf8),
                    let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                    let remoteContent = json["content"] as? String {
+                    isRemoteUpdate = true
                     content = remoteContent
+                    isRemoteUpdate = false
                 }
             }
         }
