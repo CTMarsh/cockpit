@@ -4,9 +4,9 @@ struct SettingsView: View {
     @ObservedObject private var auth = AuthService.shared
     @ObservedObject private var api = APIClient.shared
 
-    @AppStorage("server_url") private var serverURL = "https://dashboard.noahsark.me"
+    @AppStorage("serverURL") private var serverURL = "https://dashboard.noahsark.me"
     @AppStorage("notifications_enabled") private var notificationsEnabled = true
-    @State private var deviceToken: String = UserDefaults.standard.string(forKey: "push_device_token") ?? ""
+    @State private var deviceToken: String = KeychainHelper.load(key: "deviceToken") ?? ""
     @State private var showingSignOutConfirm = false
     @State private var showingClearCacheConfirm = false
     @State private var cacheCleared = false
@@ -136,7 +136,7 @@ struct SettingsView: View {
     private var aboutSection: some View {
         Section {
             HStack {
-                Image(systemName: "helm")
+                Image(systemName: "sailboat")
                     .foregroundStyle(Theme.accent)
                     .frame(width: 24)
                 Text("Cockpit iOS")

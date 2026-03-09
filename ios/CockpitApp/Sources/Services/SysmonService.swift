@@ -55,6 +55,7 @@ final class SysmonService: ObservableObject {
             while !Task.isCancelled {
                 await fetchCluster()
                 await fetchNodes()
+                await fetchPods()
                 try? await Task.sleep(for: .seconds(10))
             }
         }

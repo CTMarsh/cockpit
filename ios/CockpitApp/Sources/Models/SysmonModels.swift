@@ -88,7 +88,7 @@ struct PodsResponse: Decodable {
 }
 
 struct K8sPod: Decodable, Identifiable {
-    var id: String { name + namespace }
+    var id: String { namespace + "/" + name }
     let name: String
     let namespace: String
     let status: String

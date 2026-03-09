@@ -1,6 +1,6 @@
 import Foundation
 
-@MainActor class MarkdownService: ObservableObject {
+@MainActor final class MarkdownService: ObservableObject {
     static let shared = MarkdownService()
     @Published var documents: [MarkdownDocument] = []
     @Published var currentDocument: MarkdownDocument?

@@ -110,6 +110,7 @@ final class APIClient: ObservableObject {
 
         if http.statusCode == 401 {
             isAuthenticated = false
+            AuthService.shared.isAuthenticated = false
             throw APIError.unauthorized
         }
 
@@ -127,9 +128,11 @@ final class APIClient: ObservableObject {
 
     /// Fire-and-forget request (no response body needed)
     func send(path: String, method: String = "POST", body: (any Encodable)? = nil) async throws {
-        let _: AuthResponse = try await request(path: path, method: method, body: body)
+        let _: EmptyResponse = try await request(path: path, method: method, body: body)
     }
 }
+
+private struct EmptyResponse: Decodable {}
 
 // MARK: - Internal Models
 

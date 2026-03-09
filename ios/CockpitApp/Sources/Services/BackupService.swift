@@ -1,6 +1,6 @@
 import Foundation
 
-@MainActor class BackupService: ObservableObject {
+@MainActor final class BackupService: ObservableObject {
     static let shared = BackupService()
     @Published var backups: [Backup] = []
     @Published var isAvailable = false

@@ -40,9 +40,9 @@ final class WebSocketClient: ObservableObject {
 
     func send(content: String, docId: String) {
         guard let task = webSocketTask else { return }
-        let json = """
-        {"type":"update","content":"\(content.replacingOccurrences(of: "\"", with: "\\\"").replacingOccurrences(of: "\n", with: "\\n"))","docId":"\(docId)"}
-        """
+        let payload: [String: String] = ["type": "update", "content": content, "docId": docId]
+        guard let data = try? JSONSerialization.data(withJSONObject: payload),
+              let json = String(data: data, encoding: .utf8) else { return }
         task.send(.string(json)) { _ in }
     }
 

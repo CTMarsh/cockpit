@@ -39,7 +39,7 @@ struct DashboardView: View {
                         StatCard(title: "Bookmarks", value: "\(stats.bookmarkCount ?? 0)", icon: "bookmark.fill", color: Theme.info)
                         StatCard(title: "Documents", value: "\(stats.docCount ?? 0)", icon: "doc.text.fill", color: Theme.success)
                         StatCard(title: "Cron Jobs", value: "\(stats.cronEnabled ?? 0)/\(stats.cronTotal ?? 0)", icon: "clock.fill", color: Theme.warning)
-                        StatCard(title: "WoL Devices", value: "\(stats.wolDeviceCount ?? 0)", icon: "wake", color: Theme.info)
+                        StatCard(title: "WoL Devices", value: "\(stats.wolDeviceCount ?? 0)", icon: "bolt.circle", color: Theme.info)
                         StatCard(title: "Ideas", value: "\(stats.ideaCount ?? 0)", icon: "lightbulb.fill", color: Theme.accent)
                     }
                     .padding(.horizontal)
@@ -60,7 +60,7 @@ struct DashboardView: View {
                         ModuleCard(title: "Proxmox", icon: "cpu", color: Theme.danger)
                         ModuleCard(title: "Logs", icon: "text.alignleft", color: Theme.textMuted)
                         ModuleCard(title: "Cron", icon: "clock.fill", color: Theme.warning)
-                        ModuleCard(title: "WoL", icon: "wake", color: Theme.success)
+                        ModuleCard(title: "WoL", icon: "bolt.circle", color: Theme.success)
                     }
                     .padding(.horizontal)
 

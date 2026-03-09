@@ -1,6 +1,6 @@
 import Foundation
 
-@MainActor class K8sService: ObservableObject {
+@MainActor final class K8sService: ObservableObject {
     static let shared = K8sService()
     @Published var namespaces: [String] = []
     @Published var selectedNamespace: String = ""

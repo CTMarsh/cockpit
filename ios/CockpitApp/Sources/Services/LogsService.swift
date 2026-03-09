@@ -1,6 +1,6 @@
 import Foundation
 
-@MainActor class LogsService: ObservableObject {
+@MainActor final class LogsService: ObservableObject {
     static let shared = LogsService()
     @Published var sources: [LogSource] = []
     @Published var systemUnits: [SystemUnit] = []

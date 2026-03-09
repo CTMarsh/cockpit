@@ -5,6 +5,7 @@ struct LoginView: View {
 
     @State private var username = ""
     @State private var password = ""
+    @State private var didAttemptBiometrics = false
 
     var body: some View {
         ZStack {
@@ -15,7 +16,7 @@ struct LoginView: View {
 
                 // Logo area
                 VStack(spacing: 12) {
-                    Image(systemName: "helm")
+                    Image(systemName: "sailboat")
                         .font(.system(size: 64))
                         .foregroundStyle(Theme.accent)
 
@@ -107,7 +108,8 @@ struct LoginView: View {
             }
         }
         .onAppear {
-            // Try auto-login with biometrics on appear
+            guard !didAttemptBiometrics else { return }
+            didAttemptBiometrics = true
             if auth.biometricsAvailable && auth.hasSavedCredentials {
                 Task { await auth.loginWithBiometrics() }
             }

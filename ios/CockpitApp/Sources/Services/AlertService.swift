@@ -1,6 +1,6 @@
 import Foundation
 
-@MainActor class AlertService: ObservableObject {
+@MainActor final class AlertService: ObservableObject {
     static let shared = AlertService()
     @Published var rules: [AlertRule] = []
     @Published var history: [AlertHistory] = []

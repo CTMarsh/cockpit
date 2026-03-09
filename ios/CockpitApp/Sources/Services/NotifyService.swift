@@ -1,6 +1,6 @@
 import Foundation
 
-@MainActor class NotifyModuleService: ObservableObject {
+@MainActor final class NotifyModuleService: ObservableObject {
     static let shared = NotifyModuleService()
     @Published var projects: [NotifyProject] = []
     @Published var devices: [NotifyDevice] = []

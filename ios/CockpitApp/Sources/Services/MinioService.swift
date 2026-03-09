@@ -1,6 +1,6 @@
 import Foundation
 
-@MainActor class MinioService: ObservableObject {
+@MainActor final class MinioService: ObservableObject {
     static let shared = MinioService()
     @Published var buckets: [String] = []
     @Published var objects: [MinioObject] = []

@@ -214,7 +214,9 @@ private struct BookmarkCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.border, lineWidth: 1))
         .contextMenu {
-            Button { openURL(URL(string: bookmark.url)!) } label: {
+            Button {
+                if let url = URL(string: bookmark.url) { openURL(url) }
+            } label: {
                 Label("Open in Browser", systemImage: "safari")
             }
             Button { onEdit() } label: {

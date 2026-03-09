@@ -17,7 +17,7 @@ struct WolView: View {
                     LoadingView()
                 } else if service.devices.isEmpty {
                     VStack(spacing: 12) {
-                        Image(systemName: "wake")
+                        Image(systemName: "bolt.circle")
                             .font(.system(size: 48))
                             .foregroundStyle(Theme.textMuted)
                         Text("No WoL devices")

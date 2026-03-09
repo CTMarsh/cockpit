@@ -1,6 +1,6 @@
 import Foundation
 
-@MainActor class HomeAssistantService: ObservableObject {
+@MainActor final class HomeAssistantService: ObservableObject {
     static let shared = HomeAssistantService()
     @Published var entities: [HAEntity] = []
     @Published var isAvailable = false

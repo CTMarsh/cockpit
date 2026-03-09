@@ -90,7 +90,7 @@ enum CarPlayTemplates {
             )
             item.setImage(UIImage(systemName: device.online == true ? "bolt.circle.fill" : "bolt.circle"))
             item.handler = { [weak delegate] _, completion in
-                nonisolated(unsafe) let d = delegate
+                let d = delegate
                 Task { @MainActor in
                     d?.wakeDevice(device)
                 }

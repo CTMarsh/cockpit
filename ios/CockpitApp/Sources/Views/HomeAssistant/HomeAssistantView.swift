@@ -72,7 +72,7 @@ struct HomeAssistantView: View {
                         sse.disconnect()
                         isLive = false
                     } else {
-                        sse.connect(path: "/api/homeassistant/events")
+                        sse.connect(path: "/api/ha/events")
                         isLive = true
                     }
                 } label: {
@@ -89,7 +89,7 @@ struct HomeAssistantView: View {
         .refreshable { await service.fetchEntities() }
         .task {
             await service.fetchEntities()
-            sse.connect(path: "/api/homeassistant/events")
+            sse.connect(path: "/api/ha/events")
             isLive = true
         }
         .onDisappear {

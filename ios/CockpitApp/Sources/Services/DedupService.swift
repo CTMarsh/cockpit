@@ -1,6 +1,6 @@
 import Foundation
 
-@MainActor class DedupService: ObservableObject {
+@MainActor final class DedupService: ObservableObject {
     static let shared = DedupService()
     @Published var scans: [DedupScan] = []
     @Published var allowedDirs: [String] = []

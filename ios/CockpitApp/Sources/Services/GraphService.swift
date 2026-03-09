@@ -1,6 +1,6 @@
 import Foundation
 
-@MainActor class GraphService: ObservableObject {
+@MainActor final class GraphService: ObservableObject {
     static let shared = GraphService()
     @Published var graphData: GraphData?
     @Published var isLoading = false
