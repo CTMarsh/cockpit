@@ -306,6 +306,8 @@ deploy:testflight:
   stage: deploy
   <<: *ios-base
   needs:
+    - job: version
+      artifacts: true
     - job: build:ios:release
       artifacts: true
   resource_group: testflight
