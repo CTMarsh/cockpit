@@ -121,7 +121,7 @@ struct WatchClusterView: View {
         isLoading = true
         error = nil
         do {
-            let response: ClusterMetrics = try await WatchAPIClient.shared.request(path: "/api/sysmon/metrics")
+            let response: ClusterMetrics = try await WatchAPIClient.shared.request(path: "/api/sysmon/cluster")
             metrics = response
         } catch {
             self.error = "Cannot reach cluster"

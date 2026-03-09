@@ -2,6 +2,7 @@ import SwiftUI
 import WatchKit
 
 struct WatchDashboardView: View {
+    @EnvironmentObject var api: WatchAPIClient
     @State private var services: ServiceSummary?
     @State private var cluster: ClusterMetrics?
     @State private var alertCount: Int = 0
@@ -16,10 +17,15 @@ struct WatchDashboardView: View {
                         ProgressView()
                             .tint(Theme.accent)
                     } else if let error {
-                        Text(error)
-                            .font(.caption2)
-                            .foregroundStyle(Theme.danger)
-                            .multilineTextAlignment(.center)
+                        VStack(spacing: 6) {
+                            Image(systemName: api.isAuthenticated ? "wifi.slash" : "person.crop.circle.badge.xmark")
+                                .font(.title3)
+                                .foregroundStyle(Theme.danger)
+                            Text(error)
+                                .font(.caption2)
+                                .foregroundStyle(Theme.danger)
+                                .multilineTextAlignment(.center)
+                        }
                     } else {
                         serviceCard
                         clusterCard
@@ -163,14 +169,21 @@ struct WatchDashboardView: View {
         do {
             let response: ServicesResponse = try await WatchAPIClient.shared.request(path: "/api/homelab/services")
             services = response.summary
+        } catch let apiError as APIError {
+            switch apiError {
+            case .unauthorized:
+                self.error = "Sign in on iPhone first"
+            default:
+                self.error = apiError.errorDescription
+            }
         } catch {
-            self.error = "Failed to load"
+            self.error = "Cannot reach server"
         }
     }
 
     private func fetchCluster() async {
         do {
-            let response: ClusterMetrics = try await WatchAPIClient.shared.request(path: "/api/sysmon/metrics")
+            let response: ClusterMetrics = try await WatchAPIClient.shared.request(path: "/api/sysmon/cluster")
             cluster = response
         } catch {
             // Non-critical, skip silently

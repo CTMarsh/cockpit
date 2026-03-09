@@ -6,5 +6,9 @@
 	<array>
 		<string>group.com.ctmarsh.cockpit</string>
 	</array>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)group.com.ctmarsh.cockpit</string>
+	</array>
 </dict>
 </plist>

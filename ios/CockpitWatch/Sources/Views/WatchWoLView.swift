@@ -104,7 +104,7 @@ struct WatchWoLView: View {
         wakingDeviceId = device.id
         do {
             let _: WakeResponse = try await WatchAPIClient.shared.request(
-                path: "/api/wol/\(device.id)/wake",
+                path: "/api/wol/wake/\(device.id)",
                 method: "POST"
             )
             WKInterfaceDevice.current().play(.success)
@@ -121,7 +121,7 @@ struct WatchWoLView: View {
         isLoading = true
         error = nil
         do {
-            let response: WolDevicesResponse = try await WatchAPIClient.shared.request(path: "/api/wol")
+            let response: WolDevicesResponse = try await WatchAPIClient.shared.request(path: "/api/wol/devices")
             devices = response.devices
         } catch {
             self.error = "Cannot reach server"

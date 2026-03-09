@@ -63,7 +63,7 @@ struct ClusterMetricsProvider: TimelineProvider {
 
     private func fetchEntry() async -> ClusterMetricsEntry {
         do {
-            let response: ClusterMetrics = try await WatchAPIClient.shared.request(path: "/api/sysmon/metrics")
+            let response: ClusterMetrics = try await WatchAPIClient.shared.request(path: "/api/sysmon/cluster")
             let cpu = response.cpu?.usedPercent ?? 0
             let mem = response.memory?.percent ?? 0
             let online = response.onlineCount ?? 0
