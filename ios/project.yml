@@ -1,4 +1,5 @@
 name: CockpitApp
+# Version synced from CI pipeline via MARKETING_VERSION xcarg
 options:
   bundleIdPrefix: com.ctmarsh
   deploymentTarget:
