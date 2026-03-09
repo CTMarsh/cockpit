@@ -46,16 +46,20 @@ platform :ios do
     end
   end
 
-  lane :build do
+  lane :build do |options|
     sh("cd .. && xcodegen generate")
     setup_signing
+
+    version = options[:version] || ENV["APP_VERSION"]
+    xcargs = version ? "MARKETING_VERSION=#{version}" : ""
 
     build_app(
       project: "CockpitApp.xcodeproj",
       scheme: "CockpitApp",
       configuration: "Release",
       export_method: "app-store",
-      output_directory: "./build"
+      output_directory: "./build",
+      xcargs: xcargs
     )
   end
 
@@ -69,13 +73,17 @@ platform :ios do
     )
     next_build = current + 1
 
+    version = ENV["APP_VERSION"]
+    xcargs = "CURRENT_PROJECT_VERSION=#{next_build}"
+    xcargs += " MARKETING_VERSION=#{version}" if version
+
     build_app(
       project: "CockpitApp.xcodeproj",
       scheme: "CockpitApp",
       configuration: "Release",
       export_method: "app-store",
       output_directory: "./build",
-      xcargs: "CURRENT_PROJECT_VERSION=#{next_build}"
+      xcargs: xcargs
     )
 
     upload_to_testflight(

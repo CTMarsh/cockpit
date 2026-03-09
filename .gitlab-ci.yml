@@ -210,6 +210,8 @@ deploy:k8s:
     name: alpine/k8s:1.35.2
     entrypoint: [""]
   needs:
+    - job: version
+      artifacts: true
     - job: build:api
     - job: build:web
   resource_group: production
@@ -222,6 +224,8 @@ deploy:k8s:
     - echo "=== Updating image tags ==="
     - kubectl set image deployment/cockpit-api api="$API_IMAGE:$CI_COMMIT_SHORT_SHA" -n cockpit
     - kubectl set image deployment/cockpit-web web="$WEB_IMAGE:$CI_COMMIT_SHORT_SHA" -n cockpit
+    - echo "=== Setting APP_VERSION=$APP_VERSION on API deployment ==="
+    - kubectl set env deployment/cockpit-api APP_VERSION="$APP_VERSION" -n cockpit
     - echo "=== Waiting for rollout ==="
     - kubectl rollout status deployment/cockpit-api -n cockpit --timeout=600s
     - kubectl rollout status deployment/cockpit-web -n cockpit --timeout=600s
@@ -279,12 +283,16 @@ build:ios:release:
   stage: build:ios
   <<: *ios-base
   interruptible: true
+  needs:
+    - job: version
+      artifacts: true
   script:
     - cd ios
     - bundle config set --local path 'vendor/bundle'
     - bundle install
     - xcodegen generate
-    - bundle exec fastlane build
+    - echo "Building iOS app with version $APP_VERSION"
+    - bundle exec fastlane build version:"$APP_VERSION"
   artifacts:
     paths:
       - ios/build/*.ipa
