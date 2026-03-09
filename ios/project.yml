@@ -60,6 +60,7 @@ targets:
         aps-environment: production
     dependencies:
       - target: CockpitWidgetExtension
+      - target: CockpitWatch
     capabilities:
       Push Notifications: {}
 
