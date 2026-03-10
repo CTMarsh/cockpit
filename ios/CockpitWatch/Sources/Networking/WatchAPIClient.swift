@@ -29,7 +29,6 @@ final class WatchAPIClient: ObservableObject {
 
         decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
     }
 
     // MARK: - Auth
