@@ -51,10 +51,18 @@ const stmts = {
   getSession: db.query("SELECT * FROM sessions WHERE token = ? AND expires_at > datetime('now')"),
   deleteSession: db.query("DELETE FROM sessions WHERE token = ?"),
   cleanExpired: db.query("DELETE FROM sessions WHERE expires_at <= datetime('now')"),
+  // Device code flow (watch/TV login)
+  createDeviceCode: db.query("INSERT INTO device_codes (code, expires_at) VALUES (?, datetime('now', '+5 minutes'))"),
+  getDeviceCode: db.query<{ code: string; status: string; session_token: string | null; expires_at: string }, [string]>(
+    "SELECT * FROM device_codes WHERE code = ? AND expires_at > datetime('now')"
+  ),
+  approveDeviceCode: db.query("UPDATE device_codes SET status = 'approved', session_token = ? WHERE code = ? AND status = 'pending' AND expires_at > datetime('now')"),
+  cleanExpiredCodes: db.query("DELETE FROM device_codes WHERE expires_at <= datetime('now')"),
 };
 
-// Clean expired sessions on startup
+// Clean expired sessions and device codes on startup
 stmts.cleanExpired.run();
+stmts.cleanExpiredCodes.run();
 
 // Startup warnings for default credentials
 if (!process.env.COCKPIT_PASS) {
@@ -106,6 +114,61 @@ authRoutes.post("/logout", (c) => {
   return c.json({ ok: true });
 });
 
+// ── Device Code Flow (QR-based watch/device login) ──
+
+// Step 1: Device requests a code (no auth needed)
+authRoutes.post("/device-code", (c) => {
+  // Generate a 6-character alphanumeric code (easy to read on small screens)
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I/O/0/1 to avoid confusion
+  let code = "";
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  for (const b of bytes) code += chars[b % chars.length];
+
+  stmts.createDeviceCode.run(code);
+  return c.json({ code, expires_in: 300 });
+});
+
+// Step 2: Device polls for approval (no auth needed)
+authRoutes.get("/device-code/:code", (c) => {
+  const code = c.req.param("code").toUpperCase();
+  const row = stmts.getDeviceCode.get(code);
+
+  if (!row) return c.json({ status: "expired" });
+
+  if (row.status === "approved" && row.session_token) {
+    // Set the session cookie on the polling device
+    setCookie(c, "cockpit_session", row.session_token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Lax",
+      maxAge: SESSION_DURATION_HOURS * 3600,
+      path: "/",
+    });
+    // Clean up the used code
+    db.run("DELETE FROM device_codes WHERE code = ?", [code]);
+    return c.json({ status: "approved" });
+  }
+
+  return c.json({ status: "pending" });
+});
+
+// Step 3: Authenticated user approves a code (requires auth — will go through middleware)
+// This is mounted separately below authMiddleware in index.ts
+authRoutes.post("/device-code/:code/approve", (c) => {
+  const code = c.req.param("code").toUpperCase();
+  const row = stmts.getDeviceCode.get(code);
+
+  if (!row) return c.json({ error: "Code expired or invalid" }, 404);
+  if (row.status !== "pending") return c.json({ error: "Code already used" }, 409);
+
+  // Create a new session for the device
+  const token = crypto.randomUUID();
+  stmts.createSession.run(token, `+${SESSION_DURATION_HOURS} hours`);
+  stmts.approveDeviceCode.run(token, code);
+
+  return c.json({ ok: true });
+});
+
 authRoutes.get("/me", (c) => {
   const token = getCookie(c, "cockpit_session");
   if (!token) return c.json({ authenticated: false }, 401);
@@ -123,8 +186,9 @@ export async function authMiddleware(c: Context, next: Next) {
     "/api/auth/login",
     "/api/auth/me",
     "/api/auth/logout",
+    "/api/auth/device-code",
   ];
-  if (publicPaths.includes(path) || path.match(/^\/api\/[a-z-]+\/health$/)) {
+  if (publicPaths.includes(path) || path.match(/^\/api\/[a-z-]+\/health$/) || path.match(/^\/api\/auth\/device-code\/[A-Z0-9]+$/)) {
     return next();
   }
 

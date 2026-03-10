@@ -82,6 +82,16 @@ db.run(`
 `);
 
 db.run(`
+  CREATE TABLE IF NOT EXISTS device_codes (
+    code TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    expires_at TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    session_token TEXT
+  )
+`);
+
+db.run(`
   CREATE TABLE IF NOT EXISTS favorites (
     idea_id INTEGER PRIMARY KEY,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))

@@ -20,6 +20,7 @@ import { HomeAssistantPage } from "./pages/HomeAssistant";
 import { AlertsPage } from "./pages/Alerts";
 import { MinioBrowserPage } from "./pages/MinioBrowser";
 import { NotifyPage } from "./pages/Notify";
+import { LinkDevicePage } from "./pages/LinkDevice";
 import { ToastProvider } from "./components/Toast";
 import "./index.css";
 
@@ -73,6 +74,7 @@ function App() {
           <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/minio" element={<MinioBrowserPage />} />
           <Route path="/notify" element={<NotifyPage />} />
+          <Route path="/link" element={<LinkDevicePage />} />
         </Route>
       </Routes>
     </BrowserRouter>

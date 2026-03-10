@@ -129,6 +129,11 @@ final class WatchAPIClient: ObservableObject {
         }
     }
 
+    /// Raw request using the shared session (for cookie handling during device code polling)
+    func pollRequest(url: URL) async throws -> (Data, URLResponse) {
+        try await session.data(from: url)
+    }
+
     // MARK: - Private
 
     private func retryRequest<T: Decodable>(

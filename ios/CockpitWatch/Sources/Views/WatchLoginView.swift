@@ -2,6 +2,37 @@ import SwiftUI
 
 struct WatchLoginView: View {
     @EnvironmentObject var api: WatchAPIClient
+    @State private var showQR = true
+
+    var body: some View {
+        if showQR {
+            WatchQRLoginView()
+                .toolbar {
+                    ToolbarItem(placement: .bottomBar) {
+                        Button("Type Password") {
+                            showQR = false
+                        }
+                        .font(.caption2)
+                        .foregroundStyle(Theme.textMuted)
+                    }
+                }
+        } else {
+            WatchPasswordLoginView()
+                .toolbar {
+                    ToolbarItem(placement: .bottomBar) {
+                        Button("Use QR Code") {
+                            showQR = true
+                        }
+                        .font(.caption2)
+                        .foregroundStyle(Theme.textMuted)
+                    }
+                }
+        }
+    }
+}
+
+struct WatchPasswordLoginView: View {
+    @EnvironmentObject var api: WatchAPIClient
     @State private var username = ""
     @State private var password = ""
     @State private var isLoading = false
@@ -58,7 +89,6 @@ struct WatchLoginView: View {
 
         do {
             try await api.login(username: username, password: password)
-            // Save credentials locally on the watch for future launches
             KeychainHelper.saveCredentials(username: username, password: password)
         } catch let apiError as APIError {
             error = apiError.errorDescription
