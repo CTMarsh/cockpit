@@ -257,6 +257,8 @@ deploy:k8s:
 .ios-changes: &ios-changes
   changes:
     - ios/CockpitApp/**/*
+    - ios/CockpitWatch/**/*
+    - ios/CockpitWidgetExtension/**/*
     - ios/project.yml
     - ios/fastlane/**/*
     - ios/Gemfile*
