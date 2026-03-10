@@ -23,6 +23,7 @@ import {
   Bell,
   BellRing,
   Database,
+  GitMerge,
 } from "lucide-react";
 
 const ROUTE_LABELS: Record<string, string> = {
@@ -43,6 +44,7 @@ const ROUTE_LABELS: Record<string, string> = {
   alerts: "Alert Rules",
   minio: "MinIO Browser",
   notify: "Notifications",
+  gitlab: "GitLab",
 };
 
 function Breadcrumbs() {
@@ -90,6 +92,7 @@ const modules = [
   { path: "/alerts", label: "Alert Rules", icon: Bell },
   { path: "/notify", label: "Notifications", icon: BellRing },
   { path: "/minio", label: "MinIO Browser", icon: Database },
+  { path: "/gitlab", label: "GitLab", icon: GitMerge },
 ];
 
 export function Layout({ onLogout }: { onLogout?: () => void }) {

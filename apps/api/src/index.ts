@@ -21,6 +21,7 @@ import { alertsRoutes } from "../../../modules/alerts/api";
 import { deployHistoryRoutes } from "../../../modules/deploy-history/api";
 import { minioRoutes } from "../../../modules/minio/api";
 import { notifyRoutes } from "../../../modules/notify/api";
+import { gitlabRoutes } from "../../../modules/gitlab/api";
 
 const app = new Hono();
 
@@ -58,7 +59,7 @@ app.use('/api/*', async (c, next) => {
 
 // Health check
 app.get("/api/health", (c) =>
-  c.json({ status: "ok", name: "Cockpit API", version: process.env.APP_VERSION || "unknown", modules: 18 })
+  c.json({ status: "ok", name: "Cockpit API", version: process.env.APP_VERSION || "unknown", modules: 19 })
 );
 
 // Dashboard stats — aggregated overview
@@ -126,6 +127,7 @@ app.route("/api/alerts", alertsRoutes);
 app.route("/api/deploy-history", deployHistoryRoutes);
 app.route("/api/minio", minioRoutes);
 app.route("/api/notify", notifyRoutes);
+app.route("/api/gitlab", gitlabRoutes);
 
 // WebSocket endpoint for markdown collaboration
 const wsClients = new Map<string, Set<any>>();

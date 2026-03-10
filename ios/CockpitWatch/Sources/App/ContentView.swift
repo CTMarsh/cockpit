@@ -13,6 +13,7 @@ struct ContentView: View {
                     WatchClusterPage()
                     WatchWoLPage()
                     WatchAlertsPage()
+                    WatchCIPage()
                     WatchVMsPage() // Last tab — scrollable per Apple HIG
                 }
                 .tabViewStyle(.verticalPage)

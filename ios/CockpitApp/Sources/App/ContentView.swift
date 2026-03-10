@@ -66,6 +66,7 @@ struct InfrastructureListView: View {
             NavigationLink("Cluster Monitor", destination: SysmonView())
             NavigationLink("k3s Manager", destination: K8sView())
             NavigationLink("Home Assistant", destination: HomeAssistantView())
+            NavigationLink("GitLab", destination: GitLabView())
         }
         .navigationTitle("Infrastructure")
         .listStyle(.insetGrouped)
