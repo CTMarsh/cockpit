@@ -29,7 +29,8 @@ async function gitlabGet(c: any, path: string) {
     params.set(k, v);
   }
   const qs = params.toString();
-  const fullPath = qs ? `${path}?${qs}` : path;
+  const sep = path.includes("?") ? "&" : "?";
+  const fullPath = qs ? `${path}${sep}${qs}` : path;
 
   const res = await gitlabApi(fullPath);
   if (!res.ok) {
