@@ -43,8 +43,8 @@ struct ServiceHealthProvider: TimelineProvider {
 
     private func cachedEntry() -> ServiceHealthEntry {
         let defaults = UserDefaults.standard
-        let up = defaults?.integer(forKey: Self.upCountKey) ?? 0
-        let total = defaults?.integer(forKey: Self.totalCountKey) ?? 0
+        let up = defaults.integer(forKey: Self.upCountKey)
+        let total = defaults.integer(forKey: Self.totalCountKey)
         return ServiceHealthEntry(date: .now, upCount: up, totalCount: total, isPlaceholder: false)
     }
 
@@ -54,10 +54,10 @@ struct ServiceHealthProvider: TimelineProvider {
             let up = response.summary?.up ?? response.services.filter(\.isUp).count
             let total = response.summary?.total ?? response.services.count
 
-            // Cache to App Group
+            // Cache locally
             let defaults = UserDefaults.standard
-            defaults?.set(up, forKey: Self.upCountKey)
-            defaults?.set(total, forKey: Self.totalCountKey)
+            defaults.set(up, forKey: Self.upCountKey)
+            defaults.set(total, forKey: Self.totalCountKey)
 
             return ServiceHealthEntry(date: .now, upCount: up, totalCount: total, isPlaceholder: false)
         } catch {

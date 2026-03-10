@@ -53,10 +53,10 @@ struct ClusterMetricsProvider: TimelineProvider {
         let defaults = UserDefaults.standard
         return ClusterMetricsEntry(
             date: .now,
-            cpuPercent: defaults?.double(forKey: Self.cpuKey) ?? 0,
-            memPercent: defaults?.double(forKey: Self.memKey) ?? 0,
-            nodesOnline: defaults?.integer(forKey: Self.nodesOnlineKey) ?? 0,
-            nodesTotal: defaults?.integer(forKey: Self.nodesTotalKey) ?? 0,
+            cpuPercent: defaults.double(forKey: Self.cpuKey),
+            memPercent: defaults.double(forKey: Self.memKey),
+            nodesOnline: defaults.integer(forKey: Self.nodesOnlineKey),
+            nodesTotal: defaults.integer(forKey: Self.nodesTotalKey),
             isPlaceholder: false
         )
     }
@@ -69,12 +69,12 @@ struct ClusterMetricsProvider: TimelineProvider {
             let online = response.onlineCount ?? 0
             let total = response.nodeCount ?? 0
 
-            // Cache to App Group
+            // Cache locally
             let defaults = UserDefaults.standard
-            defaults?.set(cpu, forKey: Self.cpuKey)
-            defaults?.set(mem, forKey: Self.memKey)
-            defaults?.set(online, forKey: Self.nodesOnlineKey)
-            defaults?.set(total, forKey: Self.nodesTotalKey)
+            defaults.set(cpu, forKey: Self.cpuKey)
+            defaults.set(mem, forKey: Self.memKey)
+            defaults.set(online, forKey: Self.nodesOnlineKey)
+            defaults.set(total, forKey: Self.nodesTotalKey)
 
             return ClusterMetricsEntry(
                 date: .now,
