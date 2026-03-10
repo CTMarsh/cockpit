@@ -26,7 +26,7 @@ struct ClusterMetricsEntry: TimelineEntry {
 // MARK: - Timeline Provider
 
 struct ClusterMetricsProvider: TimelineProvider {
-    private static let appGroupId = "group.com.ctmarsh.cockpit"
+    private static let cachePrefix = "clusterMetrics_"
     private static let cpuKey = "clusterCpuPercent"
     private static let memKey = "clusterMemPercent"
     private static let nodesOnlineKey = "clusterNodesOnline"
@@ -50,7 +50,7 @@ struct ClusterMetricsProvider: TimelineProvider {
     }
 
     private func cachedEntry() -> ClusterMetricsEntry {
-        let defaults = UserDefaults(suiteName: Self.appGroupId)
+        let defaults = UserDefaults.standard
         return ClusterMetricsEntry(
             date: .now,
             cpuPercent: defaults?.double(forKey: Self.cpuKey) ?? 0,
@@ -70,7 +70,7 @@ struct ClusterMetricsProvider: TimelineProvider {
             let total = response.nodeCount ?? 0
 
             // Cache to App Group
-            let defaults = UserDefaults(suiteName: Self.appGroupId)
+            let defaults = UserDefaults.standard
             defaults?.set(cpu, forKey: Self.cpuKey)
             defaults?.set(mem, forKey: Self.memKey)
             defaults?.set(online, forKey: Self.nodesOnlineKey)

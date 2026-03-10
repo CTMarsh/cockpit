@@ -20,7 +20,7 @@ struct ServiceHealthEntry: TimelineEntry {
 // MARK: - Timeline Provider
 
 struct ServiceHealthProvider: TimelineProvider {
-    private static let appGroupId = "group.com.ctmarsh.cockpit"
+    private static let cachePrefix = "serviceHealth_"
     private static let upCountKey = "serviceHealthUpCount"
     private static let totalCountKey = "serviceHealthTotalCount"
 
@@ -42,7 +42,7 @@ struct ServiceHealthProvider: TimelineProvider {
     }
 
     private func cachedEntry() -> ServiceHealthEntry {
-        let defaults = UserDefaults(suiteName: Self.appGroupId)
+        let defaults = UserDefaults.standard
         let up = defaults?.integer(forKey: Self.upCountKey) ?? 0
         let total = defaults?.integer(forKey: Self.totalCountKey) ?? 0
         return ServiceHealthEntry(date: .now, upCount: up, totalCount: total, isPlaceholder: false)
@@ -55,7 +55,7 @@ struct ServiceHealthProvider: TimelineProvider {
             let total = response.summary?.total ?? response.services.count
 
             // Cache to App Group
-            let defaults = UserDefaults(suiteName: Self.appGroupId)
+            let defaults = UserDefaults.standard
             defaults?.set(up, forKey: Self.upCountKey)
             defaults?.set(total, forKey: Self.totalCountKey)
 

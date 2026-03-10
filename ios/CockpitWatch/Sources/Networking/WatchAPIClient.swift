@@ -15,8 +15,7 @@ final class WatchAPIClient: ObservableObject {
     private let defaultBaseURL = "https://dashboard.noahsark.me"
 
     var baseURL: String {
-        let groupDefaults = UserDefaults(suiteName: "group.com.ctmarsh.cockpit")
-        return groupDefaults?.string(forKey: "serverURL") ?? defaultBaseURL
+        UserDefaults.standard.string(forKey: "serverURL") ?? defaultBaseURL
     }
 
     private init() {
