@@ -7,6 +7,7 @@
 	<key>keychain-access-groups</key>
 	<array>
 		<string>$(AppIdentifierPrefix)com.ctmarsh.noahsark-cockpit</string>
+		<string>$(AppIdentifierPrefix)group.com.ctmarsh.cockpit</string>
 	</array>
 	<key>com.apple.security.application-groups</key>
 	<array>
