@@ -41,12 +41,6 @@ cache:
     - apps/web/node_modules/
     - apps/api/node_modules/
 
-# ── SAST Override: non-blocking + reduced scope ──────────────
-# The included semgrep-sast template takes 10+ minutes and blocks builds.
-# Override to allow_failure so the pipeline proceeds without waiting.
-semgrep-sast:
-  allow_failure: true
-
 # ── Stage 1: Lint & Type Check ──────────────────────────────
 lint:
   stage: lint
