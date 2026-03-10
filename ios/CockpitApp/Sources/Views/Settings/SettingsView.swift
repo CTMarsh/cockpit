@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var showingSignOutConfirm = false
     @State private var showingClearCacheConfirm = false
     @State private var cacheCleared = false
+    @State private var showingLinkDevice = false
 
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
@@ -23,6 +24,7 @@ struct SettingsView: View {
         List {
             serverSection
             securitySection
+            devicesSection
             notificationsSection
             aboutSection
             dangerZoneSection
@@ -78,9 +80,22 @@ struct SettingsView: View {
                 Image(systemName: "faceid")
                     .foregroundStyle(Theme.accent)
                     .frame(width: 24)
-                Toggle("Face ID Login", isOn: .constant(auth.biometricsAvailable && auth.hasSavedCredentials))
-                    .tint(Theme.accent)
-                    .foregroundStyle(Theme.text)
+                Toggle("Face ID Login", isOn: Binding(
+                    get: { auth.faceIDEnabled },
+                    set: { newValue in
+                        if newValue {
+                            // Only enable if biometrics available and credentials saved
+                            if auth.biometricsAvailable && auth.hasSavedCredentials {
+                                auth.faceIDEnabled = true
+                            }
+                        } else {
+                            auth.faceIDEnabled = false
+                        }
+                    }
+                ))
+                .tint(Theme.accent)
+                .foregroundStyle(Theme.text)
+                .disabled(!auth.biometricsAvailable || !auth.hasSavedCredentials)
             }
 
             if !auth.biometricsAvailable {
@@ -92,9 +107,47 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(Theme.textMuted)
                 }
+            } else if !auth.hasSavedCredentials {
+                HStack(spacing: 8) {
+                    Image(systemName: "info.circle")
+                        .foregroundStyle(Theme.textMuted)
+                        .frame(width: 24)
+                    Text("Sign in first to enable Face ID.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.textMuted)
+                }
             }
         } header: {
             Text("Security")
+                .foregroundStyle(Theme.textMuted)
+        }
+        .listRowBackground(Theme.surface)
+    }
+
+    // MARK: - Devices
+
+    private var devicesSection: some View {
+        Section {
+            Button {
+                showingLinkDevice = true
+            } label: {
+                HStack {
+                    Image(systemName: "applewatch")
+                        .foregroundStyle(Theme.accent)
+                        .frame(width: 24)
+                    Text("Link Apple Watch")
+                        .foregroundStyle(Theme.text)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(Theme.textMuted)
+                }
+            }
+            .sheet(isPresented: $showingLinkDevice) {
+                LinkDeviceSheet()
+            }
+        } header: {
+            Text("Devices")
                 .foregroundStyle(Theme.textMuted)
         }
         .listRowBackground(Theme.surface)

@@ -11,6 +11,14 @@ final class AuthService: ObservableObject {
     @Published var error: String?
     @Published var biometricsAvailable = false
 
+    var faceIDEnabled: Bool {
+        get { UserDefaults.standard.bool(forKey: "faceIDEnabled") }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "faceIDEnabled")
+            objectWillChange.send()
+        }
+    }
+
     private let api = APIClient.shared
 
     private init() {
@@ -44,6 +52,11 @@ final class AuthService: ObservableObject {
 
             if remember {
                 KeychainHelper.saveCredentials(username: username, password: password)
+                // Auto-enable Face ID on first credential save
+                if biometricsAvailable && !UserDefaults.standard.bool(forKey: "faceIDConfigured") {
+                    faceIDEnabled = true
+                    UserDefaults.standard.set(true, forKey: "faceIDConfigured")
+                }
                 // Send credentials to paired Apple Watch
                 syncCredentialsToWatch(username: username, password: password)
             }

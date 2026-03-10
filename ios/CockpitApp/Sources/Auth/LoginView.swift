@@ -83,7 +83,7 @@ struct LoginView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                     .disabled(username.isEmpty || password.isEmpty || auth.isLoading)
 
-                    if auth.biometricsAvailable && auth.hasSavedCredentials {
+                    if auth.faceIDEnabled && auth.biometricsAvailable && auth.hasSavedCredentials {
                         Button {
                             Task { await auth.loginWithBiometrics() }
                         } label: {
@@ -110,7 +110,7 @@ struct LoginView: View {
         .onAppear {
             guard !didAttemptBiometrics else { return }
             didAttemptBiometrics = true
-            if auth.biometricsAvailable && auth.hasSavedCredentials {
+            if auth.faceIDEnabled && auth.biometricsAvailable && auth.hasSavedCredentials {
                 Task { await auth.loginWithBiometrics() }
             }
         }
