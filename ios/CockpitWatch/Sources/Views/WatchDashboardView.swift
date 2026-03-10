@@ -170,12 +170,7 @@ struct WatchDashboardView: View {
             let response: ServicesResponse = try await WatchAPIClient.shared.request(path: "/api/homelab/services")
             services = response.summary
         } catch let apiError as APIError {
-            switch apiError {
-            case .unauthorized:
-                self.error = "Sign in on iPhone first"
-            default:
-                self.error = apiError.errorDescription
-            }
+            self.error = apiError.errorDescription
         } catch {
             self.error = "Cannot reach server"
         }

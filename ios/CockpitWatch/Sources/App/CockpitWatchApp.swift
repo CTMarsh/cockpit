@@ -11,7 +11,7 @@ struct CockpitWatchApp: App {
                 .environmentObject(connectivity)
                 .environmentObject(api)
                 .task {
-                    // Authenticate on launch using shared Keychain credentials
+                    // Try existing session first, then auto-login from watch's local Keychain
                     if !api.isAuthenticated {
                         let hasSession = await api.checkSession()
                         if !hasSession {

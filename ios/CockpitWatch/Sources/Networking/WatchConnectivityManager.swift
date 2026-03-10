@@ -81,7 +81,20 @@ extension WatchConnectivityManager: WCSessionDelegate {
         _ session: WCSession,
         didReceiveApplicationContext applicationContext: [String: Any]
     ) {
+        // Handle credential transfer from iPhone
+        if let username = applicationContext["cockpit_username"] as? String,
+           let password = applicationContext["cockpit_password"] as? String {
+            Task { @MainActor in
+                KeychainHelper.saveCredentials(username: username, password: password)
+                // Auto-login with the received credentials
+                if !WatchAPIClient.shared.isAuthenticated {
+                    await WatchAPIClient.shared.loginFromKeychain()
+                }
+            }
+        }
+
         for (key, value) in applicationContext {
+            guard !key.hasPrefix("cockpit_") else { continue }
             let data = try? JSONSerialization.data(withJSONObject: value)
             Task { @MainActor in
                 if let data {

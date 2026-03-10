@@ -1,5 +1,6 @@
 import Foundation
 import LocalAuthentication
+@preconcurrency import WatchConnectivity
 
 @MainActor
 final class AuthService: ObservableObject {
@@ -43,6 +44,8 @@ final class AuthService: ObservableObject {
 
             if remember {
                 KeychainHelper.saveCredentials(username: username, password: password)
+                // Send credentials to paired Apple Watch
+                syncCredentialsToWatch(username: username, password: password)
             }
         } catch let apiError as APIError {
             error = apiError.errorDescription
@@ -93,5 +96,18 @@ final class AuthService: ObservableObject {
     func logout() async {
         await api.logout()
         isAuthenticated = false
+    }
+
+    // MARK: - Watch Sync
+
+    private func syncCredentialsToWatch(username: String, password: String) {
+        guard WCSession.isSupported() else { return }
+        let session = WCSession.default
+        if session.activationState == .activated, session.isPaired {
+            try? session.updateApplicationContext([
+                "cockpit_username": username,
+                "cockpit_password": password
+            ])
+        }
     }
 }

@@ -1,5 +1,6 @@
 import UIKit
 import UserNotifications
+@preconcurrency import WatchConnectivity
 
 class AppDelegate: NSObject, UIApplicationDelegate, @unchecked Sendable {
 
@@ -14,6 +15,12 @@ class AppDelegate: NSObject, UIApplicationDelegate, @unchecked Sendable {
         // Register and schedule background refresh for widget data
         BackgroundTaskManager.shared.registerTask()
         BackgroundTaskManager.shared.scheduleRefresh()
+
+        // Activate WatchConnectivity for credential sync
+        if WCSession.isSupported() {
+            WCSession.default.delegate = PhoneSessionDelegate.shared
+            WCSession.default.activate()
+        }
 
         return true
     }
@@ -67,6 +74,27 @@ class AppDelegate: NSObject, UIApplicationDelegate, @unchecked Sendable {
         fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
     ) {
         completionHandler(.newData)
+    }
+}
+
+// MARK: - WatchConnectivity Delegate (iPhone side)
+
+final class PhoneSessionDelegate: NSObject, WCSessionDelegate, Sendable {
+    static let shared = PhoneSessionDelegate()
+
+    func session(
+        _ session: WCSession,
+        activationDidCompleteWith activationState: WCSessionActivationState,
+        error: Error?
+    ) {
+        if let error {
+            print("WCSession activation error: \(error.localizedDescription)")
+        }
+    }
+
+    func sessionDidBecomeInactive(_ session: WCSession) {}
+    func sessionDidDeactivate(_ session: WCSession) {
+        session.activate()
     }
 }
 
