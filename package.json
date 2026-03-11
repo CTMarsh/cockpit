@@ -1,6 +1,6 @@
 {
   "name": "cockpit",
-  "version": "2.1.1",
+  "version": "2.5.52",
   "private": true,
   "workspaces": [
     "apps/*",

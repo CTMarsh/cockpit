@@ -24,6 +24,14 @@ import {
   BellRing,
   Database,
   GitMerge,
+  HardDriveDownload,
+  History,
+  Signal,
+  ShieldCheck,
+  Route,
+  Globe,
+  Wifi,
+  Terminal,
 } from "lucide-react";
 
 const ROUTE_LABELS: Record<string, string> = {
@@ -45,6 +53,14 @@ const ROUTE_LABELS: Record<string, string> = {
   minio: "MinIO Browser",
   notify: "Notifications",
   gitlab: "GitLab",
+  backups: "Backups",
+  deploys: "Deploy History",
+  uptime: "Uptime Monitor",
+  certificates: "Certificates",
+  traefik: "Traefik Routes",
+  dns: "DNS Manager",
+  network: "Network Scanner",
+  ansible: "Ansible Runner",
 };
 
 function Breadcrumbs() {
@@ -93,6 +109,14 @@ const modules = [
   { path: "/notify", label: "Notifications", icon: BellRing },
   { path: "/minio", label: "MinIO Browser", icon: Database },
   { path: "/gitlab", label: "GitLab", icon: GitMerge },
+  { path: "/backups", label: "Backups", icon: HardDriveDownload },
+  { path: "/deploys", label: "Deploy History", icon: History },
+  { path: "/uptime", label: "Uptime Monitor", icon: Signal },
+  { path: "/certificates", label: "Certificates", icon: ShieldCheck },
+  { path: "/traefik", label: "Traefik Routes", icon: Route },
+  { path: "/dns", label: "DNS Manager", icon: Globe },
+  { path: "/network", label: "Network Scanner", icon: Wifi },
+  { path: "/ansible", label: "Ansible Runner", icon: Terminal },
 ];
 
 export function Layout({ onLogout }: { onLogout?: () => void }) {

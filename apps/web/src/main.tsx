@@ -22,6 +22,14 @@ import { MinioBrowserPage } from "./pages/MinioBrowser";
 import { NotifyPage } from "./pages/Notify";
 import { LinkDevicePage } from "./pages/LinkDevice";
 import { GitLabPage } from "./pages/GitLab";
+import { BackupsPage } from "./pages/Backups";
+import { DeployHistoryPage } from "./pages/DeployHistory";
+import { UptimeMonitorPage } from "./pages/UptimeMonitor";
+import { CertificatesPage } from "./pages/Certificates";
+import { TraefikRoutesPage } from "./pages/TraefikRoutes";
+import { DnsManagerPage } from "./pages/DnsManager";
+import { NetworkScannerPage } from "./pages/NetworkScanner";
+import { AnsibleRunnerPage } from "./pages/AnsibleRunner";
 import { ToastProvider } from "./components/Toast";
 import "./index.css";
 
@@ -77,6 +85,14 @@ function App() {
           <Route path="/notify" element={<NotifyPage />} />
           <Route path="/gitlab" element={<GitLabPage />} />
           <Route path="/link" element={<LinkDevicePage />} />
+          <Route path="/backups" element={<BackupsPage />} />
+          <Route path="/deploys" element={<DeployHistoryPage />} />
+          <Route path="/uptime" element={<UptimeMonitorPage />} />
+          <Route path="/certificates" element={<CertificatesPage />} />
+          <Route path="/traefik" element={<TraefikRoutesPage />} />
+          <Route path="/dns" element={<DnsManagerPage />} />
+          <Route path="/network" element={<NetworkScannerPage />} />
+          <Route path="/ansible" element={<AnsibleRunnerPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

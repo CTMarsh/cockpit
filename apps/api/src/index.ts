@@ -22,6 +22,12 @@ import { deployHistoryRoutes } from "../../../modules/deploy-history/api";
 import { minioRoutes } from "../../../modules/minio/api";
 import { notifyRoutes } from "../../../modules/notify/api";
 import { gitlabRoutes } from "../../../modules/gitlab/api";
+import { uptimeRoutes } from "../../../modules/uptime/api";
+import { certificateRoutes } from "../../../modules/certificates/api";
+import { traefikRoutes } from "../../../modules/traefik/api";
+import { dnsRoutes } from "../../../modules/dns/api";
+import { networkRoutes } from "../../../modules/network/api";
+import { ansibleRoutes } from "../../../modules/ansible/api";
 
 const app = new Hono();
 
@@ -59,7 +65,7 @@ app.use('/api/*', async (c, next) => {
 
 // Health check
 app.get("/api/health", (c) =>
-  c.json({ status: "ok", name: "Cockpit API", version: process.env.APP_VERSION || "unknown", modules: 19 })
+  c.json({ status: "ok", name: "Cockpit API", version: process.env.APP_VERSION || "unknown", modules: 25 })
 );
 
 // Dashboard stats — aggregated overview
@@ -128,6 +134,12 @@ app.route("/api/deploy-history", deployHistoryRoutes);
 app.route("/api/minio", minioRoutes);
 app.route("/api/notify", notifyRoutes);
 app.route("/api/gitlab", gitlabRoutes);
+app.route("/api/uptime", uptimeRoutes);
+app.route("/api/certificates", certificateRoutes);
+app.route("/api/traefik", traefikRoutes);
+app.route("/api/dns", dnsRoutes);
+app.route("/api/network", networkRoutes);
+app.route("/api/ansible", ansibleRoutes);
 
 // WebSocket endpoint for markdown collaboration
 const wsClients = new Map<string, Set<any>>();
