@@ -67,6 +67,9 @@ struct InfrastructureListView: View {
             NavigationLink("k3s Manager", destination: K8sView())
             NavigationLink("Home Assistant", destination: HomeAssistantView())
             NavigationLink("GitLab", destination: GitLabView())
+            NavigationLink("Traefik Routes", destination: TraefikView())
+            NavigationLink("Certificates", destination: CertificatesView())
+            NavigationLink("DNS Manager", destination: DNSView())
         }
         .navigationTitle("Infrastructure")
         .listStyle(.insetGrouped)
@@ -101,6 +104,9 @@ struct OperationsListView: View {
             NavigationLink("Backups", destination: BackupsView())
             NavigationLink("MinIO", destination: MinIOView())
             NavigationLink("Notify", destination: NotifyView())
+            NavigationLink("Uptime Monitor", destination: UptimeView())
+            NavigationLink("Network Scanner", destination: NetworkScannerView())
+            NavigationLink("Ansible Runner", destination: AnsibleView())
         }
         .navigationTitle("Operations")
         .listStyle(.insetGrouped)

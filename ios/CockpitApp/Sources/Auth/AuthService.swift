@@ -10,6 +10,7 @@ final class AuthService: ObservableObject {
     @Published var isLoading = false
     @Published var error: String?
     @Published var biometricsAvailable = false
+    @Published private(set) var isAuthenticatingBiometrics = false
 
     var faceIDEnabled: Bool {
         get { UserDefaults.standard.bool(forKey: "faceIDEnabled") }
@@ -70,6 +71,10 @@ final class AuthService: ObservableObject {
     }
 
     func loginWithBiometrics() async {
+        guard !isAuthenticatingBiometrics else { return }
+        isAuthenticatingBiometrics = true
+        defer { isAuthenticatingBiometrics = false }
+
         guard let credentials = KeychainHelper.loadCredentials() else {
             error = "No saved credentials. Please log in manually first."
             return
