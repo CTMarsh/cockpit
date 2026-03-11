@@ -241,6 +241,39 @@ deploy:k8s:
     name: production
     url: https://dashboard.noahsark.me
 
+# ── iOS change detection ─────────────────────────────────
+.ios-changes: &ios-changes
+  changes:
+    - ios/CockpitApp/**/*
+    - ios/CockpitWatch/**/*
+    - ios/CockpitWidgetExtension/**/*
+    - ios/project.yml
+    - ios/fastlane/**/*
+    - ios/Gemfile*
+
+# ── iOS Version (reads from project.yml) ─────────────────
+# Separate version track — project.yml MARKETING_VERSION is the source of truth.
+# Web auto-bumps patch on every push; iOS version is bumped in project.yml
+# when iOS code changes (new modules, features, fixes).
+ios:version:
+  stage: version
+  image: alpine:3.19
+  needs: []
+  script:
+    - |
+      IOS_VERSION=$(grep 'MARKETING_VERSION:' ios/project.yml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+      echo "iOS MARKETING_VERSION: $IOS_VERSION"
+      echo "IOS_APP_VERSION=$IOS_VERSION" > ios_version.env
+  artifacts:
+    reports:
+      dotenv: ios_version.env
+    expire_in: 1 hour
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+      <<: *ios-changes
+    - if: $CI_MERGE_REQUEST_IID
+      <<: *ios-changes
+
 # ── iOS: macOS runner shared config ──────────────────────
 .ios-base: &ios-base
   tags:
@@ -258,15 +291,6 @@ deploy:k8s:
       security unlock-keychain -p "" fastlane_ci.keychain
       security set-keychain-settings -t 3600 fastlane_ci.keychain
       security list-keychains -d user -s fastlane_ci.keychain login.keychain-db
-
-.ios-changes: &ios-changes
-  changes:
-    - ios/CockpitApp/**/*
-    - ios/CockpitWatch/**/*
-    - ios/CockpitWidgetExtension/**/*
-    - ios/project.yml
-    - ios/fastlane/**/*
-    - ios/Gemfile*
 
 # ── Stage: build:ios ─────────────────────────────────────
 build:ios:verify:
@@ -291,15 +315,15 @@ build:ios:release:
   <<: *ios-base
   interruptible: true
   needs:
-    - job: version
+    - job: ios:version
       artifacts: true
   script:
     - cd ios
     - bundle config set --local path 'vendor/bundle'
     - bundle install
     - xcodegen generate
-    - echo "Building iOS app with version $APP_VERSION"
-    - bundle exec fastlane build version:"$APP_VERSION"
+    - echo "Building iOS app with version $IOS_APP_VERSION"
+    - bundle exec fastlane build version:"$IOS_APP_VERSION"
   artifacts:
     paths:
       - ios/build/*.ipa
@@ -313,7 +337,7 @@ deploy:testflight:
   stage: deploy
   <<: *ios-base
   needs:
-    - job: version
+    - job: ios:version
       artifacts: true
     - job: build:ios:release
       artifacts: true
@@ -322,6 +346,7 @@ deploy:testflight:
     - cd ios
     - bundle config set --local path 'vendor/bundle'
     - bundle install
+    - echo "Deploying iOS $IOS_APP_VERSION to TestFlight"
     - bundle exec fastlane beta
   rules:
     - if: $CI_COMMIT_BRANCH == "master"

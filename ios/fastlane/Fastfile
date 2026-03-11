@@ -50,7 +50,7 @@ platform :ios do
     sh("cd .. && xcodegen generate")
     setup_signing
 
-    version = options[:version] || ENV["APP_VERSION"]
+    version = options[:version] || ENV["IOS_APP_VERSION"] || ENV["APP_VERSION"]
     xcargs = version ? "MARKETING_VERSION=#{version}" : ""
 
     build_app(
@@ -73,7 +73,7 @@ platform :ios do
     )
     next_build = current + 1
 
-    version = ENV["APP_VERSION"]
+    version = ENV["IOS_APP_VERSION"] || ENV["APP_VERSION"]
     xcargs = "CURRENT_PROJECT_VERSION=#{next_build}"
     xcargs += " MARKETING_VERSION=#{version}" if version
 
