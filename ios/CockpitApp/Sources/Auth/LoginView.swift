@@ -87,10 +87,17 @@ struct LoginView: View {
                         Button {
                             Task { await auth.loginWithBiometrics() }
                         } label: {
-                            Label("Sign in with Face ID", systemImage: "faceid")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity)
-                                .padding(14)
+                            if auth.isAuthenticatingBiometrics {
+                                ProgressView()
+                                    .tint(Theme.accent)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(14)
+                            } else {
+                                Label("Sign in with Face ID", systemImage: "faceid")
+                                    .font(.headline)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(14)
+                            }
                         }
                         .background(Theme.surface)
                         .foregroundStyle(Theme.accent)
@@ -99,6 +106,7 @@ struct LoginView: View {
                             RoundedRectangle(cornerRadius: 10)
                                 .stroke(Theme.border, lineWidth: 1)
                         )
+                        .disabled(auth.isAuthenticatingBiometrics)
                     }
                 }
                 .padding(.horizontal, 32)
