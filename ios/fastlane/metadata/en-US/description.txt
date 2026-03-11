@@ -1,0 +1,28 @@
+Cockpit is a self-hosted homelab dashboard that gives you complete control over your infrastructure from your iPhone and Apple Watch.
+
+INFRASTRUCTURE AT YOUR FINGERTIPS
+Monitor Docker containers, manage Proxmox VMs, check Kubernetes cluster health, and control Home Assistant devices — all from a single, beautifully designed dark-themed interface.
+
+28 MODULES, ONE APP
+- Homelab Monitor: Real-time Docker container status and health checks
+- k3s Cluster Manager: Workloads, pods, scaling, and events
+- Proxmox VE: Start, stop, and manage VMs and containers
+- Uptime Monitor: Service health polling with response time tracking
+- Certificate Monitor: TLS certificate expiry tracking
+- Network Scanner: TCP port scanning and device discovery
+- DNS Manager: Cloudflare DNS record management
+- Traefik Routes: Ingress routes and middleware visibility
+- Ansible Runner: Execute playbooks with dry-run support
+- And 19 more modules for complete homelab control
+
+BUILT FOR SPEED
+Face ID authentication gets you in instantly. Pull-to-refresh on every screen. Real-time updates via Server-Sent Events and WebSocket connections.
+
+APPLE WATCH COMPANION
+Check cluster status and service health from your wrist with the standalone watchOS app. No iPhone required.
+
+WIDGETS & SHORTCUTS
+WidgetKit home screen widgets for at-a-glance monitoring. Siri Shortcuts for hands-free cluster and service health checks.
+
+PRIVACY FIRST
+Cockpit connects directly to your self-hosted dashboard. No cloud services, no third-party analytics, no data collection. Your infrastructure, your data.

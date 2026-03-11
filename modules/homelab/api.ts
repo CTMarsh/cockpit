@@ -1,7 +1,7 @@
-import { Hono } from "hono";
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { db } from "../../apps/api/src/db";
 
-export const homelabRoutes = new Hono();
+export const homelabRoutes = new OpenAPIHono();
 
 // ── SSRF prevention — block cloud metadata and localhost, allow homelab network ──
 function isHomelabUrlSafe(urlString: string): { safe: boolean; error?: string } {
@@ -77,8 +77,6 @@ async function checkService(service: ServiceConfig): Promise<ServiceStatus> {
     const res = await fetch(service.url, { signal: controller.signal, redirect: "follow" });
     clearTimeout(timeout);
     const responseTime = Date.now() - start;
-    // Any response under 500 = service is up (including redirects, 404s)
-    // Only 5xx errors mean the service itself is broken
     const isUp = service.expected_status === 0
       ? res.status < 500
       : res.status === service.expected_status;
@@ -106,18 +104,41 @@ async function checkService(service: ServiceConfig): Promise<ServiceStatus> {
   }
 }
 
-homelabRoutes.get("/health", (c) => c.json({ module: "homelab", status: "ok" }));
+const healthRoute = createRoute({
+  method: 'get',
+  path: '/health',
+  tags: ['Homelab'],
+  responses: { 200: { content: { 'application/json': { schema: z.object({ module: z.string(), status: z.string() }) } }, description: 'Module health' } }
+});
+homelabRoutes.openapi(healthRoute, (c) => c.json({ module: "homelab", status: "ok" }, 200));
 
-homelabRoutes.get("/services", async (c) => {
+const listServicesRoute = createRoute({
+  method: 'get',
+  path: '/services',
+  tags: ['Homelab'],
+  description: 'List all services with live status checks',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: z.object({
+        services: z.array(z.object({
+          id: z.string(), name: z.string(), url: z.string(), icon: z.string().nullable().optional(),
+          status: z.string(), responseTime: z.number().nullable(), lastChecked: z.string(),
+          statusCode: z.number().nullable(), uptimePercent: z.number(),
+        })),
+        summary: z.object({ total: z.number(), up: z.number(), down: z.number() }),
+      }) } },
+      description: 'Service statuses'
+    }
+  }
+});
+homelabRoutes.openapi(listServicesRoute, async (c) => {
   const services = stmts.getAll.all() as ServiceConfig[];
   const statuses = await Promise.all(services.map(checkService));
 
-  // Record uptime for each service
   for (const s of statuses) {
     stmts.recordUptime.run(s.id, s.status, s.responseTime);
   }
 
-  // Get uptime percentages
   const uptimeRows = stmts.getUptimePercent.all() as any[];
   const uptimeMap: Record<string, number> = {};
   for (const row of uptimeRows) {
@@ -131,47 +152,95 @@ homelabRoutes.get("/services", async (c) => {
       up: statuses.filter((s) => s.status === "up").length,
       down: statuses.filter((s) => s.status === "down").length,
     },
-  });
+  } as any, 200);
 });
 
-homelabRoutes.get("/services/:id/history", (c) => {
-  const id = c.req.param("id");
+const serviceHistoryRoute = createRoute({
+  method: 'get',
+  path: '/services/{id}/history',
+  tags: ['Homelab'],
+  description: 'Get uptime history for a service',
+  request: { params: z.object({ id: z.string() }) },
+  responses: {
+    200: { content: { 'application/json': { schema: z.any() } }, description: 'Service history' }
+  }
+});
+homelabRoutes.openapi(serviceHistoryRoute, (c) => {
+  const id = c.req.valid('param').id;
   const limit = Math.min(Number(c.req.query("limit")) || 100, 10000);
   const history = stmts.getHistory.all(id, limit);
-  return c.json({ history });
+  return c.json({ history }, 200);
 });
 
-homelabRoutes.post("/services", async (c) => {
-  const body = await c.req.json<{ name: string; url: string; icon?: string; expectedStatus?: number }>();
-  if (!body.name || !body.url) return c.json({ error: "name and url are required" }, 400);
+const createServiceRoute = createRoute({
+  method: 'post',
+  path: '/services',
+  tags: ['Homelab'],
+  description: 'Add a new service to monitor',
+  request: {
+    body: { content: { 'application/json': { schema: z.object({ name: z.string(), url: z.string(), icon: z.string().optional(), expectedStatus: z.number().optional() }) } } }
+  },
+  responses: {
+    201: { content: { 'application/json': { schema: z.object({ id: z.string(), name: z.string(), url: z.string() }) } }, description: 'Service created' },
+    400: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Validation error' },
+  }
+});
+homelabRoutes.openapi(createServiceRoute, async (c) => {
+  const body = c.req.valid('json');
+  if (!body.name || !body.url) return c.json({ error: "name and url are required" } as any, 400);
   const urlCheck = isHomelabUrlSafe(body.url);
-  if (!urlCheck.safe) return c.json({ error: urlCheck.error }, 400);
+  if (!urlCheck.safe) return c.json({ error: urlCheck.error } as any, 400);
   const id = body.name.toLowerCase().replace(/\s+/g, "-");
   const expectedStatus = body.expectedStatus ?? 0;
   stmts.insert.run(id, body.name, body.url, body.icon || null, expectedStatus);
   return c.json({ id, name: body.name, url: body.url }, 201);
 });
 
-homelabRoutes.put("/services/:id", async (c) => {
-  const id = c.req.param("id");
+const updateServiceRoute = createRoute({
+  method: 'put',
+  path: '/services/{id}',
+  tags: ['Homelab'],
+  description: 'Update an existing service',
+  request: {
+    params: z.object({ id: z.string() }),
+    body: { content: { 'application/json': { schema: z.object({ name: z.string().optional(), url: z.string().optional(), expectedStatus: z.number().optional() }) } } }
+  },
+  responses: {
+    200: { content: { 'application/json': { schema: z.object({ id: z.string(), name: z.string(), url: z.string(), expectedStatus: z.number() }) } }, description: 'Service updated' },
+    400: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Validation error' },
+    404: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Not found' },
+  }
+});
+homelabRoutes.openapi(updateServiceRoute, async (c) => {
+  const id = c.req.valid('param').id;
   const existing = stmts.getById.get(id) as any;
-  if (!existing) return c.json({ error: "Service not found" }, 404);
-  const body = await c.req.json<{ name?: string; url?: string; expectedStatus?: number }>();
+  if (!existing) return c.json({ error: "Service not found" } as any, 404);
+  const body = c.req.valid('json');
   if (body.url) {
     const urlCheck = isHomelabUrlSafe(body.url);
-    if (!urlCheck.safe) return c.json({ error: urlCheck.error }, 400);
+    if (!urlCheck.safe) return c.json({ error: urlCheck.error } as any, 400);
   }
   const name = body.name ?? existing.name;
   const url = body.url ?? existing.url;
   const expectedStatus = body.expectedStatus ?? existing.expected_status;
   stmts.update.run(name, url, expectedStatus, id);
-  return c.json({ id, name, url, expectedStatus });
+  return c.json({ id, name, url, expectedStatus }, 200);
 });
 
-homelabRoutes.delete("/services/:id", (c) => {
-  const id = c.req.param("id");
+const deleteServiceRoute = createRoute({
+  method: 'delete',
+  path: '/services/{id}',
+  tags: ['Homelab'],
+  description: 'Delete a service',
+  request: { params: z.object({ id: z.string() }) },
+  responses: {
+    200: { content: { 'application/json': { schema: z.object({ deleted: z.string() }) } }, description: 'Service deleted' }
+  }
+});
+homelabRoutes.openapi(deleteServiceRoute, (c) => {
+  const id = c.req.valid('param').id;
   stmts.delete.run(id);
-  return c.json({ deleted: id });
+  return c.json({ deleted: id }, 200);
 });
 
 // Docker host management
@@ -183,64 +252,114 @@ const dockerStmts = {
   getHost: db.query("SELECT * FROM docker_hosts WHERE id = ?"),
 };
 
-homelabRoutes.get("/docker-hosts", (c) => {
+const listDockerHostsRoute = createRoute({
+  method: 'get',
+  path: '/docker-hosts',
+  tags: ['Homelab'],
+  description: 'List configured Docker hosts',
+  responses: { 200: { content: { 'application/json': { schema: z.any() } }, description: 'Docker hosts' } }
+});
+homelabRoutes.openapi(listDockerHostsRoute, (c) => {
   const hosts = dockerStmts.getAllHosts.all();
-  return c.json({ hosts });
+  return c.json({ hosts }, 200);
 });
 
-homelabRoutes.post("/docker-hosts", async (c) => {
-  const body = await c.req.json<{ name: string; url: string }>();
-  if (!body.name || !body.url) return c.json({ error: "name and url are required" }, 400);
-  try { new URL(body.url); } catch { return c.json({ error: "Invalid Docker host URL" }, 400); }
+const createDockerHostRoute = createRoute({
+  method: 'post',
+  path: '/docker-hosts',
+  tags: ['Homelab'],
+  description: 'Add a Docker host',
+  request: { body: { content: { 'application/json': { schema: z.object({ name: z.string(), url: z.string() }) } } } },
+  responses: {
+    201: { content: { 'application/json': { schema: z.object({ id: z.string(), name: z.string(), url: z.string() }) } }, description: 'Host created' },
+    400: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Validation error' },
+  }
+});
+homelabRoutes.openapi(createDockerHostRoute, async (c) => {
+  const body = c.req.valid('json');
+  if (!body.name || !body.url) return c.json({ error: "name and url are required" } as any, 400);
+  try { new URL(body.url); } catch { return c.json({ error: "Invalid Docker host URL" } as any, 400); }
   const urlCheck = isHomelabUrlSafe(body.url);
-  if (!urlCheck.safe) return c.json({ error: urlCheck.error }, 400);
+  if (!urlCheck.safe) return c.json({ error: urlCheck.error } as any, 400);
   const id = body.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
   dockerStmts.insertHost.run(id, body.name, body.url);
   return c.json({ id, name: body.name, url: body.url }, 201);
 });
 
-homelabRoutes.put("/docker-hosts/:id", async (c) => {
-  const id = c.req.param("id");
+const updateDockerHostRoute = createRoute({
+  method: 'put',
+  path: '/docker-hosts/{id}',
+  tags: ['Homelab'],
+  description: 'Update a Docker host',
+  request: {
+    params: z.object({ id: z.string() }),
+    body: { content: { 'application/json': { schema: z.object({ name: z.string().optional(), url: z.string().optional() }) } } }
+  },
+  responses: {
+    200: { content: { 'application/json': { schema: z.object({ ok: z.boolean() }) } }, description: 'Host updated' },
+    400: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Validation error' },
+    404: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Not found' },
+  }
+});
+homelabRoutes.openapi(updateDockerHostRoute, async (c) => {
+  const id = c.req.valid('param').id;
   const existing = dockerStmts.getHost.get(id);
-  if (!existing) return c.json({ error: "Docker host not found" }, 404);
-  const body = await c.req.json<{ name?: string; url?: string }>();
+  if (!existing) return c.json({ error: "Docker host not found" } as any, 404);
+  const body = c.req.valid('json');
   if (body.url) {
-    try { new URL(body.url); } catch { return c.json({ error: "Invalid Docker host URL" }, 400); }
+    try { new URL(body.url); } catch { return c.json({ error: "Invalid Docker host URL" } as any, 400); }
     const urlCheck = isHomelabUrlSafe(body.url);
-    if (!urlCheck.safe) return c.json({ error: urlCheck.error }, 400);
+    if (!urlCheck.safe) return c.json({ error: urlCheck.error } as any, 400);
   }
   dockerStmts.updateHost.run(body.name || (existing as any).name, body.url || (existing as any).url, id);
-  return c.json({ ok: true });
+  return c.json({ ok: true }, 200);
 });
 
-homelabRoutes.delete("/docker-hosts/:id", (c) => {
-  const id = c.req.param("id");
+const deleteDockerHostRoute = createRoute({
+  method: 'delete',
+  path: '/docker-hosts/{id}',
+  tags: ['Homelab'],
+  description: 'Delete a Docker host',
+  request: { params: z.object({ id: z.string() }) },
+  responses: { 200: { content: { 'application/json': { schema: z.object({ deleted: z.string() }) } }, description: 'Host deleted' } }
+});
+homelabRoutes.openapi(deleteDockerHostRoute, (c) => {
+  const id = c.req.valid('param').id;
   dockerStmts.deleteHost.run(id);
-  return c.json({ deleted: id });
+  return c.json({ deleted: id }, 200);
 });
 
 // Docker container actions — now supports host query param (validated against configured hosts)
-homelabRoutes.post("/containers/:id/:action", async (c) => {
-  const id = c.req.param("id");
-  const action = c.req.param("action");
+const containerActionRoute = createRoute({
+  method: 'post',
+  path: '/containers/{id}/{action}',
+  tags: ['Homelab'],
+  description: 'Start, stop, or restart a Docker container',
+  request: { params: z.object({ id: z.string(), action: z.string() }) },
+  responses: {
+    200: { content: { 'application/json': { schema: z.object({ ok: z.boolean(), action: z.string(), containerId: z.string() }) } }, description: 'Action performed' },
+    400: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Validation error' },
+    503: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Docker unavailable' },
+  }
+});
+homelabRoutes.openapi(containerActionRoute, async (c) => {
+  const { id, action } = c.req.valid('param');
   const hostUrl = c.req.query("host");
 
-  // Validate container ID — hex chars only
   if (!/^[a-f0-9]{12,64}$/.test(id)) {
-    return c.json({ error: "Invalid container ID" }, 400);
+    return c.json({ error: "Invalid container ID" } as any, 400);
   }
 
   if (!["start", "stop", "restart"].includes(action)) {
-    return c.json({ error: "Invalid action. Use start, stop, or restart" }, 400);
+    return c.json({ error: "Invalid action. Use start, stop, or restart" } as any, 400);
   }
 
-  // Validate host against configured Docker hosts to prevent SSRF
   let dockerHost = process.env.DOCKER_HOST || "http://localhost:2375";
   if (hostUrl) {
     const configuredHosts = (dockerStmts.getAllHosts.all() as { url: string }[]).map(h => h.url);
     if (process.env.DOCKER_HOST) configuredHosts.push(process.env.DOCKER_HOST);
     if (!configuredHosts.includes(hostUrl)) {
-      return c.json({ error: "Unknown Docker host" }, 400);
+      return c.json({ error: "Unknown Docker host" } as any, 400);
     }
     dockerHost = hostUrl;
   }
@@ -249,20 +368,32 @@ homelabRoutes.post("/containers/:id/:action", async (c) => {
     const res = await fetch(`${dockerHost}/containers/${id}/${action}`, { method: "POST" });
     if (!res.ok && res.status !== 304) {
       const text = await res.text();
-      return c.json({ error: text }, res.status as 400 | 500);
+      return c.json({ error: text } as any, 400);
     }
-    return c.json({ ok: true, action, containerId: id });
+    return c.json({ ok: true, action, containerId: id }, 200);
   } catch {
-    return c.json({ error: "Docker API not available" }, 503);
+    return c.json({ error: "Docker API not available" } as any, 503);
   }
 });
 
 // Fetch containers from all configured Docker hosts
-homelabRoutes.get("/containers", async (c) => {
+const listContainersRoute = createRoute({
+  method: 'get',
+  path: '/containers',
+  tags: ['Homelab'],
+  description: 'List containers from all configured Docker hosts',
+  responses: {
+    200: { content: { 'application/json': { schema: z.object({
+      containers: z.array(z.any()),
+      hosts: z.array(z.any()),
+      error: z.string().optional(),
+    }) } }, description: 'Container list' }
+  }
+});
+homelabRoutes.openapi(listContainersRoute, async (c) => {
   const hosts = dockerStmts.getAllHosts.all() as { id: string; name: string; url: string }[];
   const defaultHost = process.env.DOCKER_HOST;
 
-  // Build list of hosts to query
   const targets: { name: string; url: string }[] = [];
   if (defaultHost) targets.push({ name: "Local", url: defaultHost });
   for (const h of hosts) targets.push({ name: h.name, url: h.url });
@@ -272,7 +403,7 @@ homelabRoutes.get("/containers", async (c) => {
       containers: [],
       hosts: [],
       error: "No Docker hosts configured. Add a Docker host or set DOCKER_HOST env var.",
-    });
+    }, 200);
   }
 
   const allContainers: any[] = [];
@@ -306,5 +437,5 @@ homelabRoutes.get("/containers", async (c) => {
     })
   );
 
-  return c.json({ containers: allContainers, hosts: hostStatuses });
+  return c.json({ containers: allContainers, hosts: hostStatuses } as any, 200);
 });

@@ -1,7 +1,7 @@
-import { Hono } from "hono";
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { db } from "../../apps/api/src/db";
 
-export const ansibleRoutes = new Hono();
+export const ansibleRoutes = new OpenAPIHono();
 
 // ── DB Setup ──
 db.run(`
@@ -72,67 +72,67 @@ const ANSIBLE_SSH_HOST = process.env.ANSIBLE_SSH_HOST || "";
 const ANSIBLE_SSH_KEY = process.env.ANSIBLE_SSH_KEY || "";
 
 // ── Health ──
-ansibleRoutes.get("/health", (c) => c.json({ module: "ansible", status: "ok" }));
+const healthRoute = createRoute({ method: 'get', path: '/health', tags: ['Ansible'], responses: { 200: { content: { 'application/json': { schema: z.object({ module: z.string(), status: z.string() }) } }, description: 'Module health' } } });
+ansibleRoutes.openapi(healthRoute, (c) => c.json({ module: "ansible", status: "ok" }, 200));
 
 // ── GET /playbooks ──
-ansibleRoutes.get("/playbooks", (c) => {
-  return c.json({ playbooks: ALLOWED_PLAYBOOKS });
+const playbooksRoute = createRoute({ method: 'get', path: '/playbooks', tags: ['Ansible'], description: 'List allowed playbooks', responses: { 200: { content: { 'application/json': { schema: z.object({ playbooks: z.array(z.string()) }) } }, description: 'Playbook list' } } });
+ansibleRoutes.openapi(playbooksRoute, (c) => {
+  return c.json({ playbooks: ALLOWED_PLAYBOOKS }, 200);
 });
 
 // ── GET /runs ──
-ansibleRoutes.get("/runs", (c) => {
+const runsRoute = createRoute({ method: 'get', path: '/runs', tags: ['Ansible'], description: 'List recent ansible runs', responses: { 200: { content: { 'application/json': { schema: z.any() } }, description: 'Run list' } } });
+ansibleRoutes.openapi(runsRoute, (c) => {
   const limit = Math.min(parseInt(c.req.query("limit") || "50"), 100);
   const offset = parseInt(c.req.query("offset") || "0");
   const runs = stmts.getRecent.all(limit, offset);
-  return c.json({ runs });
+  return c.json({ runs }, 200);
 });
 
 // ── GET /runs/:id ──
-ansibleRoutes.get("/runs/:id", (c) => {
-  const id = c.req.param("id");
+const runDetailRoute = createRoute({ method: 'get', path: '/runs/{id}', tags: ['Ansible'], description: 'Get run details', request: { params: z.object({ id: z.string() }) }, responses: { 200: { content: { 'application/json': { schema: z.any() } }, description: 'Run detail' }, 404: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Not found' } } });
+ansibleRoutes.openapi(runDetailRoute, (c) => {
+  const id = c.req.valid('param').id;
   const run = stmts.getById.get(id);
-  if (!run) return c.json({ error: "Run not found" }, 404);
-  return c.json({ run });
+  if (!run) return c.json({ error: "Run not found" } as any, 404);
+  return c.json({ run }, 200);
 });
 
 // ── POST /run ──
-ansibleRoutes.post("/run", async (c) => {
-  const body = await c.req.json<{
-    playbook: string;
-    tags?: string;
-    extra_vars?: Record<string, unknown>;
-    dry_run?: boolean;
-  }>();
+const runRoute = createRoute({ method: 'post', path: '/run', tags: ['Ansible'], description: 'Execute an ansible playbook', request: { body: { content: { 'application/json': { schema: z.object({ playbook: z.string(), tags: z.string().optional(), extra_vars: z.record(z.string(), z.unknown()).optional(), dry_run: z.boolean().optional() }) } } } }, responses: { 202: { content: { 'application/json': { schema: z.object({ id: z.string(), status: z.string() }) } }, description: 'Run started' }, 400: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Validation error' }, 409: { content: { 'application/json': { schema: z.any() } }, description: 'Conflict - another run in progress' } } });
+ansibleRoutes.openapi(runRoute, async (c) => {
+  const body = c.req.valid('json');
 
   const { playbook, tags = "", dry_run = false } = body;
   const extraVarsStr = JSON.stringify(body.extra_vars || {});
 
   // Validate playbook against whitelist (prevents path traversal + shell injection)
   if (!playbook || !isValidPlaybook(playbook)) {
-    return c.json({ error: `Playbook not allowed. Allowed: ${ALLOWED_PLAYBOOKS.join(", ")}` }, 400);
+    return c.json({ error: `Playbook not allowed. Allowed: ${ALLOWED_PLAYBOOKS.join(", ")}` } as any, 400);
   }
 
   // Validate tags (alphanumeric, comma, hyphen, underscore only)
   if (!isValidTags(tags)) {
-    return c.json({ error: "Tags must be alphanumeric characters separated by commas" }, 400);
+    return c.json({ error: "Tags must be alphanumeric characters separated by commas" } as any, 400);
   }
 
   // Validate extra_vars is valid JSON object
   if (!isValidExtraVars(extraVarsStr)) {
-    return c.json({ error: "extra_vars must be a valid JSON object" }, 400);
+    return c.json({ error: "extra_vars must be a valid JSON object" } as any, 400);
   }
 
   // Max 1 concurrent execution
   const running = stmts.getRunning.get();
   if (running) {
-    return c.json({ error: "Another playbook is currently running. Wait for it to finish.", running_id: (running as any).id }, 409);
+    return c.json({ error: "Another playbook is currently running. Wait for it to finish.", running_id: (running as any).id } as any, 409);
   }
 
   // If not a dry run, require a recent successful dry run with same params
   if (!dry_run) {
     const recentDry = stmts.getRecentDryRun.get(playbook, tags, extraVarsStr);
     if (!recentDry) {
-      return c.json({ error: "A successful dry run with the same parameters is required before executing. Run a dry run first." }, 400);
+      return c.json({ error: "A successful dry run with the same parameters is required before executing. Run a dry run first." } as any, 400);
     }
   }
 
@@ -212,7 +212,7 @@ async function spawnPlaybook(id: string, args: string[], cwd?: string) {
   }
 }
 
-// ── GET /runs/:id/stream — SSE live log streaming ──
+// ── GET /runs/:id/stream — SSE live log streaming (kept as regular route) ──
 ansibleRoutes.get("/runs/:id/stream", (c) => {
   const id = c.req.param("id");
   const run = stmts.getById.get(id) as any;
@@ -256,13 +256,14 @@ ansibleRoutes.get("/runs/:id/stream", (c) => {
 });
 
 // ── DELETE /runs/:id ──
-ansibleRoutes.delete("/runs/:id", (c) => {
-  const id = c.req.param("id");
+const deleteRunRoute = createRoute({ method: 'delete', path: '/runs/{id}', tags: ['Ansible'], description: 'Delete a completed run', request: { params: z.object({ id: z.string() }) }, responses: { 200: { content: { 'application/json': { schema: z.object({ deleted: z.string() }) } }, description: 'Deleted' }, 400: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Cannot delete running' }, 404: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Not found' } } });
+ansibleRoutes.openapi(deleteRunRoute, (c) => {
+  const id = c.req.valid('param').id;
   const run = stmts.getById.get(id) as any;
-  if (!run) return c.json({ error: "Run not found" }, 404);
+  if (!run) return c.json({ error: "Run not found" } as any, 404);
   if (run.status === "running") {
-    return c.json({ error: "Cannot delete a running playbook" }, 400);
+    return c.json({ error: "Cannot delete a running playbook" } as any, 400);
   }
   stmts.deleteRun.run(id);
-  return c.json({ deleted: id });
+  return c.json({ deleted: id }, 200);
 });

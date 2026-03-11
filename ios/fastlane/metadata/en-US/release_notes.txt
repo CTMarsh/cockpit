@@ -1,0 +1,5 @@
+v1.1.0:
+- Added 6 new modules: Uptime Monitor, Certificate Monitor, Traefik Routes, DNS Manager, Network Scanner, Ansible Runner
+- Fixed Face ID authentication debounce preventing duplicate prompts
+- All 28 web modules now have full iOS counterparts
+- Improved navigation with updated Infrastructure and Operations tabs
