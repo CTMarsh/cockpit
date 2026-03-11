@@ -206,6 +206,9 @@ build:web:
     - if: $CI_COMMIT_BRANCH == "master"
 
 # ── Stage 5: Deploy to Kubernetes ─────────────────────────
+# NOTE: This stage uses `origin` (not `gitlab`) because GitLab CI clones the
+# repo with `origin` as the default remote name. In local dev we use `gitlab`
+# as our remote, but CI runners always set origin to the project URL.
 deploy:k8s:
   stage: deploy
   image:

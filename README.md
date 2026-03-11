@@ -4,30 +4,54 @@
 
 **NoahsArk Command Center** — A self-hosted homelab dashboard for monitoring, managing, and organizing infrastructure from a single pane of glass.
 
-## Features
+## Platform Support
 
-- **Service Monitoring** — Health checks across multiple Docker hosts
-- **Docker Management** — Start, stop, restart containers across hosts
+| Platform | Status | Tech |
+|----------|--------|------|
+| Web Dashboard | Production (v2.5.52) | React 19 + Vite 6 |
+| iOS App | TestFlight | Swift 6 + SwiftUI |
+| watchOS App | TestFlight | watchOS 11+ |
+
+## Features (20 Modules)
+
+### Infrastructure Management
+- **Homelab Monitor** — Docker container and service monitoring with health checks
+- **k3s Cluster Manager** — Workloads, pods, logs, scaling, events
+- **System Monitor** — Cluster-level node metrics and resource usage
 - **Proxmox VE** — VM and container management via API
-- **Kubernetes Monitor** — Node status, pod metrics, cluster health
 - **Home Assistant** — Proxy integration with SSE bridge
+
+### Operations & Monitoring
+- **Alerts** — Configurable alert rules with threshold monitoring
+- **Log Viewer** — Container and system log aggregation with search
+- **Cron Manager** — Scheduled task management with execution history
+- **Deploy History** — Deployment tracking and rollback visibility
+- **MinIO Browser** — S3-compatible object storage management
+
+### Networking & Notifications
+- **Wake-on-LAN** — Network device wake management
+- **Notifications** — Push notification management via Notify service
+
+### Development Tools
+- **GitLab** — Repository, pipeline, and merge request dashboard
 - **Bookmark Manager** — Tag-based bookmarks with search and import/export
 - **Markdown Editor** — Real-time collaborative editing via WebSocket
 - **Knowledge Graph** — Force-directed canvas visualization
-- **Log Viewer** — Container and system log aggregation
-- **Cron Manager** — Scheduled task management with execution history
-- **Wake-on-LAN** — Network device wake management
 - **File Deduplicator** — Hash-based duplicate file detection
 - **Project Randomizer** — Idea generator with favorites
-- **Backup Management** — Automated backup monitoring and alerts
-- **Deploy History** — Deployment tracking and rollback visibility
+
+### Data Management
+- **Backup Manager** — Automated backup monitoring and S3 storage
+- **Dashboard** — Aggregated overview with module cards and stats
 
 ## Tech Stack
 
 - **Frontend:** React 19, TypeScript, Vite 6, Tailwind CSS 3.4, Lucide icons
 - **Backend:** Bun, Hono, SQLite (WAL mode, foreign keys)
+- **Mobile:** Swift 6, SwiftUI, iOS 26+, WidgetKit, App Intents, SpriteKit
+- **Watch:** watchOS 11+, standalone cellular, device code login
 - **Auth:** Session-based with httpOnly secure cookies (24h expiry)
-- **Real-time:** Bun native WebSocket (markdown collaboration)
+- **Real-time:** Bun native WebSocket (markdown collaboration), SSE (Home Assistant, logs)
 - **Build:** Kaniko (rootless, no DinD) via GitLab CI/CD
 - **Deploy:** kubectl rolling updates to k3s cluster
 - **Registry:** GitLab Container Registry
@@ -68,7 +92,7 @@ The API runs on `http://localhost:4000` and the web UI on `http://localhost:5173
 | `SESSION_SECRET` | Yes | — | Session encryption key |
 | `API_PORT` | No | `4000` | API server port |
 | `APP_VERSION` | No | `unknown` | Version displayed in UI and health endpoint |
-| `KUBECONFIG` | For sysmon | — | Path to k8s cluster kubeconfig |
+| `KUBECONFIG` | For k8s | — | Path to k8s cluster kubeconfig |
 | `PROXMOX_HOST` | For proxmox | — | Proxmox API URL (e.g., `https://pve.example.com:8006`) |
 | `PROXMOX_TOKEN_ID` | For proxmox | — | Proxmox API token ID |
 | `PROXMOX_TOKEN_SECRET` | For proxmox | — | Proxmox API token secret |
@@ -91,19 +115,31 @@ cockpit/
 │           ├── main.tsx  # Entry, routing, auth gate
 │           ├── Layout.tsx # Sidebar navigation
 │           ├── api.ts    # Fetch wrapper with auth
-│           └── pages/    # Page components
-├── modules/              # Feature modules (each has api.ts routes)
-│   ├── homelab/          # Service monitor + Docker management
+│           └── pages/    # 20 page components
+├── modules/              # 22 feature modules
+│   ├── alerts/           # Alert rules + threshold monitoring
+│   ├── backup/           # Automated backup to MinIO S3
 │   ├── bookmarks/        # Bookmark manager
-│   ├── markdown/         # Markdown editor with WebSocket
-│   ├── graph/            # Knowledge graph
-│   ├── sysmon/           # k8s cluster monitor
-│   ├── proxmox/          # Proxmox VE management
-│   ├── logs/             # Log viewer
 │   ├── cron/             # Cron job manager
-│   ├── wol/              # Wake-on-LAN
 │   ├── dedup/            # File deduplicator
-│   └── randomizer/       # Project idea generator
+│   ├── deploy-history/   # Deployment tracking
+│   ├── gitlab/           # GitLab integration
+│   ├── graph/            # Knowledge graph
+│   ├── homeassistant/    # Home Assistant proxy + SSE
+│   ├── homelab/          # Service monitor + Docker
+│   ├── k8s/              # k3s cluster manager
+│   ├── k8s-client/       # Shared k8s API client
+│   ├── logs/             # Log viewer
+│   ├── markdown/         # Markdown editor + WebSocket
+│   ├── minio/            # MinIO S3 browser
+│   ├── notify/           # Push notification proxy
+│   ├── proxmox/          # Proxmox VE management
+│   ├── randomizer/       # Project idea generator
+│   ├── s3-client/        # Shared S3 client
+│   ├── sysmon/           # System/cluster monitor
+│   ├── tls-config/       # TLS configuration helper
+│   └── wol/              # Wake-on-LAN
+├── ios/                  # iOS + watchOS native apps
 ├── Dockerfile.api        # API container (oven/bun:1)
 ├── Dockerfile.web        # Web container (Vite build → nginx)
 └── .gitlab-ci.yml        # 5-stage CI/CD pipeline
@@ -113,18 +149,24 @@ cockpit/
 
 | Path | Module | Description |
 |------|--------|-------------|
-| `/` | Dashboard | Overview cards, recent items |
+| `/` | Dashboard | Overview cards, recent items, stats |
 | `/homelab` | Homelab | Service monitor + Docker containers |
 | `/bookmarks` | Bookmarks | Tag-based bookmark manager |
 | `/markdown` | Markdown | Editor with live preview |
 | `/graph` | Graph | Knowledge graph visualization |
 | `/monitor` | System Monitor | k8s cluster metrics |
 | `/proxmox` | Proxmox | VM/CT management |
+| `/homeassistant` | Home Assistant | Smart home dashboard |
+| `/k8s` | k3s Manager | Workloads, pods, logs, scaling |
+| `/alerts` | Alerts | Alert rules and history |
 | `/logs` | Logs | Container/system log viewer |
 | `/cron` | Cron Jobs | Scheduled task manager |
 | `/wol` | Wake-on-LAN | Network device wake |
 | `/dedup` | Dedup | File deduplication |
 | `/randomizer` | Randomizer | Project idea generator |
+| `/minio` | MinIO | S3 object browser |
+| `/notify` | Notify | Push notification management |
+| `/gitlab` | GitLab | Repository and pipeline dashboard |
 
 ### Adding a New Module
 
@@ -144,20 +186,27 @@ The application deploys to a k3s cluster with the following resources in the `co
 - **cockpit-api** — Deployment (1 replica, Recreate strategy for RWO PVC)
 - **cockpit-web** — Deployment (2 replicas, RollingUpdate)
 - **Services** — ClusterIP for both API (4000) and Web (80)
-- **Ingress** — TLS via cert-manager (Let's Encrypt, Cloudflare DNS-01)
+- **Ingress** — Traefik with TLS via cert-manager (Let's Encrypt, Cloudflare DNS-01)
 - **PVC** — Longhorn storage for SQLite database
 
 ### CI/CD Pipeline
 
 The GitLab CI/CD pipeline runs on every push to `master`:
 
-1. **Lint** — TypeScript type checking (API + Web) in parallel with tests
+1. **Lint** — TypeScript type checking (API + Web) in parallel
 2. **Test** — API server startup + test suite
-3. **Version** — Auto-bump patch tag (e.g., v2.5.3 → v2.5.4)
+3. **Version** — Auto-bump patch tag (e.g., v2.5.51 → v2.5.52)
 4. **Build** — Kaniko container image builds (API + Web)
 5. **Deploy** — kubectl rolling update to k3s
 
 Security scanning (SAST + Secret Detection) runs on all branches and merge requests.
+
+### iOS / watchOS
+
+- Built with Fastlane + XcodeGen
+- Code signing via match (Git-based)
+- Distributed via TestFlight
+- CI triggers on changes to `ios/` directory
 
 ### Type Checking
 
