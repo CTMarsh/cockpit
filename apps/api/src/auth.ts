@@ -1,6 +1,6 @@
 import { Context, Next } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
-import { Hono } from "hono";
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { db } from "./db";
 
 const SESSION_DURATION_HOURS = 24;
@@ -72,17 +72,33 @@ if (!process.env.COCKPIT_USER) {
   console.warn("WARNING: COCKPIT_USER not set, using default 'admin'. Set COCKPIT_USER in production!");
 }
 
-export const authRoutes = new Hono();
+export const authRoutes = new OpenAPIHono();
 
-authRoutes.post("/login", async (c) => {
+const loginRoute = createRoute({
+  method: 'post',
+  path: '/login',
+  tags: ['Auth'],
+  description: 'Login with username and password',
+  request: {
+    body: {
+      content: { 'application/json': { schema: z.object({ username: z.string(), password: z.string() }) } }
+    }
+  },
+  responses: {
+    200: { content: { 'application/json': { schema: z.object({ ok: z.boolean() }) } }, description: 'Login successful' },
+    401: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Invalid credentials' },
+    429: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Rate limited' },
+  }
+});
+authRoutes.openapi(loginRoute, async (c) => {
   // Rate limiting — use last entry of X-Forwarded-For (closest proxy) to prevent spoofing
   const xff = c.req.header("x-forwarded-for");
   const ip = xff ? xff.split(",").pop()?.trim() || "unknown" : c.req.header("x-real-ip") || "unknown";
   if (!checkRateLimit(ip)) {
-    return c.json({ error: "Too many login attempts. Try again later." }, 429);
+    return c.json({ error: "Too many login attempts. Try again later." } as any, 429);
   }
 
-  const body = await c.req.json<{ username: string; password: string }>();
+  const body = c.req.valid('json');
   const validUser = process.env.COCKPIT_USER || "admin";
   const validPass = process.env.COCKPIT_PASS || "cockpit";
 
@@ -90,7 +106,7 @@ authRoutes.post("/login", async (c) => {
   const passMatch = safeCompare(body.password || "", validPass);
 
   if (!userMatch || !passMatch) {
-    return c.json({ error: "Invalid credentials" }, 401);
+    return c.json({ error: "Invalid credentials" } as any, 401);
   }
 
   const token = crypto.randomUUID();
@@ -104,20 +120,38 @@ authRoutes.post("/login", async (c) => {
     path: "/",
   });
 
-  return c.json({ ok: true });
+  return c.json({ ok: true }, 200);
 });
 
-authRoutes.post("/logout", (c) => {
+const logoutRoute = createRoute({
+  method: 'post',
+  path: '/logout',
+  tags: ['Auth'],
+  description: 'Logout and destroy session',
+  responses: {
+    200: { content: { 'application/json': { schema: z.object({ ok: z.boolean() }) } }, description: 'Logout successful' },
+  }
+});
+authRoutes.openapi(logoutRoute, (c) => {
   const token = getCookie(c, "cockpit_session");
   if (token) stmts.deleteSession.run(token);
   deleteCookie(c, "cockpit_session", { path: "/" });
-  return c.json({ ok: true });
+  return c.json({ ok: true }, 200);
 });
 
 // ── Device Code Flow (QR-based watch/device login) ──
 
 // Step 1: Device requests a code (no auth needed)
-authRoutes.post("/device-code", (c) => {
+const deviceCodeRoute = createRoute({
+  method: 'post',
+  path: '/device-code',
+  tags: ['Auth'],
+  description: 'Request a device login code (QR-based)',
+  responses: {
+    200: { content: { 'application/json': { schema: z.object({ code: z.string(), expires_in: z.number() }) } }, description: 'Device code generated' },
+  }
+});
+authRoutes.openapi(deviceCodeRoute, (c) => {
   // Generate a 6-character alphanumeric code (easy to read on small screens)
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I/O/0/1 to avoid confusion
   let code = "";
@@ -125,15 +159,27 @@ authRoutes.post("/device-code", (c) => {
   for (const b of bytes) code += chars[b % chars.length];
 
   stmts.createDeviceCode.run(code);
-  return c.json({ code, expires_in: 300 });
+  return c.json({ code, expires_in: 300 }, 200);
 });
 
 // Step 2: Device polls for approval (no auth needed)
-authRoutes.get("/device-code/:code", (c) => {
-  const code = c.req.param("code").toUpperCase();
+const pollDeviceCodeRoute = createRoute({
+  method: 'get',
+  path: '/device-code/{code}',
+  tags: ['Auth'],
+  description: 'Poll device code approval status',
+  request: {
+    params: z.object({ code: z.string() })
+  },
+  responses: {
+    200: { content: { 'application/json': { schema: z.object({ status: z.string() }) } }, description: 'Code status' },
+  }
+});
+authRoutes.openapi(pollDeviceCodeRoute, (c) => {
+  const code = c.req.valid('param').code.toUpperCase();
   const row = stmts.getDeviceCode.get(code);
 
-  if (!row) return c.json({ status: "expired" });
+  if (!row) return c.json({ status: "expired" }, 200);
 
   if (row.status === "approved" && row.session_token) {
     // Set the session cookie on the polling device
@@ -146,35 +192,59 @@ authRoutes.get("/device-code/:code", (c) => {
     });
     // Clean up the used code
     db.run("DELETE FROM device_codes WHERE code = ?", [code]);
-    return c.json({ status: "approved" });
+    return c.json({ status: "approved" }, 200);
   }
 
-  return c.json({ status: "pending" });
+  return c.json({ status: "pending" }, 200);
 });
 
 // Step 3: Authenticated user approves a code (requires auth — will go through middleware)
 // This is mounted separately below authMiddleware in index.ts
-authRoutes.post("/device-code/:code/approve", (c) => {
-  const code = c.req.param("code").toUpperCase();
+const approveDeviceCodeRoute = createRoute({
+  method: 'post',
+  path: '/device-code/{code}/approve',
+  tags: ['Auth'],
+  description: 'Approve a device login code (requires auth)',
+  request: {
+    params: z.object({ code: z.string() })
+  },
+  responses: {
+    200: { content: { 'application/json': { schema: z.object({ ok: z.boolean() }) } }, description: 'Code approved' },
+    404: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Code expired or invalid' },
+    409: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Code already used' },
+  }
+});
+authRoutes.openapi(approveDeviceCodeRoute, (c) => {
+  const code = c.req.valid('param').code.toUpperCase();
   const row = stmts.getDeviceCode.get(code);
 
-  if (!row) return c.json({ error: "Code expired or invalid" }, 404);
-  if (row.status !== "pending") return c.json({ error: "Code already used" }, 409);
+  if (!row) return c.json({ error: "Code expired or invalid" } as any, 404);
+  if (row.status !== "pending") return c.json({ error: "Code already used" } as any, 409);
 
   // Create a new session for the device
   const token = crypto.randomUUID();
   stmts.createSession.run(token, `+${SESSION_DURATION_HOURS} hours`);
   stmts.approveDeviceCode.run(token, code);
 
-  return c.json({ ok: true });
+  return c.json({ ok: true }, 200);
 });
 
-authRoutes.get("/me", (c) => {
+const meRoute = createRoute({
+  method: 'get',
+  path: '/me',
+  tags: ['Auth'],
+  description: 'Get current authenticated user',
+  responses: {
+    200: { content: { 'application/json': { schema: z.object({ authenticated: z.boolean(), user: z.string().optional() }) } }, description: 'User info' },
+    401: { content: { 'application/json': { schema: z.object({ authenticated: z.boolean() }) } }, description: 'Not authenticated' },
+  }
+});
+authRoutes.openapi(meRoute, (c) => {
   const token = getCookie(c, "cockpit_session");
-  if (!token) return c.json({ authenticated: false }, 401);
+  if (!token) return c.json({ authenticated: false } as any, 401);
   const session = stmts.getSession.get(token);
-  if (!session) return c.json({ authenticated: false }, 401);
-  return c.json({ authenticated: true, user: process.env.COCKPIT_USER || "admin" });
+  if (!session) return c.json({ authenticated: false } as any, 401);
+  return c.json({ authenticated: true, user: process.env.COCKPIT_USER || "admin" }, 200);
 });
 
 export async function authMiddleware(c: Context, next: Next) {

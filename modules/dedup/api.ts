@@ -1,9 +1,9 @@
-import { Hono } from "hono";
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { createHash } from "crypto";
 import { readdir, stat, readFile } from "fs/promises";
 import { join, resolve, normalize } from "path";
 
-export const dedupRoutes = new Hono();
+export const dedupRoutes = new OpenAPIHono();
 
 // ── Path traversal prevention ──
 // Allowed base directories for scanning (configurable via env)
@@ -50,10 +50,12 @@ interface ScanResult {
 
 const scans: Map<string, ScanResult> = new Map();
 
-dedupRoutes.get("/health", (c) => c.json({ module: "dedup", status: "ok" }));
+const healthRoute = createRoute({ method: 'get', path: '/health', tags: ['Dedup'], responses: { 200: { content: { 'application/json': { schema: z.object({ module: z.string(), status: z.string() }) } }, description: 'Module health' } } });
+dedupRoutes.openapi(healthRoute, (c) => c.json({ module: "dedup", status: "ok" }, 200));
 
 // Report allowed scan directories
-dedupRoutes.get("/allowed-dirs", (c) => c.json({ directories: ALLOWED_SCAN_DIRS }));
+const allowedDirsRoute = createRoute({ method: 'get', path: '/allowed-dirs', tags: ['Dedup'], description: 'List allowed scan directories', responses: { 200: { content: { 'application/json': { schema: z.object({ directories: z.array(z.string()) }) } }, description: 'Allowed directories' } } });
+dedupRoutes.openapi(allowedDirsRoute, (c) => c.json({ directories: ALLOWED_SCAN_DIRS }, 200));
 
 async function walkDir(dir: string, files: string[] = []): Promise<string[]> {
   try {
@@ -80,13 +82,14 @@ async function hashFile(path: string): Promise<string> {
 }
 
 // Start a new scan
-dedupRoutes.post("/scan", async (c) => {
-  const body = await c.req.json<{ directory: string }>();
-  if (!body.directory) return c.json({ error: "directory is required" }, 400);
+const scanRoute = createRoute({ method: 'post', path: '/scan', tags: ['Dedup'], description: 'Start a duplicate file scan', request: { body: { content: { 'application/json': { schema: z.object({ directory: z.string() }) } } } }, responses: { 202: { content: { 'application/json': { schema: z.object({ id: z.string(), status: z.string() }) } }, description: 'Scan started' }, 400: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Validation error' } } });
+dedupRoutes.openapi(scanRoute, async (c) => {
+  const body = c.req.valid('json');
+  if (!body.directory) return c.json({ error: "directory is required" } as any, 400);
 
   const pathCheck = isPathAllowed(body.directory);
   if (!pathCheck.allowed) {
-    return c.json({ error: pathCheck.error }, 400);
+    return c.json({ error: pathCheck.error } as any, 400);
   }
 
   const id = crypto.randomUUID();
@@ -149,25 +152,28 @@ dedupRoutes.post("/scan", async (c) => {
 });
 
 // Get scan status/results
-dedupRoutes.get("/scan/:id", (c) => {
-  const scan = scans.get(c.req.param("id"));
-  if (!scan) return c.json({ error: "Scan not found" }, 404);
-  return c.json(scan);
+const scanDetailRoute = createRoute({ method: 'get', path: '/scan/{id}', tags: ['Dedup'], description: 'Get scan status and results', request: { params: z.object({ id: z.string() }) }, responses: { 200: { content: { 'application/json': { schema: z.any() } }, description: 'Scan result' }, 404: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Not found' } } });
+dedupRoutes.openapi(scanDetailRoute, (c) => {
+  const scan = scans.get(c.req.valid('param').id);
+  if (!scan) return c.json({ error: "Scan not found" } as any, 404);
+  return c.json(scan as any, 200);
 });
 
 // List all scans
-dedupRoutes.get("/scans", (c) => {
-  return c.json({ scans: [...scans.values()] });
+const scansRoute = createRoute({ method: 'get', path: '/scans', tags: ['Dedup'], description: 'List all scans', responses: { 200: { content: { 'application/json': { schema: z.any() } }, description: 'Scan list' } } });
+dedupRoutes.openapi(scansRoute, (c) => {
+  return c.json({ scans: [...scans.values()] }, 200);
 });
 
 // Delete specific duplicate files (requires explicit confirmation via body)
-dedupRoutes.post("/delete", async (c) => {
-  const body = await c.req.json<{ files: string[]; confirmed: boolean }>();
+const deleteRoute = createRoute({ method: 'post', path: '/delete', tags: ['Dedup'], description: 'Delete duplicate files', request: { body: { content: { 'application/json': { schema: z.object({ files: z.array(z.string()), confirmed: z.boolean() }) } } } }, responses: { 200: { content: { 'application/json': { schema: z.any() } }, description: 'Delete results' }, 400: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Validation error' } } });
+dedupRoutes.openapi(deleteRoute, async (c) => {
+  const body = c.req.valid('json');
   if (!body.confirmed) {
-    return c.json({ error: "Must set confirmed: true to delete files" }, 400);
+    return c.json({ error: "Must set confirmed: true to delete files" } as any, 400);
   }
   if (!body.files || body.files.length === 0) {
-    return c.json({ error: "files array is required" }, 400);
+    return c.json({ error: "files array is required" } as any, 400);
   }
 
   const { unlink } = await import("fs/promises");
@@ -191,5 +197,5 @@ dedupRoutes.post("/delete", async (c) => {
     results,
     deleted: results.filter((r) => r.deleted).length,
     failed: results.filter((r) => !r.deleted).length,
-  });
+  } as any, 200);
 });

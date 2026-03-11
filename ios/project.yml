@@ -39,6 +39,8 @@ targets:
         buildPhase: resources
       - path: CockpitApp/Resources/CockpitApp.entitlements
         buildPhase: none
+      - path: CockpitApp/Resources/PrivacyInfo.xcprivacy
+        buildPhase: resources
     settings:
       base:
         TARGETED_DEVICE_FAMILY: "1"

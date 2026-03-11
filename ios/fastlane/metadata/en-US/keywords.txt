@@ -1,0 +1,1 @@
+homelab,dashboard,kubernetes,docker,proxmox,monitoring,infrastructure,server,selfhosted,devops

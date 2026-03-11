@@ -1,7 +1,7 @@
-import { Hono } from "hono";
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { db } from "../../apps/api/src/db";
 
-export const graphRoutes = new Hono();
+export const graphRoutes = new OpenAPIHono();
 
 const stmts = {
   getEdges: db.query("SELECT * FROM graph_edges ORDER BY created_at DESC"),
@@ -37,91 +37,72 @@ function buildTagEdges(bookmarks: any[]) {
   return edges;
 }
 
-graphRoutes.get("/health", (c) => c.json({ module: "graph", status: "ok" }));
+const healthRoute = createRoute({
+  method: 'get', path: '/health', tags: ['Graph'],
+  responses: { 200: { content: { 'application/json': { schema: z.object({ module: z.string(), status: z.string() }) } }, description: 'Module health' } }
+});
+graphRoutes.openapi(healthRoute, (c) => c.json({ module: "graph", status: "ok" }, 200));
 
-graphRoutes.get("/nodes", (c) => {
+const getNodesRoute = createRoute({
+  method: 'get', path: '/nodes', tags: ['Graph'],
+  description: 'Get knowledge graph nodes and edges',
+  responses: { 200: { content: { 'application/json': { schema: z.object({
+    nodes: z.array(z.any()),
+    edges: z.array(z.any()),
+    summary: z.object({ totalNodes: z.number(), totalEdges: z.number(), types: z.object({ bookmarks: z.number(), documents: z.number() }) }),
+  }) } }, description: 'Graph data' } }
+});
+graphRoutes.openapi(getNodesRoute, (c) => {
   const bookmarks = stmts.getBookmarks.all() as any[];
   const documents = stmts.getDocuments.all() as any[];
-
   const nodes: any[] = [];
 
   for (const b of bookmarks) {
-    nodes.push({
-      id: `bookmark-${b.id}`,
-      type: "bookmark",
-      label: b.title,
-      url: b.url,
-      tags: JSON.parse(b.tags || "[]"),
-      module: "bookmarks",
-      moduleId: b.id,
-    });
+    nodes.push({ id: `bookmark-${b.id}`, type: "bookmark", label: b.title, url: b.url, tags: JSON.parse(b.tags || "[]"), module: "bookmarks", moduleId: b.id });
   }
-
   for (const d of documents) {
-    nodes.push({
-      id: `doc-${d.id}`,
-      type: "document",
-      label: d.title,
-      module: "markdown",
-      moduleId: d.id,
-    });
+    nodes.push({ id: `doc-${d.id}`, type: "document", label: d.title, module: "markdown", moduleId: d.id });
   }
 
-  // Auto-generated edges from shared tags
   const autoEdges = buildTagEdges(bookmarks);
-
-  // Manually created edges from DB
   const manualEdges = (stmts.getEdges.all() as any[]).map((e) => ({
-    id: e.id,
-    source: `${e.source_type}-${e.source_id}`,
-    target: `${e.target_type}-${e.target_id}`,
-    label: e.label,
-    weight: e.weight,
+    id: e.id, source: `${e.source_type}-${e.source_id}`, target: `${e.target_type}-${e.target_id}`, label: e.label, weight: e.weight,
   }));
-
   const edges = [...autoEdges, ...manualEdges];
 
   return c.json({
-    nodes,
-    edges,
-    summary: {
-      totalNodes: nodes.length,
-      totalEdges: edges.length,
-      types: {
-        bookmarks: bookmarks.length,
-        documents: documents.length,
-      },
-    },
-  });
+    nodes, edges,
+    summary: { totalNodes: nodes.length, totalEdges: edges.length, types: { bookmarks: bookmarks.length, documents: documents.length } },
+  } as any, 200);
 });
 
-// Manually create an edge between any two nodes
-graphRoutes.post("/edges", async (c) => {
-  const body = await c.req.json<{
-    sourceId: string;
-    sourceType: string;
-    targetId: string;
-    targetType: string;
-    label?: string;
-  }>();
+const createEdgeRoute = createRoute({
+  method: 'post', path: '/edges', tags: ['Graph'],
+  description: 'Create a manual edge between nodes',
+  request: { body: { content: { 'application/json': { schema: z.object({ sourceId: z.string(), sourceType: z.string().optional(), targetId: z.string(), targetType: z.string().optional(), label: z.string().optional() }) } } } },
+  responses: {
+    201: { content: { 'application/json': { schema: z.object({ id: z.string(), created: z.boolean() }) } }, description: 'Edge created' },
+    400: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Validation error' },
+  }
+});
+graphRoutes.openapi(createEdgeRoute, async (c) => {
+  const body = c.req.valid('json');
   if (!body.sourceId || !body.targetId) {
-    return c.json({ error: "sourceId and targetId are required" }, 400);
+    return c.json({ error: "sourceId and targetId are required" } as any, 400);
   }
   const id = crypto.randomUUID();
-  stmts.upsertEdge.run(
-    id,
-    body.sourceId,
-    body.sourceType || "bookmark",
-    body.targetId,
-    body.targetType || "bookmark",
-    body.label || "",
-    1
-  );
+  stmts.upsertEdge.run(id, body.sourceId, body.sourceType || "bookmark", body.targetId, body.targetType || "bookmark", body.label || "", 1);
   return c.json({ id, created: true }, 201);
 });
 
-graphRoutes.delete("/edges/:id", (c) => {
-  const id = c.req.param("id");
+const deleteEdgeRoute = createRoute({
+  method: 'delete', path: '/edges/{id}', tags: ['Graph'],
+  description: 'Delete an edge',
+  request: { params: z.object({ id: z.string() }) },
+  responses: { 200: { content: { 'application/json': { schema: z.object({ deleted: z.string() }) } }, description: 'Edge deleted' } }
+});
+graphRoutes.openapi(deleteEdgeRoute, (c) => {
+  const id = c.req.valid('param').id;
   stmts.deleteEdge.run(id);
-  return c.json({ deleted: id });
+  return c.json({ deleted: id }, 200);
 });

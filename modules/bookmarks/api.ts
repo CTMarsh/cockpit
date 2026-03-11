@@ -1,7 +1,7 @@
-import { Hono } from "hono";
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { db } from "../../apps/api/src/db";
 
-export const bookmarksRoutes = new Hono();
+export const bookmarksRoutes = new OpenAPIHono();
 
 const stmts = {
   getAll: db.query("SELECT * FROM bookmarks ORDER BY created_at DESC"),
@@ -23,39 +23,32 @@ function parseBookmark(row: any) {
 
 // ── SSRF prevention ──
 const PRIVATE_IP_RANGES = [
-  /^127\./,              // loopback
-  /^10\./,               // class A private
-  /^172\.(1[6-9]|2\d|3[01])\./,  // class B private
-  /^192\.168\./,         // class C private
-  /^169\.254\./,         // link-local
-  /^0\./,                // current network
-  /^::1$/,               // IPv6 loopback
-  /^fc00:/i,             // IPv6 unique local
-  /^fe80:/i,             // IPv6 link-local
+  /^127\./,
+  /^10\./,
+  /^172\.(1[6-9]|2\d|3[01])\./,
+  /^192\.168\./,
+  /^169\.254\./,
+  /^0\./,
+  /^::1$/,
+  /^fc00:/i,
+  /^fe80:/i,
 ];
 
 function isUrlSafe(urlString: string): { safe: boolean; error?: string } {
   try {
     const url = new URL(urlString);
-
-    // Only allow http and https
     if (!["http:", "https:"].includes(url.protocol)) {
       return { safe: false, error: "Only http and https URLs are allowed" };
     }
-
-    // Block localhost hostnames
     const hostname = url.hostname.toLowerCase();
     if (hostname === "localhost" || hostname === "0.0.0.0" || hostname === "[::1]") {
       return { safe: false, error: "Internal addresses are not allowed" };
     }
-
-    // Block private IP ranges
     for (const pattern of PRIVATE_IP_RANGES) {
       if (pattern.test(hostname)) {
         return { safe: false, error: "Internal addresses are not allowed" };
       }
     }
-
     return { safe: true };
   } catch {
     return { safe: false, error: "Invalid URL format" };
@@ -64,32 +57,50 @@ function isUrlSafe(urlString: string): { safe: boolean; error?: string } {
 
 const MAX_URL_LENGTH = 2000;
 
-bookmarksRoutes.get("/health", (c) => c.json({ module: "bookmarks", status: "ok" }));
+const healthRoute = createRoute({
+  method: 'get', path: '/health', tags: ['Bookmarks'],
+  responses: { 200: { content: { 'application/json': { schema: z.object({ module: z.string(), status: z.string() }) } }, description: 'Module health' } }
+});
+bookmarksRoutes.openapi(healthRoute, (c) => c.json({ module: "bookmarks", status: "ok" }, 200));
 
-bookmarksRoutes.get("/", (c) => {
+const listBookmarksRoute = createRoute({
+  method: 'get', path: '/', tags: ['Bookmarks'],
+  description: 'List or search bookmarks',
+  responses: { 200: { content: { 'application/json': { schema: z.object({ bookmarks: z.array(z.any()), total: z.number() }) } }, description: 'Bookmarks list' } }
+});
+bookmarksRoutes.openapi(listBookmarksRoute, (c) => {
   const q = c.req.query("q")?.toLowerCase();
   if (q) {
     const pattern = `%${q}%`;
     const rows = stmts.search.all(pattern);
     const bookmarks = rows.map(parseBookmark);
-    return c.json({ bookmarks, total: bookmarks.length });
+    return c.json({ bookmarks, total: bookmarks.length }, 200);
   }
   const rows = stmts.getAll.all();
   const bookmarks = rows.map(parseBookmark);
-  return c.json({ bookmarks, total: bookmarks.length });
+  return c.json({ bookmarks, total: bookmarks.length }, 200);
 });
 
-bookmarksRoutes.post("/", async (c) => {
-  const body = await c.req.json<{ url: string; tags?: string[] }>();
-  if (!body.url) return c.json({ error: "url is required" }, 400);
+const createBookmarkRoute = createRoute({
+  method: 'post', path: '/', tags: ['Bookmarks'],
+  description: 'Create a bookmark (auto-fetches title and tags)',
+  request: { body: { content: { 'application/json': { schema: z.object({ url: z.string(), tags: z.array(z.string()).optional() }) } } } },
+  responses: {
+    201: { content: { 'application/json': { schema: z.object({ id: z.string(), url: z.string(), title: z.string(), summary: z.string(), tags: z.array(z.string()), createdAt: z.string() }) } }, description: 'Bookmark created' },
+    400: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Validation error' },
+  }
+});
+bookmarksRoutes.openapi(createBookmarkRoute, async (c) => {
+  const body = c.req.valid('json');
+  if (!body.url) return c.json({ error: "url is required" } as any, 400);
 
   if (body.url.length > MAX_URL_LENGTH) {
-    return c.json({ error: "URL must be 2000 characters or fewer" }, 400);
+    return c.json({ error: "URL must be 2000 characters or fewer" } as any, 400);
   }
 
   const urlCheck = isUrlSafe(body.url);
   if (!urlCheck.safe) {
-    return c.json({ error: urlCheck.error }, 400);
+    return c.json({ error: urlCheck.error } as any, 400);
   }
 
   let title = body.url;
@@ -118,7 +129,6 @@ bookmarksRoutes.post("/", async (c) => {
     // skip
   }
 
-  // AI auto-tagging: extract keywords from title and summary
   const textForTags = `${title} ${summary}`.toLowerCase();
   const stopWords = new Set(["the","a","an","is","are","was","were","be","been","being","have","has","had","do","does","did","will","would","could","should","may","might","shall","can","need","dare","ought","used","to","of","in","for","on","with","at","by","from","as","into","through","during","before","after","above","below","between","out","off","over","under","again","further","then","once","and","but","or","nor","not","so","very","just","about","up","its","it","this","that","these","those","i","me","my","we","our","you","your","he","she","they","them","his","her","their","what","which","who","how","all","each","every","both","few","more","most","other","some","such","no","only","own","same"]);
   const words = textForTags.replace(/[^a-z0-9\s-]/g, "").split(/\s+/).filter(w => w.length > 3 && !stopWords.has(w));
@@ -134,37 +144,67 @@ bookmarksRoutes.post("/", async (c) => {
   return c.json({ id, url: body.url, title, summary, tags: [...autoTags], createdAt: new Date().toISOString() }, 201);
 });
 
-bookmarksRoutes.put("/:id", async (c) => {
-  const id = c.req.param("id");
+const updateBookmarkRoute = createRoute({
+  method: 'put', path: '/{id}', tags: ['Bookmarks'],
+  description: 'Update a bookmark',
+  request: { params: z.object({ id: z.string() }), body: { content: { 'application/json': { schema: z.object({ title: z.string().optional(), tags: z.array(z.string()).optional() }) } } } },
+  responses: {
+    200: { content: { 'application/json': { schema: z.object({ id: z.string(), title: z.string(), tags: z.array(z.string()) }) } }, description: 'Bookmark updated' },
+    404: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Not found' },
+  }
+});
+bookmarksRoutes.openapi(updateBookmarkRoute, async (c) => {
+  const id = c.req.valid('param').id;
   const existing = stmts.getById.get(id);
-  if (!existing) return c.json({ error: "Bookmark not found" }, 404);
-  const body = await c.req.json<{ title?: string; tags?: string[] }>();
+  if (!existing) return c.json({ error: "Bookmark not found" } as any, 404);
+  const body = c.req.valid('json');
   const parsed = parseBookmark(existing);
   const title = body.title ?? parsed.title;
   const tags = JSON.stringify(body.tags ?? parsed.tags);
   stmts.update.run(title, tags, id);
-  return c.json({ id, title, tags: JSON.parse(tags) });
+  return c.json({ id, title, tags: JSON.parse(tags) }, 200);
 });
 
-bookmarksRoutes.delete("/:id", (c) => {
-  const id = c.req.param("id");
+const deleteBookmarkRoute = createRoute({
+  method: 'delete', path: '/{id}', tags: ['Bookmarks'],
+  description: 'Delete a bookmark',
+  request: { params: z.object({ id: z.string() }) },
+  responses: {
+    200: { content: { 'application/json': { schema: z.object({ deleted: z.string() }) } }, description: 'Bookmark deleted' },
+    404: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Not found' },
+  }
+});
+bookmarksRoutes.openapi(deleteBookmarkRoute, (c) => {
+  const id = c.req.valid('param').id;
   const existing = stmts.getById.get(id);
-  if (!existing) return c.json({ error: "Bookmark not found" }, 404);
+  if (!existing) return c.json({ error: "Bookmark not found" } as any, 404);
   stmts.delete.run(id);
-  return c.json({ deleted: id });
+  return c.json({ deleted: id }, 200);
 });
 
-// Export all bookmarks as JSON
-bookmarksRoutes.get("/export", (c) => {
+const exportBookmarksRoute = createRoute({
+  method: 'get', path: '/export', tags: ['Bookmarks'],
+  description: 'Export all bookmarks as JSON',
+  responses: { 200: { content: { 'application/json': { schema: z.object({ bookmarks: z.array(z.any()), exportedAt: z.string() }) } }, description: 'Exported bookmarks' } }
+});
+bookmarksRoutes.openapi(exportBookmarksRoute, (c) => {
   const rows = stmts.getAll.all();
   const bookmarks = rows.map(parseBookmark);
-  return c.json({ bookmarks, exportedAt: new Date().toISOString() });
+  return c.json({ bookmarks, exportedAt: new Date().toISOString() }, 200);
 });
 
-// Import bookmarks from JSON
-bookmarksRoutes.post("/import", async (c) => {
-  const body = await c.req.json<{ bookmarks: { url: string; title?: string; summary?: string; tags?: string[] }[] }>();
-  if (!body.bookmarks?.length) return c.json({ error: "bookmarks array is required" }, 400);
+const importBookmarksRoute = createRoute({
+  method: 'post', path: '/import', tags: ['Bookmarks'],
+  description: 'Import bookmarks from JSON',
+  request: { body: { content: { 'application/json': { schema: z.object({ bookmarks: z.array(z.object({ url: z.string(), title: z.string().optional(), summary: z.string().optional(), tags: z.array(z.string()).optional() })) }) } } } },
+  responses: {
+    200: { content: { 'application/json': { schema: z.object({ imported: z.number() }) } }, description: 'Import result' },
+    400: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Validation error' },
+  }
+});
+bookmarksRoutes.openapi(importBookmarksRoute, async (c) => {
+  const body = c.req.valid('json');
+  if (!body.bookmarks?.length) return c.json({ error: "bookmarks array is required" } as any, 400);
   let imported = 0;
   for (const b of body.bookmarks) {
     if (!b.url) continue;
@@ -174,10 +214,15 @@ bookmarksRoutes.post("/import", async (c) => {
     stmts.insert.run(id, b.url, b.title || b.url, b.summary || "", tags, null);
     imported++;
   }
-  return c.json({ imported });
+  return c.json({ imported }, 200);
 });
 
-bookmarksRoutes.get("/tags", (c) => {
+const tagsRoute = createRoute({
+  method: 'get', path: '/tags', tags: ['Bookmarks'],
+  description: 'Get tag counts',
+  responses: { 200: { content: { 'application/json': { schema: z.object({ tags: z.record(z.string(), z.number()) }) } }, description: 'Tag counts' } }
+});
+bookmarksRoutes.openapi(tagsRoute, (c) => {
   const rows = stmts.getTags.all() as any[];
   const tagCounts: Record<string, number> = {};
   for (const row of rows) {
@@ -186,5 +231,5 @@ bookmarksRoutes.get("/tags", (c) => {
       tagCounts[t] = (tagCounts[t] || 0) + 1;
     }
   }
-  return c.json({ tags: tagCounts });
+  return c.json({ tags: tagCounts }, 200);
 });

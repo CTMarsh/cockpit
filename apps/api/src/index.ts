@@ -1,6 +1,7 @@
-import { Hono } from "hono";
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { apiReference } from "@scalar/hono-api-reference";
 import { authRoutes, authMiddleware } from "./auth";
 import { db } from "./db";
 import { homelabRoutes } from "../../../modules/homelab/api";
@@ -29,7 +30,7 @@ import { dnsRoutes } from "../../../modules/dns/api";
 import { networkRoutes } from "../../../modules/network/api";
 import { ansibleRoutes } from "../../../modules/ansible/api";
 
-const app = new Hono();
+const app = new OpenAPIHono();
 
 app.use("*", logger());
 app.use(
@@ -64,12 +65,47 @@ app.use('/api/*', async (c, next) => {
 });
 
 // Health check
-app.get("/api/health", (c) =>
-  c.json({ status: "ok", name: "Cockpit API", version: process.env.APP_VERSION || "unknown", modules: 25 })
+const healthRoute = createRoute({
+  method: 'get',
+  path: '/api/health',
+  tags: ['System'],
+  description: 'API health check',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: z.object({ status: z.string(), name: z.string(), version: z.string(), modules: z.number() }) } },
+      description: 'Health status'
+    }
+  }
+});
+app.openapi(healthRoute, (c) =>
+  c.json({ status: "ok", name: "Cockpit API", version: process.env.APP_VERSION || "unknown", modules: 25 }, 200)
 );
 
 // Dashboard stats — aggregated overview
-app.get("/api/dashboard/stats", async (c) => {
+const dashboardStatsRoute = createRoute({
+  method: 'get',
+  path: '/api/dashboard/stats',
+  tags: ['System'],
+  description: 'Aggregated dashboard statistics',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: z.object({
+        bookmarkCount: z.number(),
+        docCount: z.number(),
+        serviceCount: z.number(),
+        recentBookmarks: z.array(z.any()),
+        recentDocs: z.array(z.any()),
+        cronTotal: z.number(),
+        cronEnabled: z.number(),
+        cronFailed: z.number(),
+        clusterNodes: z.number(),
+        clusterOnline: z.number(),
+      }) } },
+      description: 'Dashboard statistics'
+    }
+  }
+});
+app.openapi(dashboardStatsRoute, async (c) => {
   const bookmarkCount = (db.query("SELECT COUNT(*) as count FROM bookmarks").get() as any)?.count || 0;
   const docCount = (db.query("SELECT COUNT(*) as count FROM documents").get() as any)?.count || 0;
   const serviceCount = (db.query("SELECT COUNT(*) as count FROM services").get() as any)?.count || 0;
@@ -111,7 +147,7 @@ app.get("/api/dashboard/stats", async (c) => {
     bookmarkCount, docCount, serviceCount, recentBookmarks, recentDocs,
     cronTotal, cronEnabled, cronFailed,
     clusterNodes, clusterOnline,
-  });
+  } as any, 200);
 });
 
 // Module routes — each has its own namespace
@@ -140,6 +176,35 @@ app.route("/api/traefik", traefikRoutes);
 app.route("/api/dns", dnsRoutes);
 app.route("/api/network", networkRoutes);
 app.route("/api/ansible", ansibleRoutes);
+
+// OpenAPI documentation
+app.doc('/api/openapi.json', {
+  openapi: '3.1.0',
+  info: {
+    title: 'Cockpit API',
+    version: process.env.APP_VERSION || 'unknown',
+    description: 'NoahsArk Cockpit - Homelab Dashboard API. All endpoints require session authentication via cockpit_session cookie unless noted otherwise.'
+  },
+  servers: [{ url: '/api', description: 'API Server' }],
+  security: [{ sessionAuth: [] }],
+  components: {
+    securitySchemes: {
+      sessionAuth: {
+        type: 'apiKey',
+        in: 'cookie',
+        name: 'cockpit_session',
+        description: 'Session cookie obtained via POST /api/auth/login'
+      }
+    }
+  }
+} as any);
+
+app.get('/api/docs', apiReference({
+  spec: { url: '/api/openapi.json' },
+  theme: 'kepler',
+  layout: 'modern',
+  darkMode: true,
+} as any));
 
 // WebSocket endpoint for markdown collaboration
 const wsClients = new Map<string, Set<any>>();

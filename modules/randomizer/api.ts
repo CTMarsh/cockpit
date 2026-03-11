@@ -1,7 +1,7 @@
-import { Hono } from "hono";
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { db } from "../../apps/api/src/db";
 
-export const randomizerRoutes = new Hono();
+export const randomizerRoutes = new OpenAPIHono();
 
 interface ProjectIdea {
   id: number;
@@ -84,9 +84,11 @@ ${idea.description}
 - [ ] README explains how to install, configure, and run`;
 }
 
-randomizerRoutes.get("/health", (c) => c.json({ module: "randomizer", status: "ok" }));
+const healthRoute = createRoute({ method: 'get', path: '/health', tags: ['Randomizer'], responses: { 200: { content: { 'application/json': { schema: z.object({ module: z.string(), status: z.string() }) } }, description: 'Module health' } } });
+randomizerRoutes.openapi(healthRoute, (c) => c.json({ module: "randomizer", status: "ok" }, 200));
 
-randomizerRoutes.get("/random", (c) => {
+const randomRoute = createRoute({ method: 'get', path: '/random', tags: ['Randomizer'], description: 'Get a random project idea', responses: { 200: { content: { 'application/json': { schema: z.any() } }, description: 'Random idea with prompt' }, 404: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'No matches' } } });
+randomizerRoutes.openapi(randomRoute, (c) => {
   const ideas = getAllIdeas();
   let pool = [...ideas];
   const stack = c.req.query("stack");
@@ -97,49 +99,52 @@ randomizerRoutes.get("/random", (c) => {
   if (difficulty) pool = pool.filter((i) => i.difficulty === difficulty);
   if (category) pool = pool.filter((i) => i.category === category);
 
-  if (pool.length === 0) return c.json({ error: "No ideas match your filters" }, 404);
+  if (pool.length === 0) return c.json({ error: "No ideas match your filters" } as any, 404);
   const pick = pool[Math.floor(Math.random() * pool.length)];
-  return c.json({ ...pick, prompt: generatePrompt(pick) });
+  return c.json({ ...pick, prompt: generatePrompt(pick) } as any, 200);
 });
 
-randomizerRoutes.get("/ideas", (c) => {
+const ideasRoute = createRoute({ method: 'get', path: '/ideas', tags: ['Randomizer'], description: 'List all project ideas', responses: { 200: { content: { 'application/json': { schema: z.any() } }, description: 'Ideas list' } } });
+randomizerRoutes.openapi(ideasRoute, (c) => {
   const ideas = getAllIdeas();
-  return c.json({ ideas, total: ideas.length });
+  return c.json({ ideas, total: ideas.length }, 200);
 });
 
-randomizerRoutes.get("/filters", (c) => {
+const filtersRoute = createRoute({ method: 'get', path: '/filters', tags: ['Randomizer'], description: 'Get available filter options', responses: { 200: { content: { 'application/json': { schema: z.object({ stacks: z.array(z.string()), difficulties: z.array(z.string()), categories: z.array(z.string()) }) } }, description: 'Filter options' } } });
+randomizerRoutes.openapi(filtersRoute, (c) => {
   const ideas = getAllIdeas();
   const stacks = [...new Set(ideas.flatMap((i) => i.stack))].sort();
   const difficulties = [...new Set(ideas.map((i) => i.difficulty))];
   const categories = [...new Set(ideas.map((i) => i.category))].sort();
-  return c.json({ stacks, difficulties, categories });
+  return c.json({ stacks, difficulties, categories }, 200);
 });
 
 // Favorites
-randomizerRoutes.get("/favorites", (c) => {
+const favoritesRoute = createRoute({ method: 'get', path: '/favorites', tags: ['Randomizer'], description: 'List favorite idea IDs', responses: { 200: { content: { 'application/json': { schema: z.object({ favorites: z.array(z.number()) }) } }, description: 'Favorites' } } });
+randomizerRoutes.openapi(favoritesRoute, (c) => {
   const rows = db.query("SELECT idea_id FROM favorites ORDER BY created_at DESC").all() as any[];
-  return c.json({ favorites: rows.map((r: any) => r.idea_id) });
+  return c.json({ favorites: rows.map((r: any) => r.idea_id) }, 200);
 });
 
-randomizerRoutes.post("/favorites/:id", (c) => {
-  const ideaId = Number(c.req.param("id"));
+const addFavoriteRoute = createRoute({ method: 'post', path: '/favorites/{id}', tags: ['Randomizer'], description: 'Add idea to favorites', request: { params: z.object({ id: z.string() }) }, responses: { 200: { content: { 'application/json': { schema: z.object({ favorited: z.number() }) } }, description: 'Favorited' } } });
+randomizerRoutes.openapi(addFavoriteRoute, (c) => {
+  const ideaId = Number(c.req.valid('param').id);
   db.query("INSERT OR IGNORE INTO favorites (idea_id) VALUES (?)").run(ideaId);
-  return c.json({ favorited: ideaId });
+  return c.json({ favorited: ideaId }, 200);
 });
 
-randomizerRoutes.delete("/favorites/:id", (c) => {
-  const ideaId = Number(c.req.param("id"));
+const removeFavoriteRoute = createRoute({ method: 'delete', path: '/favorites/{id}', tags: ['Randomizer'], description: 'Remove idea from favorites', request: { params: z.object({ id: z.string() }) }, responses: { 200: { content: { 'application/json': { schema: z.object({ unfavorited: z.number() }) } }, description: 'Unfavorited' } } });
+randomizerRoutes.openapi(removeFavoriteRoute, (c) => {
+  const ideaId = Number(c.req.valid('param').id);
   db.query("DELETE FROM favorites WHERE idea_id = ?").run(ideaId);
-  return c.json({ unfavorited: ideaId });
+  return c.json({ unfavorited: ideaId }, 200);
 });
 
 // Custom ideas
-randomizerRoutes.post("/ideas", async (c) => {
-  const body = await c.req.json<{
-    title: string; description: string; stack: string[];
-    difficulty: string; category: string; estimatedHours: string;
-  }>();
-  if (!body.title) return c.json({ error: "title is required" }, 400);
+const createIdeaRoute = createRoute({ method: 'post', path: '/ideas', tags: ['Randomizer'], description: 'Create a custom project idea', request: { body: { content: { 'application/json': { schema: z.object({ title: z.string(), description: z.string().optional(), stack: z.array(z.string()).optional(), difficulty: z.string().optional(), category: z.string().optional(), estimatedHours: z.string().optional() }) } } } }, responses: { 201: { content: { 'application/json': { schema: z.object({ id: z.number(), created: z.boolean() }) } }, description: 'Created' }, 400: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Validation error' } } });
+randomizerRoutes.openapi(createIdeaRoute, async (c) => {
+  const body = c.req.valid('json');
+  if (!body.title) return c.json({ error: "title is required" } as any, 400);
   const id = Date.now();
   db.query(
     "INSERT INTO custom_ideas (id, title, description, stack, difficulty, category, estimated_hours) VALUES (?, ?, ?, ?, ?, ?, ?)"
@@ -147,8 +152,9 @@ randomizerRoutes.post("/ideas", async (c) => {
   return c.json({ id, created: true }, 201);
 });
 
-randomizerRoutes.delete("/ideas/:id", (c) => {
-  const id = Number(c.req.param("id"));
+const deleteIdeaRoute = createRoute({ method: 'delete', path: '/ideas/{id}', tags: ['Randomizer'], description: 'Delete a custom idea', request: { params: z.object({ id: z.string() }) }, responses: { 200: { content: { 'application/json': { schema: z.object({ deleted: z.number() }) } }, description: 'Deleted' } } });
+randomizerRoutes.openapi(deleteIdeaRoute, (c) => {
+  const id = Number(c.req.valid('param').id);
   db.query("DELETE FROM custom_ideas WHERE id = ?").run(id);
-  return c.json({ deleted: id });
+  return c.json({ deleted: id }, 200);
 });
