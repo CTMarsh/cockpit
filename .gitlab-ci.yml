@@ -219,6 +219,35 @@ build:web:
 # NOTE: This stage uses `origin` (not `gitlab`) because GitLab CI clones the
 # repo with `origin` as the default remote name. In local dev we use `gitlab`
 # as our remote, but CI runners always set origin to the project URL.
+
+# Deploy PostgreSQL and Redis infrastructure (only when manifests change)
+deploy:infrastructure:
+  stage: deploy
+  image:
+    name: alpine/k8s:1.35.2
+    entrypoint: [""]
+  needs:
+    - job: build:api
+  script:
+    - echo "=== Deploying infrastructure ==="
+    - kubectl apply -f k8s/postgres-secrets.yaml -n cockpit
+    - kubectl apply -f k8s/postgres-statefulset.yaml -n cockpit
+    - kubectl apply -f k8s/redis-deployment.yaml -n cockpit
+    - echo "=== Waiting for PostgreSQL ==="
+    - kubectl rollout status statefulset/cockpit-postgres -n cockpit --timeout=120s
+    - echo "=== Waiting for Redis ==="
+    - kubectl rollout status deployment/cockpit-redis -n cockpit --timeout=60s
+    - echo "=== Infrastructure deployed ==="
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+      changes:
+        - k8s/postgres-*.yaml
+        - k8s/redis-*.yaml
+  environment:
+    name: production
+  tags:
+    - k8s
+
 deploy:k8s:
   stage: deploy
   image:
@@ -229,6 +258,8 @@ deploy:k8s:
       artifacts: true
     - job: build:api
     - job: build:web
+    - job: deploy:infrastructure
+      optional: true
   resource_group: production
   retry:
     max: 2

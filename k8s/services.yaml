@@ -7,6 +7,10 @@ metadata:
     app.kubernetes.io/name: cockpit-api
     app.kubernetes.io/part-of: cockpit
 spec:
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 3600
   selector:
     app.kubernetes.io/name: cockpit-api
   ports:
