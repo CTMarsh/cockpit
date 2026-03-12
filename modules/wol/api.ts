@@ -1,18 +1,8 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { db } from "../../apps/api/src/db";
+import sql from "../../apps/api/src/db";
 import { createSocket } from "node:dgram";
 
 export const wolRoutes = new OpenAPIHono();
-
-db.run(`CREATE TABLE IF NOT EXISTS wol_devices (id TEXT PRIMARY KEY, name TEXT NOT NULL, mac TEXT NOT NULL, ip TEXT NOT NULL DEFAULT '', broadcast TEXT NOT NULL DEFAULT '255.255.255.255', created_at TEXT NOT NULL DEFAULT (datetime('now')))`);
-
-const stmts = {
-  listDevices: db.prepare("SELECT * FROM wol_devices ORDER BY name"),
-  getDevice: db.prepare("SELECT * FROM wol_devices WHERE id = ?"),
-  insertDevice: db.prepare("INSERT INTO wol_devices (id, name, mac, ip, broadcast) VALUES (?, ?, ?, ?, ?)"),
-  updateDevice: db.prepare("UPDATE wol_devices SET name = ?, mac = ?, ip = ?, broadcast = ? WHERE id = ?"),
-  deleteDevice: db.prepare("DELETE FROM wol_devices WHERE id = ?"),
-};
 
 function buildMagicPacket(mac: string): Buffer {
   const macBytes = mac.replace(/[:-]/g, "").match(/.{2}/g);
@@ -53,8 +43,8 @@ const listDevicesRoute = createRoute({
   responses: { 200: { content: { 'application/json': { schema: z.object({ devices: z.array(z.any()) }) } }, description: 'Device list' } }
 });
 wolRoutes.openapi(listDevicesRoute, async (c) => {
-  const devices = stmts.listDevices.all() as any[];
-  const withStatus = await Promise.all(devices.map(async (d) => ({ ...d, online: await pingHost(d.ip) })));
+  const devices = await sql`SELECT * FROM wol_devices ORDER BY name`;
+  const withStatus = await Promise.all(devices.map(async (d: any) => ({ ...d, online: await pingHost(d.ip) })));
   return c.json({ devices: withStatus }, 200);
 });
 
@@ -72,7 +62,7 @@ wolRoutes.openapi(createDeviceRoute, async (c) => {
   const cleanMac = mac.replace(/[:-]/g, "");
   if (!/^[0-9a-fA-F]{12}$/.test(cleanMac)) return c.json({ error: "Invalid MAC address format" } as any, 400);
   const id = crypto.randomUUID();
-  stmts.insertDevice.run(id, name, mac.toUpperCase(), ip || "", broadcast || "255.255.255.255");
+  await sql`INSERT INTO wol_devices (id, name, mac, ip, broadcast) VALUES (${id}, ${name}, ${mac.toUpperCase()}, ${ip || ""}, ${broadcast || "255.255.255.255"})`;
   return c.json({ id, name, mac: mac.toUpperCase() }, 200);
 });
 
@@ -87,12 +77,12 @@ const updateDeviceRoute = createRoute({
 });
 wolRoutes.openapi(updateDeviceRoute, async (c) => {
   const id = c.req.valid('param').id;
-  const existing = stmts.getDevice.get(id) as any;
+  const [existing] = await sql`SELECT * FROM wol_devices WHERE id = ${id}`;
   if (!existing) return c.json({ error: "Device not found" } as any, 404);
   const { name, mac, ip, broadcast } = c.req.valid('json');
   if (mac !== undefined) { const cleanMac = mac.replace(/[:-]/g, ""); if (!/^[0-9a-fA-F]{12}$/.test(cleanMac)) return c.json({ error: "Invalid MAC address format" } as any, 400); }
   if (ip !== undefined && ip !== "" && !IP_HOSTNAME_RE.test(ip)) return c.json({ error: "Invalid IP address format" } as any, 400);
-  stmts.updateDevice.run(name ?? existing.name, mac ? mac.toUpperCase() : existing.mac, ip ?? existing.ip, broadcast ?? existing.broadcast, id);
+  await sql`UPDATE wol_devices SET name = ${name ?? existing.name}, mac = ${mac ? mac.toUpperCase() : existing.mac}, ip = ${ip ?? existing.ip}, broadcast = ${broadcast ?? existing.broadcast} WHERE id = ${id}`;
   return c.json({ ok: true }, 200);
 });
 
@@ -101,7 +91,7 @@ const deleteDeviceRoute = createRoute({
   request: { params: z.object({ id: z.string() }) },
   responses: { 200: { content: { 'application/json': { schema: z.object({ ok: z.boolean() }) } }, description: 'Device deleted' } }
 });
-wolRoutes.openapi(deleteDeviceRoute, (c) => { stmts.deleteDevice.run(c.req.valid('param').id); return c.json({ ok: true }, 200); });
+wolRoutes.openapi(deleteDeviceRoute, async (c) => { await sql`DELETE FROM wol_devices WHERE id = ${c.req.valid('param').id}`; return c.json({ ok: true }, 200); });
 
 const wakeRoute = createRoute({
   method: 'post', path: '/wake/{id}', tags: ['Wake-on-LAN'],
@@ -115,7 +105,7 @@ const wakeRoute = createRoute({
 });
 wolRoutes.openapi(wakeRoute, async (c) => {
   const id = c.req.valid('param').id;
-  const device = stmts.getDevice.get(id) as any;
+  const [device] = await sql`SELECT * FROM wol_devices WHERE id = ${id}`;
   if (!device) return c.json({ error: "Device not found" } as any, 404);
   try { await sendWoL(device.mac, device.broadcast); return c.json({ ok: true, name: device.name, mac: device.mac, broadcast: device.broadcast }, 200); }
   catch (e: any) { return c.json({ error: e.message } as any, 500); }

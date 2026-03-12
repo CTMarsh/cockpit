@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { db } from "../../apps/api/src/db";
+import sql from "../../apps/api/src/db";
 
 export const homelabRoutes = new OpenAPIHono();
 
@@ -49,25 +49,6 @@ interface ServiceStatus {
   lastChecked: string;
   statusCode: number | null;
 }
-
-const stmts = {
-  getAll: db.query("SELECT * FROM services ORDER BY created_at ASC"),
-  insert: db.query("INSERT INTO services (id, name, url, icon, expected_status) VALUES (?, ?, ?, ?, ?)"),
-  update: db.query("UPDATE services SET name = ?, url = ?, expected_status = ? WHERE id = ?"),
-  getById: db.query("SELECT * FROM services WHERE id = ?"),
-  delete: db.query("DELETE FROM services WHERE id = ?"),
-  recordUptime: db.query("INSERT INTO uptime_history (service_id, status, response_time) VALUES (?, ?, ?)"),
-  getHistory: db.query("SELECT status, response_time, checked_at FROM uptime_history WHERE service_id = ? ORDER BY checked_at DESC LIMIT ?"),
-  getUptimePercent: db.query(`
-    SELECT service_id,
-      COUNT(*) as total,
-      SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count
-    FROM uptime_history
-    WHERE checked_at > datetime('now', '-30 days')
-    GROUP BY service_id
-  `),
-  cleanOldHistory: db.query("DELETE FROM uptime_history WHERE checked_at < datetime('now', '-30 days')"),
-};
 
 async function checkService(service: ServiceConfig): Promise<ServiceStatus> {
   const start = Date.now();
@@ -132,14 +113,21 @@ const listServicesRoute = createRoute({
   }
 });
 homelabRoutes.openapi(listServicesRoute, async (c) => {
-  const services = stmts.getAll.all() as ServiceConfig[];
+  const services = await sql`SELECT * FROM services ORDER BY created_at ASC` as ServiceConfig[];
   const statuses = await Promise.all(services.map(checkService));
 
   for (const s of statuses) {
-    stmts.recordUptime.run(s.id, s.status, s.responseTime);
+    await sql`INSERT INTO uptime_history (service_id, status, response_time) VALUES (${s.id}, ${s.status}, ${s.responseTime})`;
   }
 
-  const uptimeRows = stmts.getUptimePercent.all() as any[];
+  const uptimeRows = await sql`
+    SELECT service_id,
+      COUNT(*)::int as total,
+      SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END)::int as up_count
+    FROM uptime_history
+    WHERE checked_at > NOW() - INTERVAL '30 days'
+    GROUP BY service_id
+  ` as any[];
   const uptimeMap: Record<string, number> = {};
   for (const row of uptimeRows) {
     uptimeMap[row.service_id] = row.total > 0 ? Math.round((row.up_count / row.total) * 1000) / 10 : 0;
@@ -165,10 +153,10 @@ const serviceHistoryRoute = createRoute({
     200: { content: { 'application/json': { schema: z.any() } }, description: 'Service history' }
   }
 });
-homelabRoutes.openapi(serviceHistoryRoute, (c) => {
+homelabRoutes.openapi(serviceHistoryRoute, async (c) => {
   const id = c.req.valid('param').id;
   const limit = Math.min(Number(c.req.query("limit")) || 100, 10000);
-  const history = stmts.getHistory.all(id, limit);
+  const history = await sql`SELECT status, response_time, checked_at FROM uptime_history WHERE service_id = ${id} ORDER BY checked_at DESC LIMIT ${limit}`;
   return c.json({ history }, 200);
 });
 
@@ -192,7 +180,7 @@ homelabRoutes.openapi(createServiceRoute, async (c) => {
   if (!urlCheck.safe) return c.json({ error: urlCheck.error } as any, 400);
   const id = body.name.toLowerCase().replace(/\s+/g, "-");
   const expectedStatus = body.expectedStatus ?? 0;
-  stmts.insert.run(id, body.name, body.url, body.icon || null, expectedStatus);
+  await sql`INSERT INTO services (id, name, url, icon, expected_status) VALUES (${id}, ${body.name}, ${body.url}, ${body.icon || null}, ${expectedStatus})`;
   return c.json({ id, name: body.name, url: body.url }, 201);
 });
 
@@ -213,7 +201,7 @@ const updateServiceRoute = createRoute({
 });
 homelabRoutes.openapi(updateServiceRoute, async (c) => {
   const id = c.req.valid('param').id;
-  const existing = stmts.getById.get(id) as any;
+  const [existing] = await sql`SELECT * FROM services WHERE id = ${id}` as any[];
   if (!existing) return c.json({ error: "Service not found" } as any, 404);
   const body = c.req.valid('json');
   if (body.url) {
@@ -223,7 +211,7 @@ homelabRoutes.openapi(updateServiceRoute, async (c) => {
   const name = body.name ?? existing.name;
   const url = body.url ?? existing.url;
   const expectedStatus = body.expectedStatus ?? existing.expected_status;
-  stmts.update.run(name, url, expectedStatus, id);
+  await sql`UPDATE services SET name = ${name}, url = ${url}, expected_status = ${expectedStatus} WHERE id = ${id}`;
   return c.json({ id, name, url, expectedStatus }, 200);
 });
 
@@ -237,21 +225,13 @@ const deleteServiceRoute = createRoute({
     200: { content: { 'application/json': { schema: z.object({ deleted: z.string() }) } }, description: 'Service deleted' }
   }
 });
-homelabRoutes.openapi(deleteServiceRoute, (c) => {
+homelabRoutes.openapi(deleteServiceRoute, async (c) => {
   const id = c.req.valid('param').id;
-  stmts.delete.run(id);
+  await sql`DELETE FROM services WHERE id = ${id}`;
   return c.json({ deleted: id }, 200);
 });
 
 // Docker host management
-const dockerStmts = {
-  getAllHosts: db.query("SELECT * FROM docker_hosts ORDER BY created_at ASC"),
-  insertHost: db.query("INSERT INTO docker_hosts (id, name, url) VALUES (?, ?, ?)"),
-  updateHost: db.query("UPDATE docker_hosts SET name = ?, url = ? WHERE id = ?"),
-  deleteHost: db.query("DELETE FROM docker_hosts WHERE id = ?"),
-  getHost: db.query("SELECT * FROM docker_hosts WHERE id = ?"),
-};
-
 const listDockerHostsRoute = createRoute({
   method: 'get',
   path: '/docker-hosts',
@@ -259,8 +239,8 @@ const listDockerHostsRoute = createRoute({
   description: 'List configured Docker hosts',
   responses: { 200: { content: { 'application/json': { schema: z.any() } }, description: 'Docker hosts' } }
 });
-homelabRoutes.openapi(listDockerHostsRoute, (c) => {
-  const hosts = dockerStmts.getAllHosts.all();
+homelabRoutes.openapi(listDockerHostsRoute, async (c) => {
+  const hosts = await sql`SELECT * FROM docker_hosts ORDER BY created_at ASC`;
   return c.json({ hosts }, 200);
 });
 
@@ -282,7 +262,7 @@ homelabRoutes.openapi(createDockerHostRoute, async (c) => {
   const urlCheck = isHomelabUrlSafe(body.url);
   if (!urlCheck.safe) return c.json({ error: urlCheck.error } as any, 400);
   const id = body.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-  dockerStmts.insertHost.run(id, body.name, body.url);
+  await sql`INSERT INTO docker_hosts (id, name, url) VALUES (${id}, ${body.name}, ${body.url})`;
   return c.json({ id, name: body.name, url: body.url }, 201);
 });
 
@@ -303,7 +283,7 @@ const updateDockerHostRoute = createRoute({
 });
 homelabRoutes.openapi(updateDockerHostRoute, async (c) => {
   const id = c.req.valid('param').id;
-  const existing = dockerStmts.getHost.get(id);
+  const [existing] = await sql`SELECT * FROM docker_hosts WHERE id = ${id}` as any[];
   if (!existing) return c.json({ error: "Docker host not found" } as any, 404);
   const body = c.req.valid('json');
   if (body.url) {
@@ -311,7 +291,7 @@ homelabRoutes.openapi(updateDockerHostRoute, async (c) => {
     const urlCheck = isHomelabUrlSafe(body.url);
     if (!urlCheck.safe) return c.json({ error: urlCheck.error } as any, 400);
   }
-  dockerStmts.updateHost.run(body.name || (existing as any).name, body.url || (existing as any).url, id);
+  await sql`UPDATE docker_hosts SET name = ${body.name || existing.name}, url = ${body.url || existing.url} WHERE id = ${id}`;
   return c.json({ ok: true }, 200);
 });
 
@@ -323,9 +303,9 @@ const deleteDockerHostRoute = createRoute({
   request: { params: z.object({ id: z.string() }) },
   responses: { 200: { content: { 'application/json': { schema: z.object({ deleted: z.string() }) } }, description: 'Host deleted' } }
 });
-homelabRoutes.openapi(deleteDockerHostRoute, (c) => {
+homelabRoutes.openapi(deleteDockerHostRoute, async (c) => {
   const id = c.req.valid('param').id;
-  dockerStmts.deleteHost.run(id);
+  await sql`DELETE FROM docker_hosts WHERE id = ${id}`;
   return c.json({ deleted: id }, 200);
 });
 
@@ -356,7 +336,7 @@ homelabRoutes.openapi(containerActionRoute, async (c) => {
 
   let dockerHost = process.env.DOCKER_HOST || "http://localhost:2375";
   if (hostUrl) {
-    const configuredHosts = (dockerStmts.getAllHosts.all() as { url: string }[]).map(h => h.url);
+    const configuredHosts = (await sql`SELECT url FROM docker_hosts` as { url: string }[]).map(h => h.url);
     if (process.env.DOCKER_HOST) configuredHosts.push(process.env.DOCKER_HOST);
     if (!configuredHosts.includes(hostUrl)) {
       return c.json({ error: "Unknown Docker host" } as any, 400);
@@ -391,7 +371,7 @@ const listContainersRoute = createRoute({
   }
 });
 homelabRoutes.openapi(listContainersRoute, async (c) => {
-  const hosts = dockerStmts.getAllHosts.all() as { id: string; name: string; url: string }[];
+  const hosts = await sql`SELECT * FROM docker_hosts ORDER BY created_at ASC` as { id: string; name: string; url: string }[];
   const defaultHost = process.env.DOCKER_HOST;
 
   const targets: { name: string; url: string }[] = [];

@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { db } from "../../apps/api/src/db";
+import sql from "../../apps/api/src/db";
 
 export const randomizerRoutes = new OpenAPIHono();
 
@@ -37,8 +37,8 @@ const builtinIdeas: ProjectIdea[] = [
   { id: 20, title: "Cron Job Dashboard", description: "Manage and monitor cron jobs. Visual scheduler, execution history, failure alerts.", stack: ["typescript", "react", "node"], difficulty: "advanced", category: "devops", estimatedHours: "12-18" },
 ];
 
-function getAllIdeas(): ProjectIdea[] {
-  const customRows = db.query("SELECT * FROM custom_ideas ORDER BY created_at DESC").all() as any[];
+async function getAllIdeas(): Promise<ProjectIdea[]> {
+  const customRows = await sql`SELECT * FROM custom_ideas ORDER BY created_at DESC`;
   const custom: ProjectIdea[] = customRows.map((r: any) => ({
     id: r.id,
     title: r.title,
@@ -88,8 +88,8 @@ const healthRoute = createRoute({ method: 'get', path: '/health', tags: ['Random
 randomizerRoutes.openapi(healthRoute, (c) => c.json({ module: "randomizer", status: "ok" }, 200));
 
 const randomRoute = createRoute({ method: 'get', path: '/random', tags: ['Randomizer'], description: 'Get a random project idea', responses: { 200: { content: { 'application/json': { schema: z.any() } }, description: 'Random idea with prompt' }, 404: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'No matches' } } });
-randomizerRoutes.openapi(randomRoute, (c) => {
-  const ideas = getAllIdeas();
+randomizerRoutes.openapi(randomRoute, async (c) => {
+  const ideas = await getAllIdeas();
   let pool = [...ideas];
   const stack = c.req.query("stack");
   const difficulty = c.req.query("difficulty");
@@ -105,14 +105,14 @@ randomizerRoutes.openapi(randomRoute, (c) => {
 });
 
 const ideasRoute = createRoute({ method: 'get', path: '/ideas', tags: ['Randomizer'], description: 'List all project ideas', responses: { 200: { content: { 'application/json': { schema: z.any() } }, description: 'Ideas list' } } });
-randomizerRoutes.openapi(ideasRoute, (c) => {
-  const ideas = getAllIdeas();
+randomizerRoutes.openapi(ideasRoute, async (c) => {
+  const ideas = await getAllIdeas();
   return c.json({ ideas, total: ideas.length }, 200);
 });
 
 const filtersRoute = createRoute({ method: 'get', path: '/filters', tags: ['Randomizer'], description: 'Get available filter options', responses: { 200: { content: { 'application/json': { schema: z.object({ stacks: z.array(z.string()), difficulties: z.array(z.string()), categories: z.array(z.string()) }) } }, description: 'Filter options' } } });
-randomizerRoutes.openapi(filtersRoute, (c) => {
-  const ideas = getAllIdeas();
+randomizerRoutes.openapi(filtersRoute, async (c) => {
+  const ideas = await getAllIdeas();
   const stacks = [...new Set(ideas.flatMap((i) => i.stack))].sort();
   const difficulties = [...new Set(ideas.map((i) => i.difficulty))];
   const categories = [...new Set(ideas.map((i) => i.category))].sort();
@@ -121,22 +121,22 @@ randomizerRoutes.openapi(filtersRoute, (c) => {
 
 // Favorites
 const favoritesRoute = createRoute({ method: 'get', path: '/favorites', tags: ['Randomizer'], description: 'List favorite idea IDs', responses: { 200: { content: { 'application/json': { schema: z.object({ favorites: z.array(z.number()) }) } }, description: 'Favorites' } } });
-randomizerRoutes.openapi(favoritesRoute, (c) => {
-  const rows = db.query("SELECT idea_id FROM favorites ORDER BY created_at DESC").all() as any[];
+randomizerRoutes.openapi(favoritesRoute, async (c) => {
+  const rows = await sql`SELECT idea_id FROM favorites ORDER BY created_at DESC`;
   return c.json({ favorites: rows.map((r: any) => r.idea_id) }, 200);
 });
 
 const addFavoriteRoute = createRoute({ method: 'post', path: '/favorites/{id}', tags: ['Randomizer'], description: 'Add idea to favorites', request: { params: z.object({ id: z.string() }) }, responses: { 200: { content: { 'application/json': { schema: z.object({ favorited: z.number() }) } }, description: 'Favorited' } } });
-randomizerRoutes.openapi(addFavoriteRoute, (c) => {
+randomizerRoutes.openapi(addFavoriteRoute, async (c) => {
   const ideaId = Number(c.req.valid('param').id);
-  db.query("INSERT OR IGNORE INTO favorites (idea_id) VALUES (?)").run(ideaId);
+  await sql`INSERT INTO favorites (idea_id) VALUES (${ideaId}) ON CONFLICT DO NOTHING`;
   return c.json({ favorited: ideaId }, 200);
 });
 
 const removeFavoriteRoute = createRoute({ method: 'delete', path: '/favorites/{id}', tags: ['Randomizer'], description: 'Remove idea from favorites', request: { params: z.object({ id: z.string() }) }, responses: { 200: { content: { 'application/json': { schema: z.object({ unfavorited: z.number() }) } }, description: 'Unfavorited' } } });
-randomizerRoutes.openapi(removeFavoriteRoute, (c) => {
+randomizerRoutes.openapi(removeFavoriteRoute, async (c) => {
   const ideaId = Number(c.req.valid('param').id);
-  db.query("DELETE FROM favorites WHERE idea_id = ?").run(ideaId);
+  await sql`DELETE FROM favorites WHERE idea_id = ${ideaId}`;
   return c.json({ unfavorited: ideaId }, 200);
 });
 
@@ -146,15 +146,13 @@ randomizerRoutes.openapi(createIdeaRoute, async (c) => {
   const body = c.req.valid('json');
   if (!body.title) return c.json({ error: "title is required" } as any, 400);
   const id = Date.now();
-  db.query(
-    "INSERT INTO custom_ideas (id, title, description, stack, difficulty, category, estimated_hours) VALUES (?, ?, ?, ?, ?, ?, ?)"
-  ).run(id, body.title, body.description || "", JSON.stringify(body.stack || []), body.difficulty || "intermediate", body.category || "custom", body.estimatedHours || "4-8");
+  await sql`INSERT INTO custom_ideas (id, title, description, stack, difficulty, category, estimated_hours) VALUES (${id}, ${body.title}, ${body.description || ""}, ${JSON.stringify(body.stack || [])}, ${body.difficulty || "intermediate"}, ${body.category || "custom"}, ${body.estimatedHours || "4-8"})`;
   return c.json({ id, created: true }, 201);
 });
 
 const deleteIdeaRoute = createRoute({ method: 'delete', path: '/ideas/{id}', tags: ['Randomizer'], description: 'Delete a custom idea', request: { params: z.object({ id: z.string() }) }, responses: { 200: { content: { 'application/json': { schema: z.object({ deleted: z.number() }) } }, description: 'Deleted' } } });
-randomizerRoutes.openapi(deleteIdeaRoute, (c) => {
+randomizerRoutes.openapi(deleteIdeaRoute, async (c) => {
   const id = Number(c.req.valid('param').id);
-  db.query("DELETE FROM custom_ideas WHERE id = ?").run(id);
+  await sql`DELETE FROM custom_ideas WHERE id = ${id}`;
   return c.json({ deleted: id }, 200);
 });

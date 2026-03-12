@@ -1,21 +1,7 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { db } from "../../apps/api/src/db";
+import sql from "../../apps/api/src/db";
 
 export const bookmarksRoutes = new OpenAPIHono();
-
-const stmts = {
-  getAll: db.query("SELECT * FROM bookmarks ORDER BY created_at DESC"),
-  search: db.query(
-    "SELECT * FROM bookmarks WHERE title LIKE ?1 OR url LIKE ?1 OR summary LIKE ?1 OR tags LIKE ?1 ORDER BY created_at DESC"
-  ),
-  getById: db.query("SELECT * FROM bookmarks WHERE id = ?"),
-  insert: db.query(
-    "INSERT INTO bookmarks (id, url, title, summary, tags, favicon) VALUES (?, ?, ?, ?, ?, ?)"
-  ),
-  delete: db.query("DELETE FROM bookmarks WHERE id = ?"),
-  update: db.query("UPDATE bookmarks SET title = ?, tags = ? WHERE id = ?"),
-  getTags: db.query("SELECT tags FROM bookmarks"),
-};
 
 function parseBookmark(row: any) {
   return { ...row, tags: JSON.parse(row.tags || "[]") };
@@ -68,15 +54,15 @@ const listBookmarksRoute = createRoute({
   description: 'List or search bookmarks',
   responses: { 200: { content: { 'application/json': { schema: z.object({ bookmarks: z.array(z.any()), total: z.number() }) } }, description: 'Bookmarks list' } }
 });
-bookmarksRoutes.openapi(listBookmarksRoute, (c) => {
+bookmarksRoutes.openapi(listBookmarksRoute, async (c) => {
   const q = c.req.query("q")?.toLowerCase();
   if (q) {
     const pattern = `%${q}%`;
-    const rows = stmts.search.all(pattern);
+    const rows = await sql`SELECT * FROM bookmarks WHERE title LIKE ${pattern} OR url LIKE ${pattern} OR summary LIKE ${pattern} OR tags LIKE ${pattern} ORDER BY created_at DESC`;
     const bookmarks = rows.map(parseBookmark);
     return c.json({ bookmarks, total: bookmarks.length }, 200);
   }
-  const rows = stmts.getAll.all();
+  const rows = await sql`SELECT * FROM bookmarks ORDER BY created_at DESC`;
   const bookmarks = rows.map(parseBookmark);
   return c.json({ bookmarks, total: bookmarks.length }, 200);
 });
@@ -139,7 +125,7 @@ bookmarksRoutes.openapi(createBookmarkRoute, async (c) => {
 
   const id = crypto.randomUUID();
   const tags = JSON.stringify([...autoTags]);
-  stmts.insert.run(id, body.url, title, summary, tags, null);
+  await sql`INSERT INTO bookmarks (id, url, title, summary, tags, favicon) VALUES (${id}, ${body.url}, ${title}, ${summary}, ${tags}, ${null})`;
 
   return c.json({ id, url: body.url, title, summary, tags: [...autoTags], createdAt: new Date().toISOString() }, 201);
 });
@@ -155,13 +141,13 @@ const updateBookmarkRoute = createRoute({
 });
 bookmarksRoutes.openapi(updateBookmarkRoute, async (c) => {
   const id = c.req.valid('param').id;
-  const existing = stmts.getById.get(id);
+  const [existing] = await sql`SELECT * FROM bookmarks WHERE id = ${id}`;
   if (!existing) return c.json({ error: "Bookmark not found" } as any, 404);
   const body = c.req.valid('json');
   const parsed = parseBookmark(existing);
   const title = body.title ?? parsed.title;
   const tags = JSON.stringify(body.tags ?? parsed.tags);
-  stmts.update.run(title, tags, id);
+  await sql`UPDATE bookmarks SET title = ${title}, tags = ${tags} WHERE id = ${id}`;
   return c.json({ id, title, tags: JSON.parse(tags) }, 200);
 });
 
@@ -174,11 +160,11 @@ const deleteBookmarkRoute = createRoute({
     404: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Not found' },
   }
 });
-bookmarksRoutes.openapi(deleteBookmarkRoute, (c) => {
+bookmarksRoutes.openapi(deleteBookmarkRoute, async (c) => {
   const id = c.req.valid('param').id;
-  const existing = stmts.getById.get(id);
+  const [existing] = await sql`SELECT * FROM bookmarks WHERE id = ${id}`;
   if (!existing) return c.json({ error: "Bookmark not found" } as any, 404);
-  stmts.delete.run(id);
+  await sql`DELETE FROM bookmarks WHERE id = ${id}`;
   return c.json({ deleted: id }, 200);
 });
 
@@ -187,8 +173,8 @@ const exportBookmarksRoute = createRoute({
   description: 'Export all bookmarks as JSON',
   responses: { 200: { content: { 'application/json': { schema: z.object({ bookmarks: z.array(z.any()), exportedAt: z.string() }) } }, description: 'Exported bookmarks' } }
 });
-bookmarksRoutes.openapi(exportBookmarksRoute, (c) => {
-  const rows = stmts.getAll.all();
+bookmarksRoutes.openapi(exportBookmarksRoute, async (c) => {
+  const rows = await sql`SELECT * FROM bookmarks ORDER BY created_at DESC`;
   const bookmarks = rows.map(parseBookmark);
   return c.json({ bookmarks, exportedAt: new Date().toISOString() }, 200);
 });
@@ -211,7 +197,7 @@ bookmarksRoutes.openapi(importBookmarksRoute, async (c) => {
     if (b.url.length > MAX_URL_LENGTH || !isUrlSafe(b.url).safe) continue;
     const id = crypto.randomUUID();
     const tags = JSON.stringify(b.tags || []);
-    stmts.insert.run(id, b.url, b.title || b.url, b.summary || "", tags, null);
+    await sql`INSERT INTO bookmarks (id, url, title, summary, tags, favicon) VALUES (${id}, ${b.url}, ${b.title || b.url}, ${b.summary || ""}, ${tags}, ${null})`;
     imported++;
   }
   return c.json({ imported }, 200);
@@ -222,8 +208,8 @@ const tagsRoute = createRoute({
   description: 'Get tag counts',
   responses: { 200: { content: { 'application/json': { schema: z.object({ tags: z.record(z.string(), z.number()) }) } }, description: 'Tag counts' } }
 });
-bookmarksRoutes.openapi(tagsRoute, (c) => {
-  const rows = stmts.getTags.all() as any[];
+bookmarksRoutes.openapi(tagsRoute, async (c) => {
+  const rows = await sql`SELECT tags FROM bookmarks` as any[];
   const tagCounts: Record<string, number> = {};
   for (const row of rows) {
     const tags = JSON.parse(row.tags || "[]");
