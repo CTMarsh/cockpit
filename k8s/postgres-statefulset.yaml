@@ -75,10 +75,10 @@ spec:
       spec:
         accessModes:
           - ReadWriteOnce
-        storageClassName: longhorn
+        storageClassName: longhorn-1r
         resources:
           requests:
-            storage: 10Gi
+            storage: 2Gi
 ---
 apiVersion: v1
 kind: Service
