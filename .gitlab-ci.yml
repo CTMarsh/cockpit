@@ -230,7 +230,7 @@ deploy:infrastructure:
     - job: build:api
   script:
     - echo "=== Deploying infrastructure ==="
-    - kubectl apply -f k8s/postgres-secrets.yaml -n cockpit
+    # Secret is managed manually on cluster — never overwrite from CI
     - kubectl apply -f k8s/postgres-statefulset.yaml -n cockpit
     - kubectl apply -f k8s/redis-deployment.yaml -n cockpit
     - echo "=== Waiting for PostgreSQL ==="
