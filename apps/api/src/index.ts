@@ -2,8 +2,9 @@ import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { apiReference } from "@scalar/hono-api-reference";
-import { authRoutes, authMiddleware } from "./auth";
-import { db } from "./db";
+import { authRoutes, authMiddleware, cleanupAuth } from "./auth";
+import sql, { migrate } from "./db";
+import { redis, redisSub, connectRedis } from "./redis";
 import { homelabRoutes } from "../../../modules/homelab/api";
 import { bookmarksRoutes } from "../../../modules/bookmarks/api";
 import { dedupRoutes } from "../../../modules/dedup/api";
@@ -29,6 +30,11 @@ import { traefikRoutes } from "../../../modules/traefik/api";
 import { dnsRoutes } from "../../../modules/dns/api";
 import { networkRoutes } from "../../../modules/network/api";
 import { ansibleRoutes } from "../../../modules/ansible/api";
+
+// Run database migrations and connect Redis before serving
+await migrate();
+await cleanupAuth();
+await connectRedis();
 
 const app = new OpenAPIHono();
 
@@ -106,20 +112,20 @@ const dashboardStatsRoute = createRoute({
   }
 });
 app.openapi(dashboardStatsRoute, async (c) => {
-  const bookmarkCount = (db.query("SELECT COUNT(*) as count FROM bookmarks").get() as any)?.count || 0;
-  const docCount = (db.query("SELECT COUNT(*) as count FROM documents").get() as any)?.count || 0;
-  const serviceCount = (db.query("SELECT COUNT(*) as count FROM services").get() as any)?.count || 0;
-  const recentBookmarks = db.query("SELECT id, url, title, tags, created_at FROM bookmarks ORDER BY created_at DESC LIMIT 5").all();
-  const recentDocs = db.query("SELECT id, title, updated_at FROM documents ORDER BY updated_at DESC LIMIT 5").all();
+  const [{ count: bookmarkCount }] = await sql`SELECT COUNT(*)::int as count FROM bookmarks`;
+  const [{ count: docCount }] = await sql`SELECT COUNT(*)::int as count FROM documents`;
+  const [{ count: serviceCount }] = await sql`SELECT COUNT(*)::int as count FROM services`;
+  const recentBookmarks = await sql`SELECT id, url, title, tags, created_at FROM bookmarks ORDER BY created_at DESC LIMIT 5`;
+  const recentDocs = await sql`SELECT id, title, updated_at FROM documents ORDER BY updated_at DESC LIMIT 5`;
 
   // Cron stats
-  const cronTotal = (db.query("SELECT COUNT(*) as count FROM cron_jobs").get() as any)?.count || 0;
-  const cronEnabled = (db.query("SELECT COUNT(*) as count FROM cron_jobs WHERE enabled = 1").get() as any)?.count || 0;
-  const cronFailed = (db.query(`
-    SELECT COUNT(DISTINCT j.id) as count FROM cron_jobs j
+  const [{ count: cronTotal }] = await sql`SELECT COUNT(*)::int as count FROM cron_jobs`;
+  const [{ count: cronEnabled }] = await sql`SELECT COUNT(*)::int as count FROM cron_jobs WHERE enabled = 1`;
+  const [{ count: cronFailed }] = await sql`
+    SELECT COUNT(DISTINCT j.id)::int as count FROM cron_jobs j
     INNER JOIN cron_runs r ON r.job_id = j.id
     WHERE r.exit_code != 0 AND r.id = (SELECT MAX(r2.id) FROM cron_runs r2 WHERE r2.job_id = j.id)
-  `).get() as any)?.count || 0;
+  `;
 
   // Cluster health (best-effort, 3s timeout)
   let clusterNodes = 0;
@@ -206,15 +212,38 @@ app.get('/api/docs', apiReference({
   darkMode: true,
 } as any));
 
-// WebSocket endpoint for markdown collaboration
-const wsClients = new Map<string, Set<any>>();
+// WebSocket endpoint for markdown collaboration — Redis pub/sub for cross-pod support
+const localWsClients = new Map<string, Set<any>>();
+
+// Subscribe to Redis for cross-pod WebSocket messages
+try {
+  redisSub.subscribe("ws:markdown", (err) => {
+    if (err) console.warn("Redis subscribe failed:", err.message);
+  });
+  redisSub.on("message", (_channel: string, message: string) => {
+    try {
+      const { docId, content, senderId } = JSON.parse(message);
+      const clients = localWsClients.get(docId);
+      if (clients) {
+        for (const client of clients) {
+          // Don't echo back to sender on this pod
+          if (client.data?.senderId !== senderId) {
+            client.send(JSON.stringify({ type: "update", content, docId }));
+          }
+        }
+      }
+    } catch { /* ignore malformed */ }
+  });
+} catch {
+  console.warn("Redis pub/sub not available, WebSocket will be local-only");
+}
 
 const port = Number(process.env.API_PORT) || 4000;
 console.log(`🚀 Cockpit API running on http://localhost:${port}`);
 
 export default {
   port,
-  fetch(req: Request, server: any) {
+  async fetch(req: Request, server: any) {
     const url = new URL(req.url);
     if (url.pathname === "/api/ws") {
       // Authenticate WebSocket connections via session cookie
@@ -222,11 +251,12 @@ export default {
       const sessionMatch = cookies.match(/cockpit_session=([^;]+)/);
       const token = sessionMatch?.[1];
       if (!token) return new Response("Unauthorized", { status: 401 });
-      const session = db.query("SELECT * FROM sessions WHERE token = ? AND expires_at > datetime('now')").get(token);
+      const [session] = await sql`SELECT token FROM sessions WHERE token = ${token} AND expires_at > NOW()`;
       if (!session) return new Response("Unauthorized", { status: 401 });
 
       const docId = url.searchParams.get("docId") || "default";
-      if (server.upgrade(req, { data: { docId } })) return;
+      const senderId = crypto.randomUUID();
+      if (server.upgrade(req, { data: { docId, senderId } })) return;
       return new Response("WebSocket upgrade failed", { status: 400 });
     }
     return app.fetch(req, server);
@@ -234,15 +264,17 @@ export default {
   websocket: {
     open(ws: any) {
       const docId = ws.data?.docId || "default";
-      if (!wsClients.has(docId)) wsClients.set(docId, new Set());
-      wsClients.get(docId)!.add(ws);
+      if (!localWsClients.has(docId)) localWsClients.set(docId, new Set());
+      localWsClients.get(docId)!.add(ws);
     },
     message(ws: any, message: string) {
       try {
         const data = JSON.parse(message);
-        // Use only the docId from upgrade time — ignore client-supplied docId to prevent room hijacking
         const docId = ws.data?.docId || "default";
-        const clients = wsClients.get(docId);
+        const senderId = ws.data?.senderId;
+
+        // Broadcast to local clients on this pod
+        const clients = localWsClients.get(docId);
         if (clients) {
           for (const client of clients) {
             if (client !== ws) {
@@ -250,12 +282,17 @@ export default {
             }
           }
         }
+
+        // Publish to Redis for other pods
+        try {
+          redis.publish("ws:markdown", JSON.stringify({ docId, content: data.content, senderId }));
+        } catch { /* Redis unavailable — local-only mode */ }
       } catch {
         // ignore malformed messages
       }
     },
     close(ws: any) {
-      for (const [, clients] of wsClients) {
+      for (const [, clients] of localWsClients) {
         clients.delete(ws);
       }
     },

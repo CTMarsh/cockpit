@@ -1,25 +1,7 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { db } from "../../apps/api/src/db";
+import sql from "../../apps/api/src/db";
 
 export const ansibleRoutes = new OpenAPIHono();
-
-// ── DB Setup ──
-db.run(`
-  CREATE TABLE IF NOT EXISTS ansible_runs (
-    id TEXT PRIMARY KEY,
-    playbook TEXT NOT NULL,
-    tags TEXT NOT NULL DEFAULT '',
-    extra_vars TEXT NOT NULL DEFAULT '{}',
-    dry_run INTEGER NOT NULL DEFAULT 0,
-    status TEXT NOT NULL DEFAULT 'pending',
-    output TEXT NOT NULL DEFAULT '',
-    exit_code INTEGER,
-    started_at TEXT NOT NULL DEFAULT (datetime('now')),
-    completed_at TEXT
-  )
-`);
-db.run(`CREATE INDEX IF NOT EXISTS idx_ansible_runs_status ON ansible_runs(status)`);
-db.run(`CREATE INDEX IF NOT EXISTS idx_ansible_runs_started ON ansible_runs(started_at)`);
 
 // ── Safety: Playbook whitelist ──
 const ALLOWED_PLAYBOOKS = [
@@ -48,25 +30,6 @@ function isValidExtraVars(vars: string): boolean {
   }
 }
 
-// ── Prepared statements ──
-const stmts = {
-  getById: db.query("SELECT * FROM ansible_runs WHERE id = ?"),
-  getRecent: db.query("SELECT id, playbook, tags, extra_vars, dry_run, status, exit_code, started_at, completed_at FROM ansible_runs ORDER BY started_at DESC LIMIT ? OFFSET ?"),
-  getRunning: db.query("SELECT id FROM ansible_runs WHERE status = 'running' LIMIT 1"),
-  getRecentDryRun: db.query(`
-    SELECT id FROM ansible_runs
-    WHERE playbook = ? AND tags = ? AND extra_vars = ? AND dry_run = 1 AND status = 'success'
-      AND started_at > datetime('now', '-1 hour')
-    ORDER BY started_at DESC LIMIT 1
-  `),
-  insert: db.query(
-    "INSERT INTO ansible_runs (id, playbook, tags, extra_vars, dry_run, status) VALUES (?, ?, ?, ?, ?, 'running')"
-  ),
-  updateOutput: db.query("UPDATE ansible_runs SET output = ? WHERE id = ?"),
-  complete: db.query("UPDATE ansible_runs SET status = ?, exit_code = ?, output = ?, completed_at = datetime('now') WHERE id = ?"),
-  deleteRun: db.query("DELETE FROM ansible_runs WHERE id = ? AND status IN ('success', 'failed')"),
-};
-
 const ANSIBLE_REPO_PATH = process.env.ANSIBLE_REPO_PATH || "";
 const ANSIBLE_SSH_HOST = process.env.ANSIBLE_SSH_HOST || "";
 const ANSIBLE_SSH_KEY = process.env.ANSIBLE_SSH_KEY || "";
@@ -83,18 +46,18 @@ ansibleRoutes.openapi(playbooksRoute, (c) => {
 
 // ── GET /runs ──
 const runsRoute = createRoute({ method: 'get', path: '/runs', tags: ['Ansible'], description: 'List recent ansible runs', responses: { 200: { content: { 'application/json': { schema: z.any() } }, description: 'Run list' } } });
-ansibleRoutes.openapi(runsRoute, (c) => {
+ansibleRoutes.openapi(runsRoute, async (c) => {
   const limit = Math.min(parseInt(c.req.query("limit") || "50"), 100);
   const offset = parseInt(c.req.query("offset") || "0");
-  const runs = stmts.getRecent.all(limit, offset);
+  const runs = await sql`SELECT id, playbook, tags, extra_vars, dry_run, status, exit_code, started_at, completed_at FROM ansible_runs ORDER BY started_at DESC LIMIT ${limit} OFFSET ${offset}`;
   return c.json({ runs }, 200);
 });
 
 // ── GET /runs/:id ──
 const runDetailRoute = createRoute({ method: 'get', path: '/runs/{id}', tags: ['Ansible'], description: 'Get run details', request: { params: z.object({ id: z.string() }) }, responses: { 200: { content: { 'application/json': { schema: z.any() } }, description: 'Run detail' }, 404: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Not found' } } });
-ansibleRoutes.openapi(runDetailRoute, (c) => {
+ansibleRoutes.openapi(runDetailRoute, async (c) => {
   const id = c.req.valid('param').id;
-  const run = stmts.getById.get(id);
+  const [run] = await sql`SELECT * FROM ansible_runs WHERE id = ${id}`;
   if (!run) return c.json({ error: "Run not found" } as any, 404);
   return c.json({ run }, 200);
 });
@@ -123,14 +86,19 @@ ansibleRoutes.openapi(runRoute, async (c) => {
   }
 
   // Max 1 concurrent execution
-  const running = stmts.getRunning.get();
+  const [running] = await sql`SELECT id FROM ansible_runs WHERE status = 'running' LIMIT 1`;
   if (running) {
     return c.json({ error: "Another playbook is currently running. Wait for it to finish.", running_id: (running as any).id } as any, 409);
   }
 
   // If not a dry run, require a recent successful dry run with same params
   if (!dry_run) {
-    const recentDry = stmts.getRecentDryRun.get(playbook, tags, extraVarsStr);
+    const [recentDry] = await sql`
+      SELECT id FROM ansible_runs
+      WHERE playbook = ${playbook} AND tags = ${tags} AND extra_vars = ${extraVarsStr} AND dry_run = true AND status = 'success'
+        AND started_at > NOW() - interval '1 hour'
+      ORDER BY started_at DESC LIMIT 1
+    `;
     if (!recentDry) {
       return c.json({ error: "A successful dry run with the same parameters is required before executing. Run a dry run first." } as any, 400);
     }
@@ -138,7 +106,7 @@ ansibleRoutes.openapi(runRoute, async (c) => {
 
   // Create run record
   const id = crypto.randomUUID();
-  stmts.insert.run(id, playbook, tags, extraVarsStr, dry_run ? 1 : 0);
+  await sql`INSERT INTO ansible_runs (id, playbook, tags, extra_vars, dry_run, status) VALUES (${id}, ${playbook}, ${tags}, ${extraVarsStr}, ${dry_run}, 'running')`;
 
   // Build command args
   const args: string[] = [];
@@ -197,7 +165,7 @@ async function spawnPlaybook(id: string, args: string[], cwd?: string) {
         if (done) break;
         output += decoder.decode(value, { stream: true });
         // Update DB periodically with accumulated output
-        stmts.updateOutput.run(output, id);
+        await sql`UPDATE ansible_runs SET output = ${output} WHERE id = ${id}`;
       }
     }
 
@@ -205,17 +173,17 @@ async function spawnPlaybook(id: string, args: string[], cwd?: string) {
 
     const exitCode = await proc.exited;
     const status = exitCode === 0 ? "success" : "failed";
-    stmts.complete.run(status, exitCode, output, id);
+    await sql`UPDATE ansible_runs SET status = ${status}, exit_code = ${exitCode}, output = ${output}, completed_at = NOW() WHERE id = ${id}`;
   } catch (err: any) {
     output += `\n\nERROR: ${err.message}`;
-    stmts.complete.run("failed", -1, output, id);
+    await sql`UPDATE ansible_runs SET status = 'failed', exit_code = ${-1}, output = ${output}, completed_at = NOW() WHERE id = ${id}`;
   }
 }
 
 // ── GET /runs/:id/stream — SSE live log streaming (kept as regular route) ──
-ansibleRoutes.get("/runs/:id/stream", (c) => {
+ansibleRoutes.get("/runs/:id/stream", async (c) => {
   const id = c.req.param("id");
-  const run = stmts.getById.get(id) as any;
+  const [run] = await sql`SELECT * FROM ansible_runs WHERE id = ${id}`;
   if (!run) return c.json({ error: "Run not found" }, 404);
 
   let lastLen = 0;
@@ -223,22 +191,27 @@ ansibleRoutes.get("/runs/:id/stream", (c) => {
   const stream = new ReadableStream({
     start(controller) {
       const encoder = new TextEncoder();
-      const interval = setInterval(() => {
-        const current = stmts.getById.get(id) as any;
-        if (!current) {
-          clearInterval(interval);
-          controller.close();
-          return;
-        }
+      const interval = setInterval(async () => {
+        try {
+          const [current] = await sql`SELECT * FROM ansible_runs WHERE id = ${id}`;
+          if (!current) {
+            clearInterval(interval);
+            controller.close();
+            return;
+          }
 
-        if (current.output.length > lastLen) {
-          const newOutput = current.output.slice(lastLen);
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ output: newOutput })}\n\n`));
-          lastLen = current.output.length;
-        }
+          if ((current as any).output.length > lastLen) {
+            const newOutput = (current as any).output.slice(lastLen);
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ output: newOutput })}\n\n`));
+            lastLen = (current as any).output.length;
+          }
 
-        if (current.status !== "running") {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, exit_code: current.exit_code, status: current.status })}\n\n`));
+          if ((current as any).status !== "running") {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, exit_code: (current as any).exit_code, status: (current as any).status })}\n\n`));
+            clearInterval(interval);
+            controller.close();
+          }
+        } catch (err) {
           clearInterval(interval);
           controller.close();
         }
@@ -257,13 +230,13 @@ ansibleRoutes.get("/runs/:id/stream", (c) => {
 
 // ── DELETE /runs/:id ──
 const deleteRunRoute = createRoute({ method: 'delete', path: '/runs/{id}', tags: ['Ansible'], description: 'Delete a completed run', request: { params: z.object({ id: z.string() }) }, responses: { 200: { content: { 'application/json': { schema: z.object({ deleted: z.string() }) } }, description: 'Deleted' }, 400: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Cannot delete running' }, 404: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Not found' } } });
-ansibleRoutes.openapi(deleteRunRoute, (c) => {
+ansibleRoutes.openapi(deleteRunRoute, async (c) => {
   const id = c.req.valid('param').id;
-  const run = stmts.getById.get(id) as any;
+  const [run] = await sql`SELECT * FROM ansible_runs WHERE id = ${id}`;
   if (!run) return c.json({ error: "Run not found" } as any, 404);
-  if (run.status === "running") {
+  if ((run as any).status === "running") {
     return c.json({ error: "Cannot delete a running playbook" } as any, 400);
   }
-  stmts.deleteRun.run(id);
+  await sql`DELETE FROM ansible_runs WHERE id = ${id} AND status IN ('success', 'failed')`;
   return c.json({ deleted: id }, 200);
 });

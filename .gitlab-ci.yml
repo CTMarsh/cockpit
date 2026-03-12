@@ -67,6 +67,11 @@ test:
   image: oven/bun:1
   needs: []
   interruptible: true
+  services:
+    - name: postgres:16-alpine
+      alias: postgres
+    - name: redis:7-alpine
+      alias: redis
   cache:
     key:
       files:
@@ -81,6 +86,11 @@ test:
     COCKPIT_USER: testadmin
     COCKPIT_PASS: testpass123
     SESSION_SECRET: ci-test-secret
+    POSTGRES_DB: cockpit
+    POSTGRES_USER: cockpit
+    POSTGRES_PASSWORD: cockpit
+    DATABASE_URL: "postgres://cockpit:cockpit@postgres:5432/cockpit"
+    REDIS_URL: "redis://redis:6379"
   script:
     - bun install --frozen-lockfile
     - echo "=== Starting API server in background ==="

@@ -1,23 +1,7 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { db } from "../../apps/api/src/db";
+import sql from "../../apps/api/src/db";
 
 export const markdownRoutes = new OpenAPIHono();
-
-const stmts = {
-  getAll: db.query("SELECT id, title, word_count, created_at, updated_at, LENGTH(content) as size FROM documents ORDER BY updated_at DESC"),
-  getById: db.query("SELECT * FROM documents WHERE id = ?"),
-  upsert: db.query(`
-    INSERT INTO documents (id, title, content, word_count, updated_at)
-    VALUES (?, ?, ?, ?, datetime('now'))
-    ON CONFLICT(id) DO UPDATE SET
-      title = excluded.title,
-      content = excluded.content,
-      word_count = excluded.word_count,
-      updated_at = datetime('now')
-  `),
-  delete: db.query("DELETE FROM documents WHERE id = ?"),
-  search: db.query("SELECT id, title, content FROM documents WHERE title LIKE ?1 OR content LIKE ?1 ORDER BY updated_at DESC"),
-};
 
 function wordCount(text: string): number {
   return text.trim().split(/\s+/).filter(Boolean).length;
@@ -39,8 +23,8 @@ const listDocsRoute = createRoute({
   description: 'List all documents',
   responses: { 200: { content: { 'application/json': { schema: z.any() } }, description: 'Document list' } }
 });
-markdownRoutes.openapi(listDocsRoute, (c) => {
-  const docs = stmts.getAll.all();
+markdownRoutes.openapi(listDocsRoute, async (c) => {
+  const docs = await sql`SELECT id, title, word_count, created_at, updated_at, LENGTH(content) as size FROM documents ORDER BY updated_at DESC`;
   return c.json({ docs }, 200);
 });
 
@@ -53,8 +37,8 @@ const getDocRoute = createRoute({
     404: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Not found' },
   }
 });
-markdownRoutes.openapi(getDocRoute, (c) => {
-  const doc = stmts.getById.get(c.req.valid('param').id) as any;
+markdownRoutes.openapi(getDocRoute, async (c) => {
+  const [doc] = await sql`SELECT * FROM documents WHERE id = ${c.req.valid('param').id}`;
   if (!doc) return c.json({ error: "Document not found" } as any, 404);
   return c.json(doc, 200);
 });
@@ -77,7 +61,15 @@ markdownRoutes.openapi(saveDocRoute, async (c) => {
   if (body.content === undefined) return c.json({ error: "content is required" } as any, 400);
   const title = extractTitle(body.content);
   const wc = wordCount(body.content);
-  stmts.upsert.run(id, title, body.content, wc);
+  await sql`
+    INSERT INTO documents (id, title, content, word_count, updated_at)
+    VALUES (${id}, ${title}, ${body.content}, ${wc}, NOW())
+    ON CONFLICT(id) DO UPDATE SET
+      title = EXCLUDED.title,
+      content = EXCLUDED.content,
+      word_count = EXCLUDED.word_count,
+      updated_at = NOW()
+  `;
   return c.json({ id, title, saved: true, word_count: wc, size: body.content.length }, 200);
 });
 
@@ -90,11 +82,11 @@ const deleteDocRoute = createRoute({
     404: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Not found' },
   }
 });
-markdownRoutes.openapi(deleteDocRoute, (c) => {
+markdownRoutes.openapi(deleteDocRoute, async (c) => {
   const id = c.req.valid('param').id;
-  const existing = stmts.getById.get(id);
+  const [existing] = await sql`SELECT * FROM documents WHERE id = ${id}`;
   if (!existing) return c.json({ error: "Document not found" } as any, 404);
-  stmts.delete.run(id);
+  await sql`DELETE FROM documents WHERE id = ${id}`;
   return c.json({ deleted: id }, 200);
 });
 
@@ -106,11 +98,11 @@ const searchRoute = createRoute({
     400: { content: { 'application/json': { schema: z.object({ error: z.string() }) } }, description: 'Validation error' },
   }
 });
-markdownRoutes.openapi(searchRoute, (c) => {
+markdownRoutes.openapi(searchRoute, async (c) => {
   const q = c.req.query("q")?.toLowerCase();
   if (!q) return c.json({ error: "q parameter is required" } as any, 400);
   const pattern = `%${q}%`;
-  const rows = stmts.search.all(pattern) as any[];
+  const rows = await sql`SELECT id, title, content FROM documents WHERE title LIKE ${pattern} OR content LIKE ${pattern} ORDER BY updated_at DESC` as any[];
   const results = rows.map((row) => {
     const idx = row.content.toLowerCase().indexOf(q);
     const snippet = row.content.slice(Math.max(0, idx - 40), idx + 80);

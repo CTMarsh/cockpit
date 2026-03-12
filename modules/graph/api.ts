@@ -1,19 +1,7 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { db } from "../../apps/api/src/db";
+import sql from "../../apps/api/src/db";
 
 export const graphRoutes = new OpenAPIHono();
-
-const stmts = {
-  getEdges: db.query("SELECT * FROM graph_edges ORDER BY created_at DESC"),
-  upsertEdge: db.query(`
-    INSERT INTO graph_edges (id, source_id, source_type, target_id, target_type, label, weight)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET weight = excluded.weight, label = excluded.label
-  `),
-  deleteEdge: db.query("DELETE FROM graph_edges WHERE id = ?"),
-  getBookmarks: db.query("SELECT id, url, title, tags FROM bookmarks"),
-  getDocuments: db.query("SELECT id, title FROM documents"),
-};
 
 function buildTagEdges(bookmarks: any[]) {
   const edges: any[] = [];
@@ -52,9 +40,9 @@ const getNodesRoute = createRoute({
     summary: z.object({ totalNodes: z.number(), totalEdges: z.number(), types: z.object({ bookmarks: z.number(), documents: z.number() }) }),
   }) } }, description: 'Graph data' } }
 });
-graphRoutes.openapi(getNodesRoute, (c) => {
-  const bookmarks = stmts.getBookmarks.all() as any[];
-  const documents = stmts.getDocuments.all() as any[];
+graphRoutes.openapi(getNodesRoute, async (c) => {
+  const bookmarks = await sql`SELECT id, url, title, tags FROM bookmarks` as any[];
+  const documents = await sql`SELECT id, title FROM documents` as any[];
   const nodes: any[] = [];
 
   for (const b of bookmarks) {
@@ -65,7 +53,8 @@ graphRoutes.openapi(getNodesRoute, (c) => {
   }
 
   const autoEdges = buildTagEdges(bookmarks);
-  const manualEdges = (stmts.getEdges.all() as any[]).map((e) => ({
+  const manualEdgeRows = await sql`SELECT * FROM graph_edges ORDER BY created_at DESC` as any[];
+  const manualEdges = manualEdgeRows.map((e) => ({
     id: e.id, source: `${e.source_type}-${e.source_id}`, target: `${e.target_type}-${e.target_id}`, label: e.label, weight: e.weight,
   }));
   const edges = [...autoEdges, ...manualEdges];
@@ -91,7 +80,14 @@ graphRoutes.openapi(createEdgeRoute, async (c) => {
     return c.json({ error: "sourceId and targetId are required" } as any, 400);
   }
   const id = crypto.randomUUID();
-  stmts.upsertEdge.run(id, body.sourceId, body.sourceType || "bookmark", body.targetId, body.targetType || "bookmark", body.label || "", 1);
+  const sourceType = body.sourceType || "bookmark";
+  const targetType = body.targetType || "bookmark";
+  const label = body.label || "";
+  await sql`
+    INSERT INTO graph_edges (id, source_id, source_type, target_id, target_type, label, weight)
+    VALUES (${id}, ${body.sourceId}, ${sourceType}, ${body.targetId}, ${targetType}, ${label}, ${1})
+    ON CONFLICT(id) DO UPDATE SET weight = EXCLUDED.weight, label = EXCLUDED.label
+  `;
   return c.json({ id, created: true }, 201);
 });
 
@@ -101,8 +97,8 @@ const deleteEdgeRoute = createRoute({
   request: { params: z.object({ id: z.string() }) },
   responses: { 200: { content: { 'application/json': { schema: z.object({ deleted: z.string() }) } }, description: 'Edge deleted' } }
 });
-graphRoutes.openapi(deleteEdgeRoute, (c) => {
+graphRoutes.openapi(deleteEdgeRoute, async (c) => {
   const id = c.req.valid('param').id;
-  stmts.deleteEdge.run(id);
+  await sql`DELETE FROM graph_edges WHERE id = ${id}`;
   return c.json({ deleted: id }, 200);
 });
