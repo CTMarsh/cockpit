@@ -1,18 +1,18 @@
 /**
- * Minimal S3-compatible client for MinIO.
+ * Minimal S3-compatible client (RustFS/MinIO/any S3-compatible).
  * Uses AWS Signature V4 via Bun's built-in crypto.
  * Zero external dependencies.
  */
 
-import { minioTls } from "../tls-config";
+import { s3Tls } from "../tls-config";
 
-const MINIO_ENDPOINT = process.env.MINIO_ENDPOINT || "";
-const MINIO_ACCESS_KEY = process.env.MINIO_ACCESS_KEY || "";
-const MINIO_SECRET_KEY = process.env.MINIO_SECRET_KEY || "";
-const MINIO_REGION = process.env.MINIO_REGION || "us-east-1";
+const S3_ENDPOINT = process.env.S3_ENDPOINT || process.env.S3_ENDPOINT || "";
+const S3_ACCESS_KEY = process.env.S3_ACCESS_KEY || process.env.S3_ACCESS_KEY || "";
+const S3_SECRET_KEY = process.env.S3_SECRET_KEY || process.env.S3_SECRET_KEY || "";
+const S3_REGION = process.env.S3_REGION || process.env.S3_REGION || "us-east-1";
 
 export function s3Available(): boolean {
-  return !!(MINIO_ENDPOINT && MINIO_ACCESS_KEY && MINIO_SECRET_KEY);
+  return !!(S3_ENDPOINT && S3_ACCESS_KEY && S3_SECRET_KEY);
 }
 
 function hmacSHA256(key: ArrayBuffer | string, data: string): ArrayBuffer {
@@ -34,8 +34,8 @@ function toHex(buf: ArrayBuffer): string {
 }
 
 function getSignatureKey(date: string): ArrayBuffer {
-  const kDate = hmacSHA256("AWS4" + MINIO_SECRET_KEY, date);
-  const kRegion = hmacSHA256(kDate, MINIO_REGION);
+  const kDate = hmacSHA256("AWS4" + S3_SECRET_KEY, date);
+  const kRegion = hmacSHA256(kDate, S3_REGION);
   const kService = hmacSHA256(kRegion, "s3");
   return hmacSHA256(kService, "aws4_request");
 }
@@ -73,7 +73,7 @@ export async function s3Request(opts: S3RequestOptions): Promise<Response> {
     : new Uint8Array(0);
   const payloadHash = sha256Hex(bodyBytes);
 
-  const url = new URL(MINIO_ENDPOINT);
+  const url = new URL(S3_ENDPOINT);
   const host = url.host;
 
   const headers: Record<string, string> = {
@@ -98,7 +98,7 @@ export async function s3Request(opts: S3RequestOptions): Promise<Response> {
     payloadHash,
   ].join("\n");
 
-  const credentialScope = `${dateStamp}/${MINIO_REGION}/s3/aws4_request`;
+  const credentialScope = `${dateStamp}/${S3_REGION}/s3/aws4_request`;
   const stringToSign = [
     "AWS4-HMAC-SHA256",
     amzDate,
@@ -109,15 +109,15 @@ export async function s3Request(opts: S3RequestOptions): Promise<Response> {
   const signingKey = getSignatureKey(dateStamp);
   const signature = toHex(hmacSHA256(signingKey, stringToSign));
 
-  const authorization = `AWS4-HMAC-SHA256 Credential=${MINIO_ACCESS_KEY}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+  const authorization = `AWS4-HMAC-SHA256 Credential=${S3_ACCESS_KEY}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
 
-  const fetchUrl = `${MINIO_ENDPOINT}${path}${queryStr ? "?" + queryStr : ""}`;
+  const fetchUrl = `${S3_ENDPOINT}${path}${queryStr ? "?" + queryStr : ""}`;
   return fetch(fetchUrl, {
     method: opts.method,
     headers: { ...headers, authorization },
     body: bodyBytes.length > 0 ? (bodyBytes as unknown as BodyInit) : undefined,
     // @ts-ignore — Bun supports this
-    tls: minioTls(),
+    tls: s3Tls(),
   });
 }
 

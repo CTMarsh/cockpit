@@ -18,7 +18,7 @@ import { DashboardPage } from "./pages/Dashboard";
 import { K8sManagerPage } from "./pages/K8sManager";
 import { HomeAssistantPage } from "./pages/HomeAssistant";
 import { AlertsPage } from "./pages/Alerts";
-import { MinioBrowserPage } from "./pages/MinioBrowser";
+import { S3BrowserPage } from "./pages/S3Browser";
 import { NotifyPage } from "./pages/Notify";
 import { LinkDevicePage } from "./pages/LinkDevice";
 import { GitLabPage } from "./pages/GitLab";
@@ -81,7 +81,7 @@ function App() {
           <Route path="/k8s" element={<K8sManagerPage />} />
           <Route path="/homeassistant" element={<HomeAssistantPage />} />
           <Route path="/alerts" element={<AlertsPage />} />
-          <Route path="/minio" element={<MinioBrowserPage />} />
+          <Route path="/s3" element={<S3BrowserPage />} />
           <Route path="/notify" element={<NotifyPage />} />
           <Route path="/gitlab" element={<GitLabPage />} />
           <Route path="/link" element={<LinkDevicePage />} />

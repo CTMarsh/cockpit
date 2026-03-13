@@ -18,6 +18,17 @@ runners:
         service_memory_request = "128Mi"
       [runners.kubernetes.pod_labels]
         "gitlab-runner" = "k3s"
+      [runners.cache]
+        Type = "s3"
+        Shared = true
+        [runners.cache.s3]
+          ServerAddress = "rustfs.minio.svc:9000"
+          BucketName = "gitlab-runner-cache"
+          BucketLocation = "us-east-1"
+          Insecure = true
+          AuthenticationType = "access-key"
+  cache:
+    secretName: rustfs-cache-credentials
 
 ## Concurrent jobs — matches worker count
 concurrent: 6

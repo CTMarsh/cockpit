@@ -280,7 +280,7 @@ async function migrate() {
     ["gitlab", "GitLab", "https://gitlab.noahsark.me", "gitlab", 0],
     ["proxmox", "Proxmox VE", "https://pve.noahsark.me:8006", "server", 0],
     ["home-assistant", "Home Assistant", "https://hass.noahsark.me", "home", 0],
-    ["minio", "MinIO Console", "https://minio.noahsark.me:9001", "database", 0],
+    ["rustfs", "RustFS Console", "https://s3.noahsark.me:9001", "database", 0],
     ["notify", "Notify", "https://notify.noahsark.me", "bell", 0],
     ["traefik", "Traefik Dashboard", "https://traefik.noahsark.me", "network", 0],
     ["rancher", "Rancher", "https://rancher.noahsark.me", "monitor", 0],
