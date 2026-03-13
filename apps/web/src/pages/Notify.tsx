@@ -167,9 +167,20 @@ export function NotifyPage() {
     setLoading(false);
   }, [fetchHealth, fetchProjects, fetchDevices, fetchNotifications]);
 
+  // Initial data load — run once on mount only
   useEffect(() => {
     refresh();
-  }, [refresh]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Refetch devices when filter criteria change
+  useEffect(() => {
+    fetchDevices();
+  }, [deviceFilter, showInactive]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Refetch notifications when page changes
+  useEffect(() => {
+    fetchNotifications();
+  }, [notifPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Project CRUD ──
 
