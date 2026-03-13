@@ -1,0 +1,80 @@
+# CloudNativePG Cluster — 3-instance PostgreSQL HA
+# Prerequisites:
+#   1. Install CloudNativePG operator:
+#      helm repo add cnpg https://cloudnative-pg.github.io/charts
+#      helm install cnpg cnpg/cloudnative-pg -n cnpg-system --create-namespace
+#   2. Ensure cockpit-postgres-secrets exists with POSTGRES_USER and POSTGRES_PASSWORD
+#   3. Apply this manifest: kubectl apply -f k8s/cloudnativepg-cluster.yaml
+#
+# After migration, remove k8s/postgres-statefulset.yaml (the old single-instance)
+# and update kustomization.yaml to include this file instead.
+#
+# The cluster creates services automatically:
+#   cockpit-pg-rw   — read/write (primary only)
+#   cockpit-pg-ro   — read-only (replicas)
+#   cockpit-pg-r    — read (any instance)
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: cockpit-pg
+  namespace: cockpit
+  labels:
+    app.kubernetes.io/name: cockpit-pg
+    app.kubernetes.io/part-of: cockpit
+spec:
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:16-alpine
+
+  postgresql:
+    parameters:
+      shared_buffers: "128MB"
+      effective_cache_size: "384MB"
+      work_mem: "4MB"
+      maintenance_work_mem: "64MB"
+      max_connections: "100"
+      log_statement: "ddl"
+      log_min_duration_statement: "1000"
+
+  bootstrap:
+    initdb:
+      database: cockpit
+      owner: cockpit
+      secret:
+        name: cockpit-postgres-secrets
+      postInitSQL:
+        - ALTER SYSTEM SET wal_level = 'replica';
+
+  storage:
+    size: 5Gi
+    storageClass: longhorn-1r
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+
+  affinity:
+    topologyKey: kubernetes.io/hostname
+
+  monitoring:
+    enablePodMonitor: false
+
+  backup:
+    barmanObjectStore:
+      destinationPath: s3://cockpit-pg-backups/
+      endpointURL: http://rustfs.minio.svc:9000
+      s3Credentials:
+        accessKeyId:
+          name: cockpit-pg-s3-creds
+          key: ACCESS_KEY_ID
+        secretAccessKey:
+          name: cockpit-pg-s3-creds
+          key: SECRET_ACCESS_KEY
+      wal:
+        compression: gzip
+      data:
+        compression: gzip
+    retentionPolicy: "7d"
