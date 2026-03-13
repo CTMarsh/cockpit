@@ -310,7 +310,7 @@ ios:version:
   needs: []
   script:
     - |
-      IOS_VERSION=$(grep 'MARKETING_VERSION:' ios/project.yml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+      IOS_VERSION=$(awk '/MARKETING_VERSION:/{gsub(/.*"|".*/,""); print; exit}' ios/project.yml)
       echo "iOS MARKETING_VERSION: $IOS_VERSION"
       echo "IOS_APP_VERSION=$IOS_VERSION" > ios_version.env
   artifacts:

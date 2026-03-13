@@ -1,6 +1,6 @@
 import Foundation
 
-struct MinioObject: Codable, Identifiable {
+struct S3Object: Codable, Identifiable {
     let key: String
     let size: Int?
     let lastModified: String?
@@ -24,5 +24,5 @@ struct ObjectsResponse: Codable {
     let bucket: String
     let prefix: String?
     let prefixes: [String]?
-    let objects: [MinioObject]
+    let objects: [S3Object]
 }

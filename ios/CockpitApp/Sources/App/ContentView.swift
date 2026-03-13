@@ -102,7 +102,7 @@ struct OperationsListView: View {
             NavigationLink("Wake-on-LAN", destination: WolView())
             NavigationLink("Alerts", destination: AlertsView())
             NavigationLink("Backups", destination: BackupsView())
-            NavigationLink("MinIO", destination: MinIOView())
+            NavigationLink("S3 Browser", destination: S3BrowserView())
             NavigationLink("Notify", destination: NotifyView())
             NavigationLink("Uptime Monitor", destination: UptimeView())
             NavigationLink("Network Scanner", destination: NetworkScannerView())

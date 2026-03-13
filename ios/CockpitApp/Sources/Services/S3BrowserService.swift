@@ -1,9 +1,9 @@
 import Foundation
 
-@MainActor final class MinioService: ObservableObject {
-    static let shared = MinioService()
+@MainActor final class S3BrowserService: ObservableObject {
+    static let shared = S3BrowserService()
     @Published var buckets: [String] = []
-    @Published var objects: [MinioObject] = []
+    @Published var objects: [S3Object] = []
     @Published var prefixes: [String] = []
     @Published var currentBucket: String?
     @Published var currentPrefix: String = ""
@@ -13,7 +13,7 @@ import Foundation
     func fetchBuckets() async {
         isLoading = buckets.isEmpty
         do {
-            let resp: BucketsResponse = try await APIClient.shared.request(path: "/api/minio/buckets")
+            let resp: BucketsResponse = try await APIClient.shared.request(path: "/api/s3/buckets")
             buckets = resp.buckets
             self.error = nil
         } catch { self.error = error.localizedDescription }
@@ -25,7 +25,7 @@ import Foundation
         currentBucket = bucket
         currentPrefix = prefix
         do {
-            var path = "/api/minio/objects/\(bucket)"
+            var path = "/api/s3/objects/\(bucket)"
             if !prefix.isEmpty { path += "?prefix=\(prefix)" }
             let resp: ObjectsResponse = try await APIClient.shared.request(path: path)
             objects = resp.objects
@@ -38,7 +38,7 @@ import Foundation
     func createBucket(name: String) async -> Bool {
         do {
             let body = ["name": name]
-            let _: GenericOKResponse = try await APIClient.shared.request(path: "/api/minio/buckets", method: "POST", body: body)
+            let _: GenericOKResponse = try await APIClient.shared.request(path: "/api/s3/buckets", method: "POST", body: body)
             await fetchBuckets()
             return true
         } catch { self.error = error.localizedDescription; return false }
@@ -46,26 +46,26 @@ import Foundation
 
     func deleteBucket(name: String) async {
         do {
-            let _: GenericOKResponse = try await APIClient.shared.request(path: "/api/minio/buckets/\(name)", method: "DELETE")
+            let _: GenericOKResponse = try await APIClient.shared.request(path: "/api/s3/buckets/\(name)", method: "DELETE")
             buckets.removeAll { $0 == name }
         } catch { self.error = error.localizedDescription }
     }
 
     func deleteObject(bucket: String, key: String) async {
         do {
-            let _: GenericOKResponse = try await APIClient.shared.request(path: "/api/minio/objects/\(bucket)/\(key)", method: "DELETE")
+            let _: GenericOKResponse = try await APIClient.shared.request(path: "/api/s3/objects/\(bucket)/\(key)", method: "DELETE")
             objects.removeAll { $0.key == key }
         } catch { self.error = error.localizedDescription }
     }
 
     func downloadURL(bucket: String, key: String) -> URL? {
         let base = APIClient.shared.baseURL
-        return URL(string: "\(base)/api/minio/download/\(bucket)/\(key)")
+        return URL(string: "\(base)/api/s3/download/\(bucket)/\(key)")
     }
 
     func uploadObject(bucket: String, prefix: String, fileName: String, data: Data, contentType: String) async -> Bool {
         let key = prefix.isEmpty ? fileName : "\(prefix)\(fileName)"
-        guard let url = URL(string: "\(APIClient.shared.baseURL)/api/minio/upload/\(bucket)/\(key)") else {
+        guard let url = URL(string: "\(APIClient.shared.baseURL)/api/s3/upload/\(bucket)/\(key)") else {
             error = "Invalid upload URL"
             return false
         }
