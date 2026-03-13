@@ -230,18 +230,26 @@ deploy:infrastructure:
     - job: build:api
   script:
     - echo "=== Deploying infrastructure ==="
-    # Secret is managed manually on cluster — never overwrite from CI
-    - kubectl apply -f k8s/postgres-statefulset.yaml -n cockpit
+    # PostgreSQL HA via CloudNativePG operator (must be installed on cluster first)
+    - kubectl apply -f k8s/cloudnativepg-cluster.yaml -n cockpit
+    - kubectl apply -f k8s/cloudnativepg-backup.yaml -n cockpit
+    # Redis
     - kubectl apply -f k8s/redis-deployment.yaml -n cockpit
-    - echo "=== Waiting for PostgreSQL ==="
-    - kubectl rollout status statefulset/cockpit-postgres -n cockpit --timeout=120s
+    - echo "=== Waiting for CloudNativePG cluster ==="
+    - |
+      for i in $(seq 1 60); do
+        STATUS=$(kubectl get cluster cockpit-pg -n cockpit -o jsonpath='{.status.phase}' 2>/dev/null || echo "pending")
+        echo "CloudNativePG status: $STATUS ($i/60)"
+        if [ "$STATUS" = "Cluster in healthy state" ]; then break; fi
+        sleep 5
+      done
     - echo "=== Waiting for Redis ==="
     - kubectl rollout status deployment/cockpit-redis -n cockpit --timeout=60s
     - echo "=== Infrastructure deployed ==="
   rules:
     - if: $CI_COMMIT_BRANCH == "master"
       changes:
-        - k8s/postgres-*.yaml
+        - k8s/cloudnativepg-*.yaml
         - k8s/redis-*.yaml
   environment:
     name: production
