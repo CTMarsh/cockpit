@@ -30,7 +30,7 @@ function formatBytes(bytes: number): string {
   return (bytes / Math.pow(1024, i)).toFixed(1) + " " + units[i];
 }
 
-export function MinioBrowserPage() {
+export function S3BrowserPage() {
   const [buckets, setBuckets] = useState<string[]>([]);
   const [currentBucket, setCurrentBucket] = useState("");
   const [prefix, setPrefix] = useState("");
@@ -49,7 +49,7 @@ export function MinioBrowserPage() {
     try {
       setLoading(true);
       setError("");
-      const data = await api<{ available: boolean; buckets: string[] }>("/minio/buckets");
+      const data = await api<{ available: boolean; buckets: string[] }>("/s3/buckets");
       setAvailable(data.available);
       setBuckets(data.buckets);
     } catch (e: any) {
@@ -65,7 +65,7 @@ export function MinioBrowserPage() {
       setLoading(true);
       setError("");
       const data = await api<{ prefixes: string[]; objects: S3Object[] }>(
-        `/minio/objects/${currentBucket}?prefix=${encodeURIComponent(prefix)}`
+        `/s3/objects/${currentBucket}?prefix=${encodeURIComponent(prefix)}`
       );
       setPrefixes(data.prefixes);
       setObjects(data.objects);
@@ -118,7 +118,7 @@ export function MinioBrowserPage() {
   async function createBucket() {
     if (!newBucketName) return;
     try {
-      await api("/minio/buckets", { method: "POST", body: JSON.stringify({ name: newBucketName }) });
+      await api("/s3/buckets", { method: "POST", body: JSON.stringify({ name: newBucketName }) });
       toast.success(`Bucket "${newBucketName}" created`);
       setShowNewBucket(false);
       setNewBucketName("");
@@ -132,11 +132,11 @@ export function MinioBrowserPage() {
     if (!deleteTarget) return;
     try {
       if (deleteTarget.type === "bucket") {
-        await api(`/minio/buckets/${deleteTarget.name}`, { method: "DELETE" });
+        await api(`/s3/buckets/${deleteTarget.name}`, { method: "DELETE" });
         toast.success(`Bucket deleted`);
         fetchBuckets();
       } else {
-        await api(`/minio/objects/${currentBucket}/${deleteTarget.name}`, { method: "DELETE" });
+        await api(`/s3/objects/${currentBucket}/${deleteTarget.name}`, { method: "DELETE" });
         toast.success(`Object deleted`);
         fetchObjects();
       }
@@ -152,7 +152,7 @@ export function MinioBrowserPage() {
     try {
       const key = prefix + file.name;
       const body = new Uint8Array(await file.arrayBuffer());
-      await fetch(`/api/minio/upload/${currentBucket}/${key}`, {
+      await fetch(`/api/s3/upload/${currentBucket}/${key}`, {
         method: "PUT",
         headers: { "Content-Type": file.type || "application/octet-stream" },
         body,
@@ -171,15 +171,15 @@ export function MinioBrowserPage() {
     return (
       <div className="space-y-4">
         <h2 className="text-2xl font-bold flex items-center gap-2">
-          <Database className="w-6 h-6 text-cockpit-accent" /> MinIO Browser
+          <Database className="w-6 h-6 text-cockpit-accent" /> S3 Browser
         </h2>
         <div className="bg-cockpit-surface border border-cockpit-border rounded-xl p-8 text-center">
           <Database className="w-12 h-12 text-cockpit-text-muted mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">MinIO Not Configured</h3>
+          <h3 className="text-lg font-semibold mb-2">S3 Storage Not Configured</h3>
           <p className="text-cockpit-text-muted text-sm">
-            Set <code className="px-1.5 py-0.5 bg-cockpit-bg rounded text-xs">MINIO_ENDPOINT</code>,{" "}
-            <code className="px-1.5 py-0.5 bg-cockpit-bg rounded text-xs">MINIO_ACCESS_KEY</code>, and{" "}
-            <code className="px-1.5 py-0.5 bg-cockpit-bg rounded text-xs">MINIO_SECRET_KEY</code> environment variables.
+            Set <code className="px-1.5 py-0.5 bg-cockpit-bg rounded text-xs">S3_ENDPOINT</code>,{" "}
+            <code className="px-1.5 py-0.5 bg-cockpit-bg rounded text-xs">S3_ACCESS_KEY</code>, and{" "}
+            <code className="px-1.5 py-0.5 bg-cockpit-bg rounded text-xs">S3_SECRET_KEY</code> environment variables.
           </p>
         </div>
       </div>
@@ -190,7 +190,7 @@ export function MinioBrowserPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold flex items-center gap-2">
-          <Database className="w-6 h-6 text-cockpit-accent" /> MinIO Browser
+          <Database className="w-6 h-6 text-cockpit-accent" /> S3 Browser
         </h2>
         <div className="flex gap-2">
           {currentBucket && (
@@ -284,7 +284,7 @@ export function MinioBrowserPage() {
               </div>
               <div className="flex gap-1 shrink-0">
                 <a
-                  href={`/api/minio/download/${currentBucket}/${obj.key}`}
+                  href={`/api/s3/download/${currentBucket}/${obj.key}`}
                   className="p-1.5 rounded-md text-cockpit-text-muted hover:text-cockpit-accent hover:bg-white/5"
                   title="Download"
                 >
