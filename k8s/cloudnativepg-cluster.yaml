@@ -24,7 +24,7 @@ metadata:
     app.kubernetes.io/part-of: cockpit
 spec:
   instances: 3
-  imageName: ghcr.io/cloudnative-pg/postgresql:16-alpine
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.13
 
   postgresql:
     parameters:
@@ -41,7 +41,7 @@ spec:
       database: cockpit
       owner: cockpit
       secret:
-        name: cockpit-postgres-secrets
+        name: cockpit-pg-auth
       postInitSQL:
         - ALTER SYSTEM SET wal_level = 'replica';
 
