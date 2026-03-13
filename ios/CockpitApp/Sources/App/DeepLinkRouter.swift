@@ -12,7 +12,7 @@ final class DeepLinkRouter: ObservableObject {
             selectedTab = 1
         case "bookmarks", "markdown", "graph", "dedup", "randomizer":
             selectedTab = 2
-        case "logs", "cron", "wol", "alerts", "backups", "minio", "notify":
+        case "logs", "cron", "wol", "alerts", "backups", "s3", "notify":
             selectedTab = 3
         default:
             selectedTab = 0

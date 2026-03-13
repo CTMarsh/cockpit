@@ -1,15 +1,15 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-struct MinIOView: View {
-    @ObservedObject private var service = MinioService.shared
+struct S3BrowserView: View {
+    @ObservedObject private var service = S3BrowserService.shared
     @State private var showCreateBucket = false
     @State private var newBucketName = ""
     @State private var showFileImporter = false
     @State private var downloadingKey: String?
     @State private var showShareSheet = false
     @State private var shareURL: URL?
-    @State private var objectToDelete: MinioObject?
+    @State private var objectToDelete: S3Object?
     @State private var showDeleteConfirm = false
     @State private var isUploading = false
 
@@ -56,7 +56,7 @@ struct MinIOView: View {
             .padding(.vertical)
         }
         .background(Theme.background)
-        .navigationTitle(service.currentBucket ?? "MinIO")
+        .navigationTitle(service.currentBucket ?? "S3 Browser")
         .toolbar {
             if service.currentBucket == nil {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -125,7 +125,7 @@ struct MinIOView: View {
         )
         .sheet(isPresented: $showShareSheet) {
             if let shareURL {
-                MinIOShareSheet(activityItems: [shareURL])
+                S3ShareSheet(activityItems: [shareURL])
             }
         }
     }
@@ -218,7 +218,7 @@ struct MinIOView: View {
         .padding(.horizontal)
     }
 
-    private func downloadObject(_ object: MinioObject) {
+    private func downloadObject(_ object: S3Object) {
         guard let bucket = service.currentBucket,
               let url = service.downloadURL(bucket: bucket, key: object.key) else { return }
         downloadingKey = object.key
@@ -276,7 +276,7 @@ struct MinIOView: View {
     }
 }
 
-private struct MinIOShareSheet: UIViewControllerRepresentable {
+private struct S3ShareSheet: UIViewControllerRepresentable {
     let activityItems: [Any]
 
     func makeUIViewController(context: Context) -> UIActivityViewController {

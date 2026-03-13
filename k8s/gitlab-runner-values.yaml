@@ -42,6 +42,17 @@ resources:
     memory: "256Mi"
     cpu: "500m"
 
+## S3 cache via RustFS
+cache:
+  cacheType: s3
+  cachePath: "gitlab-runner"
+  cacheShared: true
+  s3ServerAddress: rustfs.minio.svc:9000
+  s3BucketName: gitlab-runner-cache
+  s3BucketLocation: us-east-1
+  s3CacheInsecure: true
+  secretName: rustfs-cache-credentials
+
 ## RBAC
 rbac:
   create: true
