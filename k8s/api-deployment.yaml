@@ -39,8 +39,11 @@ spec:
                 secretKeyRef:
                   name: cockpit-pg-app
                   key: uri
-            - name: REDIS_URL
-              value: "redis://cockpit-redis:6379"
+            # Redis Sentinel — ioredis auto-discovers master via sentinels
+            - name: REDIS_SENTINEL_HOSTS
+              value: "cockpit-redis-0.cockpit-redis.cockpit.svc.cluster.local:26379,cockpit-redis-1.cockpit-redis.cockpit.svc.cluster.local:26379,cockpit-redis-2.cockpit-redis.cockpit.svc.cluster.local:26379"
+            - name: REDIS_SENTINEL_MASTER
+              value: "cockpit-master"
           envFrom:
             - secretRef:
                 name: cockpit-secrets

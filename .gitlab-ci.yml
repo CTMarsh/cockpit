@@ -233,8 +233,8 @@ deploy:infrastructure:
     # PostgreSQL HA via CloudNativePG operator (must be installed on cluster first)
     - kubectl apply -f k8s/cloudnativepg-cluster.yaml -n cockpit
     - kubectl apply -f k8s/cloudnativepg-backup.yaml -n cockpit
-    # Redis
-    - kubectl apply -f k8s/redis-deployment.yaml -n cockpit
+    # Redis HA via Sentinel (3 pods with sentinel sidecars)
+    - kubectl apply -f k8s/redis-sentinel.yaml -n cockpit
     - echo "=== Waiting for CloudNativePG cluster ==="
     - |
       for i in $(seq 1 60); do
@@ -243,8 +243,8 @@ deploy:infrastructure:
         if [ "$STATUS" = "Cluster in healthy state" ]; then break; fi
         sleep 5
       done
-    - echo "=== Waiting for Redis ==="
-    - kubectl rollout status deployment/cockpit-redis -n cockpit --timeout=60s
+    - echo "=== Waiting for Redis Sentinel ==="
+    - kubectl rollout status statefulset/cockpit-redis -n cockpit --timeout=120s
     - echo "=== Infrastructure deployed ==="
   rules:
     - if: $CI_COMMIT_BRANCH == "master"
