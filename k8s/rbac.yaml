@@ -14,34 +14,37 @@ metadata:
   labels:
     app.kubernetes.io/part-of: cockpit
 rules:
-  # Pods: list, view, delete (for stuck pod removal), watch (real-time status)
+  # Core API — pods, namespaces, events, nodes, services
+  - apiGroups: [""]
+    resources: ["pods", "namespaces", "events", "nodes", "services"]
+    verbs: ["get", "list", "watch"]
   - apiGroups: [""]
     resources: ["pods"]
-    verbs: ["get", "list", "watch", "delete"]
+    verbs: ["delete"]
   # Pod logs: view container logs
   - apiGroups: [""]
     resources: ["pods/log"]
     verbs: ["get"]
-  # Namespaces: list for namespace selector
-  - apiGroups: [""]
-    resources: ["namespaces"]
-    verbs: ["get", "list"]
-  # Events: cluster event viewer
-  - apiGroups: [""]
-    resources: ["events"]
-    verbs: ["get", "list", "watch"]
-  # Deployments: list, view, patch (rolling restart via annotation), watch
+  # Apps — deployments, statefulsets, daemonsets, replicasets
   - apiGroups: ["apps"]
-    resources: ["deployments"]
+    resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
     verbs: ["get", "list", "watch", "patch"]
   # Deployment scale: scale replicas up/down
   - apiGroups: ["apps"]
     resources: ["deployments/scale"]
     verbs: ["get", "patch"]
-  # StatefulSets & DaemonSets: read-only workload listing
-  - apiGroups: ["apps"]
-    resources: ["statefulsets", "daemonsets"]
+  # cert-manager CRDs — certificate monitoring
+  - apiGroups: ["cert-manager.io"]
+    resources: ["certificates", "clusterissuers", "issuers", "certificaterequests"]
     verbs: ["get", "list", "watch"]
+  # Traefik CRDs — route and middleware monitoring
+  - apiGroups: ["traefik.io"]
+    resources: ["ingressroutes", "middlewares", "tlsstores", "traefikservices"]
+    verbs: ["get", "list", "watch"]
+  # Metrics API — node and pod resource metrics
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
