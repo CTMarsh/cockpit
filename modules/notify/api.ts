@@ -4,9 +4,20 @@ export const notifyRoutes = new OpenAPIHono();
 
 const NOTIFY_URL = process.env.NOTIFY_URL || "http://localhost:4100";
 
+// Never forward 401 from upstream Notify — frontend treats 401 as session expired and reloads
+function safeStatus(status: number): number { return status === 401 ? 502 : status; }
+
 async function notifyAdmin(path: string, options?: RequestInit) {
   const cookie = await getAdminCookie();
   const res = await fetch(`${NOTIFY_URL}${path}`, { ...options, headers: { "Content-Type": "application/json", ...(cookie ? { Cookie: cookie } : {}), ...options?.headers }, signal: AbortSignal.timeout(10000) });
+  // If upstream returns 401, clear cached cookie and retry once
+  if (res.status === 401 && cachedCookie) {
+    cachedCookie = null; cookieExpiry = 0;
+    const newCookie = await getAdminCookie();
+    if (newCookie) {
+      return fetch(`${NOTIFY_URL}${path}`, { ...options, headers: { "Content-Type": "application/json", Cookie: newCookie, ...options?.headers }, signal: AbortSignal.timeout(10000) });
+    }
+  }
   return res;
 }
 
@@ -42,41 +53,41 @@ notifyRoutes.openapi(configRoute, (c) => c.json({ notify_url: NOTIFY_URL, admin_
 const projectsRoute = createRoute({ method: 'get', path: '/projects', tags: ['Notify'], responses: { 200: { content: { 'application/json': { schema: z.any() } }, description: 'Projects' } } });
 notifyRoutes.openapi(projectsRoute, async (c) => {
   const res = await notifyAdmin("/api/projects");
-  if (!res.ok) return c.json({ error: "Failed to fetch projects" } as any, res.status as any);
+  if (!res.ok) return c.json({ error: "Failed to fetch projects" } as any, safeStatus(res.status) as any);
   const data = await res.json();
   const projects = Array.isArray(data) ? data : data.projects || [];
   return c.json({ projects }, 200);
 });
 
-notifyRoutes.post("/projects", async (c) => { const body = await c.req.json(); const res = await notifyAdmin("/api/projects", { method: "POST", body: JSON.stringify(body) }); return c.json(await res.json(), res.status as any); });
-notifyRoutes.put("/projects/:id", async (c) => { const id = c.req.param("id"); if (!/^\d+$/.test(id)) return c.json({ error: "Invalid ID" }, 400); const body = await c.req.json(); const res = await notifyAdmin(`/api/projects/${id}`, { method: "PUT", body: JSON.stringify(body) }); return c.json(await res.json(), res.status as any); });
-notifyRoutes.delete("/projects/:id", async (c) => { const id = c.req.param("id"); if (!/^\d+$/.test(id)) return c.json({ error: "Invalid ID" }, 400); const res = await notifyAdmin(`/api/projects/${id}`, { method: "DELETE" }); return c.json(await res.json(), res.status as any); });
-notifyRoutes.post("/projects/:id/regenerate-key", async (c) => { const id = c.req.param("id"); if (!/^\d+$/.test(id)) return c.json({ error: "Invalid ID" }, 400); const res = await notifyAdmin(`/api/projects/${id}/regenerate-key`, { method: "POST" }); return c.json(await res.json(), res.status as any); });
+notifyRoutes.post("/projects", async (c) => { const body = await c.req.json(); const res = await notifyAdmin("/api/projects", { method: "POST", body: JSON.stringify(body) }); return c.json(await res.json(), safeStatus(res.status) as any); });
+notifyRoutes.put("/projects/:id", async (c) => { const id = c.req.param("id"); if (!/^\d+$/.test(id)) return c.json({ error: "Invalid ID" }, 400); const body = await c.req.json(); const res = await notifyAdmin(`/api/projects/${id}`, { method: "PUT", body: JSON.stringify(body) }); return c.json(await res.json(), safeStatus(res.status) as any); });
+notifyRoutes.delete("/projects/:id", async (c) => { const id = c.req.param("id"); if (!/^\d+$/.test(id)) return c.json({ error: "Invalid ID" }, 400); const res = await notifyAdmin(`/api/projects/${id}`, { method: "DELETE" }); return c.json(await res.json(), safeStatus(res.status) as any); });
+notifyRoutes.post("/projects/:id/regenerate-key", async (c) => { const id = c.req.param("id"); if (!/^\d+$/.test(id)) return c.json({ error: "Invalid ID" }, 400); const res = await notifyAdmin(`/api/projects/${id}/regenerate-key`, { method: "POST" }); return c.json(await res.json(), safeStatus(res.status) as any); });
 
 const devicesRoute = createRoute({ method: 'get', path: '/devices', tags: ['Notify'], responses: { 200: { content: { 'application/json': { schema: z.any() } }, description: 'Devices' } } });
 notifyRoutes.openapi(devicesRoute, async (c) => {
   const query = c.req.query(); const params = new URLSearchParams(query);
   const res = await notifyAdmin(`/api/devices?${params.toString()}`);
-  if (!res.ok) return c.json({ error: "Failed to fetch devices" } as any, res.status as any);
+  if (!res.ok) return c.json({ error: "Failed to fetch devices" } as any, safeStatus(res.status) as any);
   const data = await res.json();
   const devices = Array.isArray(data) ? data : data.devices || [];
   return c.json({ devices }, 200);
 });
 
-notifyRoutes.patch("/devices/:id", async (c) => { const id = c.req.param("id"); if (!/^\d+$/.test(id)) return c.json({ error: "Invalid ID" }, 400); const body = await c.req.json(); const res = await notifyAdmin(`/api/devices/${id}`, { method: "PATCH", body: JSON.stringify(body) }); return c.json(await res.json(), res.status as any); });
-notifyRoutes.delete("/devices/:id", async (c) => { const id = c.req.param("id"); if (!/^\d+$/.test(id)) return c.json({ error: "Invalid ID" }, 400); const res = await notifyAdmin(`/api/devices/${id}`, { method: "DELETE" }); return c.json(await res.json(), res.status as any); });
-notifyRoutes.post("/devices/:id/test", async (c) => { const id = c.req.param("id"); if (!/^\d+$/.test(id)) return c.json({ error: "Invalid ID" }, 400); const res = await notifyAdmin(`/api/devices/${id}/test`, { method: "POST" }); return c.json(await res.json(), res.status as any); });
-notifyRoutes.post("/devices/cleanup", async (c) => { const res = await notifyAdmin("/api/devices/cleanup", { method: "POST" }); return c.json(await res.json(), res.status as any); });
+notifyRoutes.patch("/devices/:id", async (c) => { const id = c.req.param("id"); if (!/^\d+$/.test(id)) return c.json({ error: "Invalid ID" }, 400); const body = await c.req.json(); const res = await notifyAdmin(`/api/devices/${id}`, { method: "PATCH", body: JSON.stringify(body) }); return c.json(await res.json(), safeStatus(res.status) as any); });
+notifyRoutes.delete("/devices/:id", async (c) => { const id = c.req.param("id"); if (!/^\d+$/.test(id)) return c.json({ error: "Invalid ID" }, 400); const res = await notifyAdmin(`/api/devices/${id}`, { method: "DELETE" }); return c.json(await res.json(), safeStatus(res.status) as any); });
+notifyRoutes.post("/devices/:id/test", async (c) => { const id = c.req.param("id"); if (!/^\d+$/.test(id)) return c.json({ error: "Invalid ID" }, 400); const res = await notifyAdmin(`/api/devices/${id}/test`, { method: "POST" }); return c.json(await res.json(), safeStatus(res.status) as any); });
+notifyRoutes.post("/devices/cleanup", async (c) => { const res = await notifyAdmin("/api/devices/cleanup", { method: "POST" }); return c.json(await res.json(), safeStatus(res.status) as any); });
 
 const notificationsRoute = createRoute({ method: 'get', path: '/notifications', tags: ['Notify'], responses: { 200: { content: { 'application/json': { schema: z.any() } }, description: 'Notifications' } } });
 notifyRoutes.openapi(notificationsRoute, async (c) => {
   const query = c.req.query(); const params = new URLSearchParams(query);
   const res = await notifyAdmin(`/api/notifications?${params.toString()}`);
-  if (!res.ok) return c.json({ error: "Failed to fetch notifications" } as any, res.status as any);
+  if (!res.ok) return c.json({ error: "Failed to fetch notifications" } as any, safeStatus(res.status) as any);
   return c.json(await res.json(), 200);
 });
 
-notifyRoutes.get("/notifications/:id", async (c) => { const id = c.req.param("id"); if (!/^\d+$/.test(id)) return c.json({ error: "Invalid ID" }, 400); const res = await notifyAdmin(`/api/notifications/${id}`); if (!res.ok) return c.json({ error: "Failed to fetch notification" }, res.status as any); return c.json(await res.json()); });
+notifyRoutes.get("/notifications/:id", async (c) => { const id = c.req.param("id"); if (!/^\d+$/.test(id)) return c.json({ error: "Invalid ID" }, 400); const res = await notifyAdmin(`/api/notifications/${id}`); if (!res.ok) return c.json({ error: "Failed to fetch notification" }, safeStatus(res.status) as any); return c.json(await res.json()); });
 
 notifyRoutes.post("/test/:projectId", async (c) => {
   const projectId = c.req.param("projectId"); if (!/^\d+$/.test(projectId)) return c.json({ error: "Invalid project ID" }, 400);
