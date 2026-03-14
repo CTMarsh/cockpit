@@ -1,0 +1,216 @@
+# pgAdmin 4 — PostgreSQL management UI
+# Exposed at pgadmin.noahsark.me via Traefik IngressRoute
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pgadmin
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pgadmin-credentials
+  namespace: pgadmin
+type: Opaque
+stringData:
+  PGADMIN_DEFAULT_EMAIL: ctmarsh@gmail.com
+  PGADMIN_DEFAULT_PASSWORD: D3rbyshir3!
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pgadmin-servers
+  namespace: pgadmin
+data:
+  servers.json: |
+    {
+      "Servers": {
+        "1": {
+          "Name": "Cockpit PostgreSQL HA",
+          "Group": "NoahsArk",
+          "Host": "cockpit-pg-rw.cockpit.svc.cluster.local",
+          "Port": 5432,
+          "MaintenanceDB": "cockpit",
+          "Username": "cockpit",
+          "SSLMode": "prefer",
+          "PassFile": "/pgpassfile"
+        },
+        "2": {
+          "Name": "Cockpit PostgreSQL (Read-Only)",
+          "Group": "NoahsArk",
+          "Host": "cockpit-pg-ro.cockpit.svc.cluster.local",
+          "Port": 5432,
+          "MaintenanceDB": "cockpit",
+          "Username": "cockpit",
+          "SSLMode": "prefer",
+          "PassFile": "/pgpassfile"
+        }
+      }
+    }
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pgadmin-pgpassfile
+  namespace: pgadmin
+type: Opaque
+stringData:
+  pgpassfile: |
+    cockpit-pg-rw.cockpit.svc.cluster.local:5432:cockpit:cockpit:7EUX81iwTRkCNR5ts9BBRd0XvUJtylQmMaahaUbI
+    cockpit-pg-ro.cockpit.svc.cluster.local:5432:cockpit:cockpit:7EUX81iwTRkCNR5ts9BBRd0XvUJtylQmMaahaUbI
+    *:5432:cockpit:cockpit:7EUX81iwTRkCNR5ts9BBRd0XvUJtylQmMaahaUbI
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgadmin
+  namespace: pgadmin
+  labels:
+    app.kubernetes.io/name: pgadmin
+    app.kubernetes.io/part-of: cockpit
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pgadmin
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pgadmin
+    spec:
+      securityContext:
+        fsGroup: 5050
+      initContainers:
+        - name: fix-permissions
+          image: busybox
+          command: ["sh", "-c", "chown -R 5050:5050 /var/lib/pgadmin && cp /tmp/pgpassfile /pgpass/pgpassfile && chmod 600 /pgpass/pgpassfile && chown 5050:5050 /pgpass/pgpassfile"]
+          volumeMounts:
+            - name: pgpassfile-secret
+              mountPath: /tmp/pgpassfile
+              subPath: pgpassfile
+            - name: pgpass-vol
+              mountPath: /pgpass
+            - name: pgadmin-data
+              mountPath: /var/lib/pgadmin
+      containers:
+        - name: pgadmin
+          image: dpage/pgadmin4:latest
+          ports:
+            - containerPort: 80
+              name: http
+          envFrom:
+            - secretRef:
+                name: pgadmin-credentials
+          env:
+            - name: PGADMIN_CONFIG_SERVER_MODE
+              value: "True"
+            - name: PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED
+              value: "False"
+            - name: PGPASSFILE
+              value: "/pgpassfile"
+          volumeMounts:
+            - name: pgadmin-servers
+              mountPath: /pgadmin4/servers.json
+              subPath: servers.json
+            - name: pgpass-vol
+              mountPath: /pgpassfile
+              subPath: pgpassfile
+            - name: pgadmin-data
+              mountPath: /var/lib/pgadmin
+          startupProbe:
+            httpGet:
+              path: /misc/ping
+              port: 80
+            failureThreshold: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /misc/ping
+              port: 80
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /misc/ping
+              port: 80
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+      volumes:
+        - name: pgadmin-servers
+          configMap:
+            name: pgadmin-servers
+        - name: pgpassfile-secret
+          secret:
+            secretName: pgadmin-pgpassfile
+        - name: pgpass-vol
+          emptyDir: {}
+        - name: pgadmin-data
+          persistentVolumeClaim:
+            claimName: pgadmin-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pgadmin-data
+  namespace: pgadmin
+  labels:
+    app.kubernetes.io/name: pgadmin
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn-1r
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgadmin
+  namespace: pgadmin
+  labels:
+    app.kubernetes.io/name: pgadmin
+spec:
+  selector:
+    app.kubernetes.io/name: pgadmin
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: pgadmin-tls
+  namespace: pgadmin
+spec:
+  secretName: pgadmin-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - pgadmin.noahsark.me
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: pgadmin
+  namespace: pgadmin
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`pgadmin.noahsark.me`)
+      services:
+        - name: pgadmin
+          port: 80
+  tls:
+    secretName: pgadmin-tls
