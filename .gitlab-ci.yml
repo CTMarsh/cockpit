@@ -20,6 +20,7 @@ stages:
   - build
   - build:ios
   - deploy
+  - release
 
 variables:
   # ── Container Registry ──
@@ -495,3 +496,25 @@ notify:failure:
     - if: $CI_COMMIT_BRANCH == "master"
   when: on_failure
   allow_failure: true
+
+# ── ISC Release ─────────────────────────────────────────────
+# Auto-creates a GitLab Release when an ISC branch is merged to master
+create-isc-release:
+  stage: release
+  image: curlimages/curl:8.12.1
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      when: on_success
+  script:
+    - |
+      ISC_BRANCH=$(echo "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME" | grep -oP '^isc/.+' || true)
+      if [ -z "$ISC_BRANCH" ]; then exit 0; fi
+      TAG_NAME=$(echo "$ISC_BRANCH" | sed 's/\//-/g')
+      curl --silent --request POST \
+        --header "PRIVATE-TOKEN: $GITLAB_PAT" \
+        "$CI_API_V4_URL/projects/$CI_PROJECT_ID/releases" \
+        --data-urlencode "name=Release: $CI_MERGE_REQUEST_TITLE" \
+        --data-urlencode "tag_name=$TAG_NAME" \
+        --data-urlencode "ref=master" \
+        --data-urlencode "description=Released from ISC branch $ISC_BRANCH"
+  environment: production
