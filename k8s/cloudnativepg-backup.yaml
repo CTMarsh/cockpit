@@ -20,5 +20,8 @@ spec:
   backupOwnerReference: self
   cluster:
     name: cockpit-pg
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io
   immediate: false
   suspend: false

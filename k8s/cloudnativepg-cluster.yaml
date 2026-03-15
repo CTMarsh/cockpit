@@ -46,7 +46,7 @@ spec:
         - ALTER SYSTEM SET wal_level = 'replica';
 
   storage:
-    size: 5Gi
+    size: 20Gi
     storageClass: longhorn-1r
 
   resources:
@@ -62,19 +62,8 @@ spec:
   monitoring:
     enablePodMonitor: false
 
-  backup:
-    barmanObjectStore:
-      destinationPath: s3://cockpit-pg-backups/
-      endpointURL: http://rustfs.minio.svc:9000
-      s3Credentials:
-        accessKeyId:
-          name: cockpit-pg-s3-creds
-          key: ACCESS_KEY_ID
-        secretAccessKey:
-          name: cockpit-pg-s3-creds
-          key: SECRET_ACCESS_KEY
-      wal:
-        compression: gzip
-      data:
-        compression: gzip
-    retentionPolicy: "7d"
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: cockpit-pg-backups
