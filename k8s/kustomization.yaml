@@ -12,3 +12,6 @@ resources:
   - api-deployment.yaml
   - web-deployment.yaml
   - ingress.yaml
+  - networkpolicies.yaml
+  - limitrange.yaml
+  - pdb.yaml

@@ -1,9 +1,15 @@
+## Create the runner token secret before Helm install/upgrade:
+## kubectl create secret generic gitlab-runner-token \
+##   --namespace gitlab-runner \
+##   --from-literal=runner-registration-token="" \
+##   --from-literal=runner-token="<your-token-here>"
+
 ## GitLab Runner Helm chart values for k3s-noahsark
 gitlabUrl: https://gitlab.noahsark.me
-runnerToken: glrt-VrYN1GmsO04lr-s-XrWnkG86MQp0OjEKdToxCw.01.120jixhu6
 
 ## Runner configuration
 runners:
+  secret: gitlab-runner-token
   config: |
     [[runners]]
       [runners.kubernetes]

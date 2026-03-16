@@ -1,3 +1,7 @@
+# ORPHANED: cockpit-data PVC is not mounted by any deployment.
+# Pre-CNPG leftover — was used for SQLite before PostgreSQL migration.
+# Verify: kubectl get pods -n cockpit -o json | jq '.items[].spec.volumes[].persistentVolumeClaim.claimName'
+# Safe to delete this file + remove from kustomization.yaml after verification.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
