@@ -24,7 +24,7 @@ spec:
         runAsGroup: 10001
       containers:
         - name: rustfs
-          image: rustfs/rustfs:latest
+          image: rustfs/rustfs:0.1.6  # Pin version — verify matches running pod
           ports:
             - containerPort: 9000
               name: s3

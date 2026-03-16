@@ -1,36 +1,36 @@
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: cert-manager.io/v1
+kind: Certificate
 metadata:
-  name: cockpit-ingress
+  name: cockpit-tls
+  namespace: cockpit
+spec:
+  secretName: cockpit-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - dashboard.noahsark.me
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: cockpit
   namespace: cockpit
   labels:
     app.kubernetes.io/part-of: cockpit
-  annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
-  ingressClassName: nginx
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`dashboard.noahsark.me`) && PathPrefix(`/api`)
+      services:
+        - name: cockpit-api
+          port: 4000
+    - kind: Rule
+      match: Host(`dashboard.noahsark.me`)
+      services:
+        - name: cockpit-web
+          port: 80
   tls:
-    - hosts:
-        - dashboard.noahsark.me
-      secretName: cockpit-tls
-  rules:
-    - host: dashboard.noahsark.me
-      http:
-        paths:
-          # API routes — /api/ goes to the API service
-          - path: /api
-            pathType: Prefix
-            backend:
-              service:
-                name: cockpit-api
-                port:
-                  number: 4000
-          # Everything else goes to the web frontend
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: cockpit-web
-                port:
-                  number: 80
+    secretName: cockpit-tls

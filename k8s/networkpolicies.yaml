@@ -1,0 +1,215 @@
+# NetworkPolicies for cockpit namespace
+# Implements zero-trust networking: deny-all ingress by default,
+# explicit allow rules for each service.
+---
+# 1. Default deny all ingress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: cockpit
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# 2. cockpit-api: allow ingress from Traefik
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cockpit-api-ingress
+  namespace: cockpit
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: cockpit-api
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+      ports:
+        - protocol: TCP
+          port: 4000
+---
+# 3. cockpit-web: allow ingress from Traefik
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cockpit-web-ingress
+  namespace: cockpit
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: cockpit-web
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+      ports:
+        - protocol: TCP
+          port: 80
+---
+# 4. cockpit-api: unrestricted egress (monitors Proxmox, GitLab, HA, etc.)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cockpit-api-egress
+  namespace: cockpit
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: cockpit-api
+  policyTypes:
+    - Egress
+  egress:
+    - {}
+---
+# 5. cockpit-web: egress to cockpit-api + DNS only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cockpit-web-egress
+  namespace: cockpit
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: cockpit-web
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: cockpit-api
+      ports:
+        - protocol: TCP
+          port: 4000
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# 6. cockpit-redis: ingress from cockpit-api + peer redis pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cockpit-redis-ingress
+  namespace: cockpit
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: cockpit-redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: cockpit-api
+      ports:
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 26379
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: cockpit-redis
+      ports:
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 26379
+---
+# 7. cockpit-redis: egress to peer redis pods + DNS
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cockpit-redis-egress
+  namespace: cockpit
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: cockpit-redis
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: cockpit-redis
+      ports:
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 26379
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# 8. cockpit-pg (CNPG): allow ingress from cockpit-api + peer CNPG pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cockpit-pg-ingress
+  namespace: cockpit
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: cockpit-pg
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: cockpit-api
+      ports:
+        - protocol: TCP
+          port: 5432
+    - from:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: cockpit-pg
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 8000
+---
+# 9. cockpit-pg (CNPG): egress for replication + DNS
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cockpit-pg-egress
+  namespace: cockpit
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: cockpit-pg
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: cockpit-pg
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 8000
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

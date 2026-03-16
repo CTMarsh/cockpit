@@ -1,0 +1,38 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cockpit-api-pdb
+  namespace: cockpit
+  labels:
+    app.kubernetes.io/part-of: cockpit
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cockpit-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cockpit-web-pdb
+  namespace: cockpit
+  labels:
+    app.kubernetes.io/part-of: cockpit
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cockpit-web
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cockpit-redis-pdb
+  namespace: cockpit
+  labels:
+    app.kubernetes.io/part-of: cockpit
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cockpit-redis

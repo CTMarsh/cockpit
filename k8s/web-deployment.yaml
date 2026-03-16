@@ -18,9 +18,23 @@ spec:
     spec:
       imagePullSecrets:
         - name: gitlab-registry
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: cockpit-web
+                topologyKey: kubernetes.io/hostname
       containers:
         - name: web
           image: gitlab.noahsark.me:5050/ctmarsh/cockpit/web:latest
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 80
           volumeMounts:
