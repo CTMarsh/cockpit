@@ -4,7 +4,7 @@ import sql from "../../apps/api/src/db";
 export const cronRoutes = new OpenAPIHono();
 
 const MAX_COMMAND_LENGTH = 1000;
-const SAFE_COMMAND_PATTERN = /^[a-zA-Z0-9 /._=:,@+%\-\[\]]+$/;
+const SAFE_COMMAND_PATTERN = /^[a-zA-Z0-9 /._=:,+%\-\[\]]+$/;
 const BLOCKED_COMMANDS = ['rm', 'dd', 'mkfs', 'fdisk', 'kill', 'killall', 'shutdown', 'reboot', 'halt', 'poweroff'];
 
 function validateCommand(command: string): string | null {
