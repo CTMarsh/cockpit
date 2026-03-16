@@ -105,6 +105,7 @@ export function NotifyPage() {
   const [regenTarget, setRegenTarget] = useState<Project | null>(null);
   const [selectedNotif, setSelectedNotif] = useState<(Notification & { deliveries?: Delivery[] }) | null>(null);
   const [visibleKeys, setVisibleKeys] = useState<Set<number>>(new Set());
+  const [revealedKeys, setRevealedKeys] = useState<Map<number, string>>(new Map());
   const [deviceFilter, setDeviceFilter] = useState<number | "all">("all");
   const [showInactive, setShowInactive] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
@@ -207,11 +208,15 @@ export function NotifyPage() {
         });
         toast.success("Project updated");
       } else {
-        await api("/notify/projects", {
+        const created = await api<{ id: number; api_key?: string }>("/notify/projects", {
           method: "POST",
           body: JSON.stringify({ name: formName, description: formDescription }),
         });
-        toast.success("Project created");
+        if (created.api_key && created.id) {
+          setRevealedKeys((prev) => new Map(prev).set(created.id, created.api_key!));
+          setVisibleKeys((prev) => new Set(prev).add(created.id));
+        }
+        toast.success("Project created — API key shown once, copy it now");
       }
       setShowForm(false);
       await fetchProjects();
@@ -235,8 +240,12 @@ export function NotifyPage() {
   async function handleRegenerateKey() {
     if (!regenTarget) return;
     try {
-      await api(`/notify/projects/${regenTarget.id}/regenerate-key`, { method: "POST" });
-      toast.success("API key regenerated");
+      const result = await api<{ api_key?: string }>(`/notify/projects/${regenTarget.id}/regenerate-key`, { method: "POST" });
+      if (result.api_key) {
+        setRevealedKeys((prev) => new Map(prev).set(regenTarget.id, result.api_key!));
+        setVisibleKeys((prev) => new Set(prev).add(regenTarget.id));
+      }
+      toast.success("API key regenerated — shown once, copy it now");
       setRegenTarget(null);
       await fetchProjects();
     } catch (e: any) {
@@ -463,14 +472,20 @@ export function NotifyPage() {
                     <div className="flex items-center gap-2 text-xs">
                       <Key className="w-3.5 h-3.5 text-cockpit-text-muted" />
                       <code className="bg-cockpit-bg px-2 py-1 rounded font-mono flex-1 text-cockpit-text-muted">
-                        {visibleKeys.has(project.id) ? project.api_key : "ntfy_••••••••••••••••"}
+                        {visibleKeys.has(project.id) && revealedKeys.has(project.id)
+                          ? revealedKeys.get(project.id)
+                          : revealedKeys.has(project.id) ? "ntfy_••••••••••••••••" : "Key hidden — regenerate to reveal"}
                       </code>
-                      <button onClick={() => toggleKeyVisibility(project.id)} className="p-1 hover:bg-white/5 rounded text-cockpit-text-muted" title="Toggle visibility">
-                        {visibleKeys.has(project.id) ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                      <button onClick={() => copyToClipboard(project.api_key, "API key")} className="p-1 hover:bg-white/5 rounded text-cockpit-text-muted" title="Copy API key">
-                        <Copy className="w-3.5 h-3.5" />
-                      </button>
+                      {revealedKeys.has(project.id) && (
+                        <button onClick={() => toggleKeyVisibility(project.id)} className="p-1 hover:bg-white/5 rounded text-cockpit-text-muted" title="Toggle visibility">
+                          {visibleKeys.has(project.id) ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      )}
+                      {revealedKeys.has(project.id) && (
+                        <button onClick={() => copyToClipboard(revealedKeys.get(project.id)!, "API key")} className="p-1 hover:bg-white/5 rounded text-cockpit-text-muted" title="Copy API key">
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       <button onClick={() => setRegenTarget(project)} className="p-1 hover:bg-white/5 rounded text-cockpit-text-muted hover:text-cockpit-accent" title="Regenerate key">
                         <RefreshCw className="w-3.5 h-3.5" />
                       </button>
