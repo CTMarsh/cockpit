@@ -226,29 +226,24 @@ build:web:
 # Deploy PostgreSQL and Redis infrastructure (only when manifests change)
 deploy:infrastructure:
   stage: deploy
-  image:
-    name: alpine/k8s:1.35.2
-    entrypoint: [""]
+  image: alpine/git:latest
   needs:
     - job: build:api
   script:
-    - echo "=== Deploying infrastructure ==="
-    # PostgreSQL HA via CloudNativePG operator (must be installed on cluster first)
-    - kubectl apply -f k8s/cloudnativepg-cluster.yaml -n cockpit
-    - kubectl apply -f k8s/cloudnativepg-backup.yaml -n cockpit
-    # Redis HA via Sentinel (3 pods with sentinel sidecars)
-    - kubectl apply -f k8s/redis-sentinel.yaml -n cockpit
-    - echo "=== Waiting for CloudNativePG cluster ==="
-    - |
-      for i in $(seq 1 60); do
-        STATUS=$(kubectl get cluster cockpit-pg -n cockpit -o jsonpath='{.status.phase}' 2>/dev/null || echo "pending")
-        echo "CloudNativePG status: $STATUS ($i/60)"
-        if [ "$STATUS" = "Cluster in healthy state" ]; then break; fi
-        sleep 5
-      done
-    - echo "=== Waiting for Redis Sentinel ==="
-    - kubectl rollout status statefulset/cockpit-redis -n cockpit --timeout=120s
-    - echo "=== Infrastructure deployed ==="
+    - git clone https://oauth2:${GITLAB_MANIFEST_PAT}@gitlab.noahsark.me/ctmarsh/k8s-manifests.git
+    - cd k8s-manifests
+    - cp ${CI_PROJECT_DIR}/k8s/cloudnativepg-cluster.yaml apps/cockpit/cnpg-cluster.yaml
+    - cp ${CI_PROJECT_DIR}/k8s/cloudnativepg-backup.yaml apps/cockpit/cnpg-backup.yaml
+    - cp ${CI_PROJECT_DIR}/k8s/redis-sentinel.yaml apps/cockpit/statefulset-redis.yaml
+    - git config user.email "ci-bot@noahsark.me"
+    - git config user.name "GitLab CI"
+    - git add apps/cockpit/
+    - 'git diff --cached --quiet && echo "No infrastructure changes" && exit 0'
+    - 'git commit -m "ci(cockpit): update infrastructure manifests ${CI_COMMIT_SHORT_SHA}
+
+Pipeline: ${CI_PIPELINE_URL}
+Triggered by: ${GITLAB_USER_LOGIN}"'
+    - git push
   rules:
     - if: $CI_COMMIT_BRANCH == "master"
       changes:
@@ -256,14 +251,10 @@ deploy:infrastructure:
         - k8s/redis-*.yaml
   environment:
     name: production
-  tags:
-    - k8s
 
 deploy:k8s:
   stage: deploy
-  image:
-    name: alpine/k8s:1.35.2
-    entrypoint: [""]
+  image: alpine/git:latest
   needs:
     - job: version
       artifacts: true
@@ -272,21 +263,20 @@ deploy:k8s:
     - job: deploy:infrastructure
       optional: true
   resource_group: production
-  retry:
-    max: 2
-    when:
-      - runner_system_failure
-      - stuck_or_timeout_failure
   script:
-    - echo "=== Updating image tags ==="
-    - kubectl set image deployment/cockpit-api api="$API_IMAGE:$CI_COMMIT_SHORT_SHA" -n cockpit
-    - kubectl set image deployment/cockpit-web web="$WEB_IMAGE:$CI_COMMIT_SHORT_SHA" -n cockpit
-    - echo "=== Setting APP_VERSION=$APP_VERSION on API deployment ==="
-    - kubectl set env deployment/cockpit-api APP_VERSION="$APP_VERSION" -n cockpit
-    - echo "=== Waiting for rollout ==="
-    - kubectl rollout status deployment/cockpit-api -n cockpit --timeout=600s
-    - kubectl rollout status deployment/cockpit-web -n cockpit --timeout=600s
-    - echo "=== Deployment complete ==="
+    - git clone https://oauth2:${GITLAB_MANIFEST_PAT}@gitlab.noahsark.me/ctmarsh/k8s-manifests.git
+    - cd k8s-manifests
+    - sed -i "s|image: ${API_IMAGE}:.*|image: ${API_IMAGE}:${CI_COMMIT_SHORT_SHA}|" apps/cockpit/deployment-api.yaml
+    - sed -i "s|image: ${WEB_IMAGE}:.*|image: ${WEB_IMAGE}:${CI_COMMIT_SHORT_SHA}|" apps/cockpit/deployment-web.yaml
+    - sed -i "/name: APP_VERSION/{n;s|value: .*|value: ${APP_VERSION}|}" apps/cockpit/deployment-api.yaml
+    - git config user.email "ci-bot@noahsark.me"
+    - git config user.name "GitLab CI"
+    - git add apps/cockpit/deployment-api.yaml apps/cockpit/deployment-web.yaml
+    - 'git commit -m "ci(cockpit): deploy ${CI_COMMIT_SHORT_SHA}
+
+Pipeline: ${CI_PIPELINE_URL}
+Triggered by: ${GITLAB_USER_LOGIN}"'
+    - git push
   rules:
     - if: $CI_COMMIT_BRANCH == "master"
   environment:
