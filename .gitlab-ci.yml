@@ -267,9 +267,9 @@ deploy:k8s:
   script:
     - git clone https://oauth2:${GITLAB_MANIFEST_PAT}@gitlab.noahsark.me/ctmarsh/k8s-manifests.git
     - cd k8s-manifests
-    - sed -i "s|image: ${API_IMAGE}:.*|image: ${API_IMAGE}:${CI_COMMIT_SHORT_SHA}|" apps/cockpit/deployment-api.yaml
-    - sed -i "s|image: ${WEB_IMAGE}:.*|image: ${WEB_IMAGE}:${CI_COMMIT_SHORT_SHA}|" apps/cockpit/deployment-web.yaml
-    - sed -i "/name: APP_VERSION/{n;s|value: .*|value: ${APP_VERSION}|}" apps/cockpit/deployment-api.yaml
+    - 'sed -i "s|image: ${API_IMAGE}:.*|image: ${API_IMAGE}:${CI_COMMIT_SHORT_SHA}|" apps/cockpit/deployment-api.yaml'
+    - 'sed -i "s|image: ${WEB_IMAGE}:.*|image: ${WEB_IMAGE}:${CI_COMMIT_SHORT_SHA}|" apps/cockpit/deployment-web.yaml'
+    - 'sed -i "/name: APP_VERSION/{n;s|value: .*|value: ${APP_VERSION}|}" apps/cockpit/deployment-api.yaml'
     - git config user.email "ci-bot@noahsark.me"
     - git config user.name "GitLab CI"
     - git add apps/cockpit/deployment-api.yaml apps/cockpit/deployment-web.yaml
