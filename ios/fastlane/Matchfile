@@ -1,4 +1,4 @@
-git_url("https://gitlab.noahsark.me/cockpit-bot/certificates.git")
+git_url("https://gitlab.noahsark.me/ctmarsh/certificates.git")
 storage_mode("git")
 type("appstore")
 app_identifier(["com.ctmarsh.noahsark-cockpit", "com.ctmarsh.noahsark-cockpit.widgets", "com.ctmarsh.noahsark-cockpit.watchkitapp"])
