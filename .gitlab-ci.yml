@@ -239,10 +239,11 @@ deploy:infrastructure:
     - git config user.name "GitLab CI"
     - git add apps/cockpit/
     - 'git diff --cached --quiet && echo "No infrastructure changes" && exit 0'
-    - 'git commit -m "ci(cockpit): update infrastructure manifests ${CI_COMMIT_SHORT_SHA}
+    - |
+      git commit -m "ci(cockpit): update infrastructure manifests ${CI_COMMIT_SHORT_SHA}
 
-Pipeline: ${CI_PIPELINE_URL}
-Triggered by: ${GITLAB_USER_LOGIN}"'
+      Pipeline: ${CI_PIPELINE_URL}
+      Triggered by: ${GITLAB_USER_LOGIN}"
     - git push
   rules:
     - if: $CI_COMMIT_BRANCH == "master"
@@ -272,10 +273,11 @@ deploy:k8s:
     - git config user.email "ci-bot@noahsark.me"
     - git config user.name "GitLab CI"
     - git add apps/cockpit/deployment-api.yaml apps/cockpit/deployment-web.yaml
-    - 'git commit -m "ci(cockpit): deploy ${CI_COMMIT_SHORT_SHA}
+    - |
+      git commit -m "ci(cockpit): deploy ${CI_COMMIT_SHORT_SHA}
 
-Pipeline: ${CI_PIPELINE_URL}
-Triggered by: ${GITLAB_USER_LOGIN}"'
+      Pipeline: ${CI_PIPELINE_URL}
+      Triggered by: ${GITLAB_USER_LOGIN}"
     - git push
   rules:
     - if: $CI_COMMIT_BRANCH == "master"
