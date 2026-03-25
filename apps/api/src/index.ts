@@ -131,8 +131,8 @@ app.openapi(dashboardStatsRoute, async (c) => {
   let clusterNodes = 0;
   let clusterOnline = 0;
   try {
-    const proxmoxUrl = process.env.PROXMOX_URL;
-    const proxmoxToken = process.env.PROXMOX_TOKEN;
+    const proxmoxUrl = process.env.PVE_URL;
+    const proxmoxToken = process.env.PVE_TOKEN;
     if (proxmoxUrl && proxmoxToken) {
       const res = await fetch(`${proxmoxUrl}/api2/json/nodes`, {
         headers: { Authorization: `PVEAPIToken=${proxmoxToken}` },

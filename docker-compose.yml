@@ -1,25 +1,39 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: cockpit
+      POSTGRES_USER: cockpit
+      POSTGRES_PASSWORD: cockpit
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
   api:
     build:
       context: .
       dockerfile: Dockerfile.api
     ports:
       - "4000:4000"
-    volumes:
-      - cockpit-data:/app/data
-      - /proc:/host/proc:ro
-    pid: "host"
     cap_add:
       - NET_ADMIN
     environment:
       - API_PORT=4000
-      - PROC_ROOT=/host/proc
-      - DOCKER_HOST=${DOCKER_HOST:-http://host.docker.internal:2375}
+      - DATABASE_URL=postgres://cockpit:cockpit@postgres:5432/cockpit
+      - REDIS_URL=redis://redis:6379
       - COCKPIT_USER=${COCKPIT_USER:-admin}
       - COCKPIT_PASS=${COCKPIT_PASS:-cockpit}
-      - SESSION_SECRET=${SESSION_SECRET:-change-me}
-    env_file:
-      - .env
+    depends_on:
+      - postgres
+      - redis
     restart: unless-stopped
 
   web:
@@ -33,4 +47,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  cockpit-data:
+  pgdata:

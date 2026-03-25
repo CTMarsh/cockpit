@@ -223,46 +223,14 @@ build:web:
 # repo with `origin` as the default remote name. In local dev we use `gitlab`
 # as our remote, but CI runners always set origin to the project URL.
 
-# Deploy PostgreSQL and Redis infrastructure (only when manifests change)
-deploy:infrastructure:
-  stage: deploy
-  image: alpine/git:latest
-  needs:
-    - job: build:api
-  script:
-    - git clone https://oauth2:${GITLAB_MANIFEST_PAT}@gitlab.noahsark.me/ctmarsh/k8s-manifests.git
-    - cd k8s-manifests
-    - cp ${CI_PROJECT_DIR}/k8s/cloudnativepg-cluster.yaml apps/cockpit/cnpg-cluster.yaml
-    - cp ${CI_PROJECT_DIR}/k8s/cloudnativepg-backup.yaml apps/cockpit/cnpg-backup.yaml
-    - cp ${CI_PROJECT_DIR}/k8s/redis-sentinel.yaml apps/cockpit/statefulset-redis.yaml
-    - git config user.email "ci-bot@noahsark.me"
-    - git config user.name "GitLab CI"
-    - git add apps/cockpit/
-    - 'git diff --cached --quiet && echo "No infrastructure changes" && exit 0'
-    - |
-      git commit -m "ci(cockpit): update infrastructure manifests ${CI_COMMIT_SHORT_SHA}
-
-      Pipeline: ${CI_PIPELINE_URL}
-      Triggered by: ${GITLAB_USER_LOGIN}"
-    - git push
-  rules:
-    - if: $CI_COMMIT_BRANCH == "master"
-      changes:
-        - k8s/cloudnativepg-*.yaml
-        - k8s/redis-*.yaml
-  environment:
-    name: production
-
 deploy:k8s:
   stage: deploy
-  image: alpine/git:latest
+  image: alpine/git:2.47.2
   needs:
     - job: version
       artifacts: true
     - job: build:api
     - job: build:web
-    - job: deploy:infrastructure
-      optional: true
   resource_group: production
   script:
     - git clone https://oauth2:${GITLAB_MANIFEST_PAT}@gitlab.noahsark.me/ctmarsh/k8s-manifests.git

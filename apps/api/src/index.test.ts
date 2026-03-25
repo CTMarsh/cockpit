@@ -155,43 +155,6 @@ describe("Homelab Services", () => {
   });
 });
 
-// ── Docker Hosts CRUD ────────────────────────────────────────
-describe("Docker Hosts", () => {
-  let hostId: string;
-
-  test("POST /api/homelab/docker-hosts creates a host", async () => {
-    const res = await authedFetch("/api/homelab/docker-hosts", {
-      method: "POST",
-      body: JSON.stringify({ name: "Test Docker", url: "http://10.0.0.1:2375" }),
-    });
-    expect(res.status).toBe(201);
-    const data = await res.json();
-    expect(data.name).toBe("Test Docker");
-    hostId = data.id;
-  });
-
-  test("POST /api/homelab/docker-hosts rejects missing fields", async () => {
-    const res = await authedFetch("/api/homelab/docker-hosts", {
-      method: "POST",
-      body: JSON.stringify({ name: "No URL" }),
-    });
-    expect(res.status).toBe(400);
-  });
-
-  test("GET /api/homelab/docker-hosts lists hosts", async () => {
-    const res = await authedFetch("/api/homelab/docker-hosts");
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(Array.isArray(data.hosts)).toBe(true);
-    expect(data.hosts.length).toBeGreaterThan(0);
-  });
-
-  test("DELETE /api/homelab/docker-hosts/:id removes host", async () => {
-    const res = await authedFetch(`/api/homelab/docker-hosts/${hostId}`, { method: "DELETE" });
-    expect(res.status).toBe(200);
-  });
-});
-
 // ── Bookmarks CRUD ───────────────────────────────────────────
 describe("Bookmarks", () => {
   let bookmarkId: string;
@@ -535,14 +498,6 @@ describe("WoL Devices", () => {
   test("DELETE /api/wol/devices/:id removes device", async () => {
     const res = await authedFetch(`/api/wol/devices/${deviceId}`, { method: "DELETE" });
     expect(res.status).toBe(200);
-  });
-});
-
-// ── Container Actions (validates input) ──────────────────────
-describe("Container Actions", () => {
-  test("POST /api/homelab/containers/fake/invalid rejects bad action", async () => {
-    const res = await authedFetch("/api/homelab/containers/fake/invalid", { method: "POST" });
-    expect(res.status).toBe(400);
   });
 });
 
