@@ -20,7 +20,5 @@ RUN bun install --frozen-lockfile || bun install
 COPY apps/api apps/api
 COPY modules modules
 
-RUN mkdir -p /app/data/markdown
-
 EXPOSE 4000
 CMD ["bun", "run", "apps/api/src/index.ts"]

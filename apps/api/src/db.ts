@@ -107,15 +107,6 @@ async function migrate() {
     )
   `;
 
-  await sql`
-    CREATE TABLE IF NOT EXISTS docker_hosts (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      url TEXT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `;
-
   // Rate limiting table (replaces in-memory Map for HA)
   await sql`
     CREATE TABLE IF NOT EXISTS rate_limits (
