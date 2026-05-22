@@ -1,0 +1,35 @@
+{
+  "name": "@noahs-ark/tokens",
+  "version": "0.1.0",
+  "description": "Visual design tokens for Noah's Ark — the self-hosted homelab platform. CSS custom properties, Tailwind preset, and Swift mirror.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/tokens.css",
+  "exports": {
+    ".": "./dist/tokens.css",
+    "./tokens.css": "./dist/tokens.css",
+    "./components.css": "./dist/components.css",
+    "./tailwind-preset": "./tailwind-preset.js",
+    "./tailwind-preset.js": "./tailwind-preset.js",
+    "./swift": "./swift/ArkTokens.swift",
+    "./assets/*": "./assets/*"
+  },
+  "files": [
+    "dist",
+    "tailwind-preset.js",
+    "swift",
+    "assets",
+    "README.md"
+  ],
+  "keywords": [
+    "design-tokens",
+    "tailwind-preset",
+    "noahs-ark",
+    "homelab",
+    "cockpit",
+    "chatark"
+  ],
+  "publishConfig": {
+    "access": "restricted"
+  }
+}

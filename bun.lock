@@ -33,6 +33,7 @@
     "apps/web": {
       "name": "@cockpit/web",
       "dependencies": {
+        "@noahs-ark/tokens": "file:./vendor/noahs-ark-tokens",
         "d3": "^7.9.0",
         "lucide-react": "^0.469.0",
         "react": "^19.0.0",
@@ -918,6 +919,8 @@
     "zod": ["zod@4.3.6", "", {}, "sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg=="],
 
     "zwitch": ["zwitch@2.0.4", "", {}, "sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A=="],
+
+    "@cockpit/web/@noahs-ark/tokens": ["@noahs-ark/tokens@file:apps/web/vendor/noahs-ark-tokens", {}],
 
     "@scalar/types/nanoid": ["nanoid@5.1.6", "", { "bin": { "nanoid": "bin/nanoid.js" } }, "sha512-c7+7RQ+dMB5dPwwCp4ee1/iV/q2P6aK1mTZcfr1BTuVlyW9hJYiMPybJCcnBlQtuSmTIWNeazm/zqNoZSSElBg=="],
 

@@ -8,6 +8,7 @@
     "preview": "bunx --bun vite preview"
   },
   "dependencies": {
+    "@noahs-ark/tokens": "file:./vendor/noahs-ark-tokens",
     "d3": "^7.9.0",
     "lucide-react": "^0.469.0",
     "react": "^19.0.0",

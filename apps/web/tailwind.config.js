@@ -1,7 +1,16 @@
 /** @type {import('tailwindcss').Config} */
+import arkPreset from "@noahs-ark/tokens/tailwind-preset";
+
+// The `cockpit.*` hex block is preserved verbatim from the pre-migration
+// config. Reason: Tailwind 3 can't compose `/opacity` modifiers on color
+// values that are raw `var(--...)`, and many existing pages still use
+// `bg-cockpit-accent/15` etc. Keeping the hex block means those pages
+// render exactly as before; pages migrated to the new identity use `ark-*`
+// from the preset. Sweep pages off `cockpit-*` in follow-up PRs, then drop
+// this block entirely.
 export default {
+  presets: [arkPreset],
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
-  darkMode: "class",
   theme: {
     extend: {
       colors: {
@@ -20,5 +29,4 @@ export default {
       },
     },
   },
-  plugins: [],
 };

@@ -1,64 +1,55 @@
+@import "@noahs-ark/tokens/tokens.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  /* tokens.css already sets body bg, color, font-family. We only layer
+     Tailwind-specific tweaks here. */
   body {
-    @apply bg-cockpit-bg text-cockpit-text antialiased;
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  }
-
-  ::-webkit-scrollbar {
-    width: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    @apply bg-cockpit-bg;
-  }
-  ::-webkit-scrollbar-thumb {
-    @apply bg-cockpit-border rounded-full;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-cockpit-text-muted;
+    @apply antialiased;
   }
 }
 
-/* Markdown prose styling */
+/* Markdown prose styling — palette-only swap, structure unchanged from the
+   pre-migration version. */
 .prose table {
   @apply border-collapse w-full;
 }
 .prose table th,
 .prose table td {
-  @apply border border-cockpit-border px-3 py-2 text-sm;
+  @apply border border-ark-border px-3 py-2 text-sm;
 }
 .prose table th {
-  @apply bg-cockpit-bg font-medium text-left;
+  @apply bg-ark-bg font-medium text-left;
 }
 .prose table tr:nth-child(even) {
-  @apply bg-cockpit-bg/50;
+  @apply bg-ark-surface;
 }
 .prose code:not(pre code) {
-  @apply bg-cockpit-bg border border-cockpit-border rounded px-1.5 py-0.5 text-xs font-mono text-cockpit-accent;
+  @apply bg-ark-bg border border-ark-border rounded px-1.5 py-0.5 text-xs font-mono text-ark-warm;
 }
 .prose pre {
-  @apply bg-cockpit-bg border border-cockpit-border rounded-lg p-4 overflow-x-auto;
+  @apply bg-ark-bg border border-ark-border rounded-lg p-4 overflow-x-auto;
 }
 .prose pre code {
   @apply text-sm font-mono leading-relaxed;
 }
 .prose blockquote {
-  @apply border-l-2 border-cockpit-accent/40 pl-4 italic text-cockpit-text-muted;
+  @apply border-l-2 border-ark-warm-bg pl-4 italic text-ark-text-muted;
 }
 .prose hr {
-  @apply border-cockpit-border;
+  @apply border-ark-border;
 }
 .prose a {
-  @apply text-cockpit-accent hover:text-cockpit-accent-hover underline;
+  @apply text-ark-primary hover:text-ark-primary-hover underline;
 }
 .prose img {
   @apply rounded-lg max-w-full;
 }
 .prose input[type="checkbox"] {
-  @apply accent-cockpit-accent mr-1.5;
+  @apply accent-ark-primary mr-1.5;
 }
 
 /* Toast animations */
