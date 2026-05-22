@@ -1,6 +1,21 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@source "./";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-cockpit-bg: #0c1118;
+  --color-cockpit-surface: #131c24;
+  --color-cockpit-border: #1e2d38;
+  --color-cockpit-accent: #c8913a;
+  --color-cockpit-accent-hover: #daa54e;
+  --color-cockpit-text: #d5cfc2;
+  --color-cockpit-text-muted: #6b7d8a;
+  --color-cockpit-success: #5a9a5c;
+  --color-cockpit-danger: #b84a3e;
+  --color-cockpit-warning: #c8913a;
+}
 
 @layer base {
   body {
