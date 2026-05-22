@@ -305,6 +305,7 @@ deploy:k8s:
           \"title\": \"ci(cockpit): deploy ${CI_COMMIT_SHORT_SHA}\",
           \"description\": \"Automated deploy from cockpit pipeline ${CI_PIPELINE_ID}.\\n\\nPipeline: ${CI_PIPELINE_URL}\\nTriggered by: ${GITLAB_USER_LOGIN}\\nVersion: ${APP_VERSION}\",
           \"assignee_id\": 5,
+          \"reviewer_ids\": [1],
           \"remove_source_branch\": true,
           \"squash\": true
         }")
