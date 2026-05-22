@@ -4,17 +4,73 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * Noah's Ark design system tokens (OKLCH).
+ *
+ * Canonical namespace is `ark-*`. The legacy `cockpit-*` namespace is
+ * aliased to the same OKLCH values so every existing page picks up the
+ * new identity instantly — no page sweeps required. Pages can migrate
+ * to `ark-*` class names progressively.
+ *
+ * Tailwind 4's color-mix(in oklab, ..., transparent) handles opacity
+ * modifiers natively on these tokens (e.g. bg-ark-primary/50).
+ */
 @theme {
-  --color-cockpit-bg: #0c1118;
-  --color-cockpit-surface: #131c24;
-  --color-cockpit-border: #1e2d38;
-  --color-cockpit-accent: #c8913a;
-  --color-cockpit-accent-hover: #daa54e;
-  --color-cockpit-text: #d5cfc2;
-  --color-cockpit-text-muted: #6b7d8a;
-  --color-cockpit-success: #5a9a5c;
-  --color-cockpit-danger: #b84a3e;
-  --color-cockpit-warning: #c8913a;
+  /* --- Ark canonical surfaces --- */
+  --color-ark-bg:          oklch(0.16 0.04 245);
+  --color-ark-surface:     oklch(0.20 0.04 245);
+  --color-ark-surface-2:   oklch(0.26 0.04 245);
+  --color-ark-surface-3:   oklch(0.30 0.04 245);
+
+  /* --- Ark borders (intentional alpha baked in) --- */
+  --color-ark-border:         oklch(1 0 0 / 0.12);
+  --color-ark-border-muted:   oklch(1 0 0 / 0.06);
+  --color-ark-border-strong:  oklch(1 0 0 / 0.22);
+
+  /* --- Ark primary (ocean blue brand color) --- */
+  --color-ark-primary-dim:    oklch(0.45 0.10 235);
+  --color-ark-primary:        oklch(0.65 0.14 235);
+  --color-ark-primary-hover:  oklch(0.72 0.14 235);
+  --color-ark-primary-bg:     oklch(0.65 0.14 235 / 0.12);
+  --color-ark-primary-ring:   oklch(0.65 0.14 235 / 0.50);
+  --color-ark-on-primary:     oklch(0.16 0.04 245);
+
+  /* --- Ark warm (golden secondary) --- */
+  --color-ark-warm-dim:    oklch(0.50 0.12 75);
+  --color-ark-warm:        oklch(0.72 0.14 75);
+  --color-ark-warm-hover:  oklch(0.80 0.14 75);
+  --color-ark-warm-bg:     oklch(0.72 0.14 75 / 0.12);
+  --color-ark-on-warm:     oklch(0.16 0.04 245);
+
+  /* --- Ark text --- */
+  --color-ark-text-bright: oklch(0.96 0.01 230);
+  --color-ark-text:        oklch(0.85 0.01 230);
+  --color-ark-text-muted:  oklch(0.65 0.04 235);
+  --color-ark-text-dim:    oklch(0.50 0.04 235);
+
+  /* --- Ark semantics --- */
+  --color-ark-success:    oklch(0.68 0.18 145);
+  --color-ark-success-bg: oklch(0.68 0.18 145 / 0.12);
+  --color-ark-danger:     oklch(0.70 0.19 22);
+  --color-ark-danger-bg:  oklch(0.70 0.19 22 / 0.12);
+  --color-ark-warning:    oklch(0.72 0.14 75);
+  --color-ark-warning-bg: oklch(0.72 0.14 75 / 0.12);
+  --color-ark-info:       oklch(0.68 0.12 220);
+  --color-ark-info-bg:    oklch(0.68 0.12 220 / 0.12);
+
+  /* --- Cockpit alias: legacy class names now point at Ark OKLCH ---
+   * Existing pages keep using bg-cockpit-accent, etc. — they render
+   * with the new identity automatically. Sweep to ark-* progressively. */
+  --color-cockpit-bg:           oklch(0.16 0.04 245);  /* = ark-bg */
+  --color-cockpit-surface:      oklch(0.20 0.04 245);  /* = ark-surface */
+  --color-cockpit-border:       oklch(1 0 0 / 0.12);   /* = ark-border */
+  --color-cockpit-accent:       oklch(0.72 0.14 75);   /* = ark-warm */
+  --color-cockpit-accent-hover: oklch(0.80 0.14 75);   /* = ark-warm-hover */
+  --color-cockpit-text:         oklch(0.85 0.01 230);  /* = ark-text */
+  --color-cockpit-text-muted:   oklch(0.65 0.04 235);  /* = ark-text-muted */
+  --color-cockpit-success:      oklch(0.68 0.18 145);  /* = ark-success */
+  --color-cockpit-danger:       oklch(0.70 0.19 22);   /* = ark-danger */
+  --color-cockpit-warning:      oklch(0.72 0.14 75);   /* = ark-warning */
 }
 
 @layer base {
@@ -43,37 +99,37 @@
 }
 .prose table th,
 .prose table td {
-  @apply border border-cockpit-border px-3 py-2 text-sm;
+  @apply border border-ark-border px-3 py-2 text-sm;
 }
 .prose table th {
-  @apply bg-cockpit-bg font-medium text-left;
+  @apply bg-ark-bg font-medium text-left;
 }
 .prose table tr:nth-child(even) {
-  @apply bg-cockpit-bg/50;
+  @apply bg-ark-bg/50;
 }
 .prose code:not(pre code) {
-  @apply bg-cockpit-bg border border-cockpit-border rounded px-1.5 py-0.5 text-xs font-mono text-cockpit-accent;
+  @apply bg-ark-bg border border-ark-border rounded px-1.5 py-0.5 text-xs font-mono text-ark-warm;
 }
 .prose pre {
-  @apply bg-cockpit-bg border border-cockpit-border rounded-lg p-4 overflow-x-auto;
+  @apply bg-ark-bg border border-ark-border rounded-lg p-4 overflow-x-auto;
 }
 .prose pre code {
   @apply text-sm font-mono leading-relaxed;
 }
 .prose blockquote {
-  @apply border-l-2 border-cockpit-accent/40 pl-4 italic text-cockpit-text-muted;
+  @apply border-l-2 border-ark-warm/40 pl-4 italic text-ark-text-muted;
 }
 .prose hr {
-  @apply border-cockpit-border;
+  @apply border-ark-border;
 }
 .prose a {
-  @apply text-cockpit-accent hover:text-cockpit-accent-hover underline;
+  @apply text-ark-primary hover:text-ark-primary-hover underline;
 }
 .prose img {
   @apply rounded-lg max-w-full;
 }
 .prose input[type="checkbox"] {
-  @apply accent-cockpit-accent mr-1.5;
+  @apply accent-ark-primary mr-1.5;
 }
 
 /* Toast animations */
