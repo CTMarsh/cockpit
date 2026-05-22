@@ -77,6 +77,32 @@
   --color-cockpit-success:      oklch(0.68 0.18 145);  /* = ark-success */
   --color-cockpit-danger:       oklch(0.70 0.19 22);   /* = ark-danger */
   --color-cockpit-warning:      oklch(0.72 0.14 75);   /* = ark-warm (stays gold) */
+
+  /* --- Border radii ---
+   * Standardised tight scale. We prefer slightly-rounded over deeply-rounded
+   * across the whole app. Two layers:
+   *
+   *   1. Override Tailwind's built-in --radius-* so all legacy rounded-lg /
+   *      rounded-xl / rounded-2xl / rounded-3xl usages tighten to this scale.
+   *   2. Define --radius-ark-* mirrors so the handoff-authored Layout/Dashboard
+   *      classes (rounded-ark, rounded-ark-lg, rounded-ark-xl, etc.) actually
+   *      emit CSS - previously they silently produced 0px (sharp corners on
+   *      Dashboard tiles).
+   *
+   * rounded-full and rounded-none are unchanged. */
+  --radius-sm:   4px;
+  --radius-md:   6px;
+  --radius-lg:   6px;   /* was 8px (Tailwind 4 default) */
+  --radius-xl:   8px;   /* was 12px */
+  --radius-2xl:  8px;   /* was 16px */
+  --radius-3xl: 12px;   /* was 24px */
+
+  --radius-ark-sm:   4px;
+  --radius-ark:      6px;
+  --radius-ark-md:   6px;
+  --radius-ark-lg:   6px;
+  --radius-ark-xl:   8px;
+  --radius-ark-2xl:  8px;
 }
 
 @layer base {
