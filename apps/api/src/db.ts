@@ -271,15 +271,41 @@ async function migrate() {
     ["gitlab", "GitLab", "https://gitlab.noahsark.me", "gitlab", 0],
     ["proxmox", "Proxmox VE", "https://pve.noahsark.me:8006", "server", 0],
     ["home-assistant", "Home Assistant", "https://hass.noahsark.me", "home", 0],
-    ["rustfs", "RustFS Console", "https://s3.noahsark.me:9001", "database", 0],
+    ["rustfs", "RustFS Console", "https://rustfs.noahsark.me", "database", 0],
     ["notify", "Notify", "https://notify.noahsark.me", "bell", 0],
     ["traefik", "Traefik Dashboard", "https://traefik.noahsark.me", "network", 0],
     ["rancher", "Rancher", "https://rancher.noahsark.me", "monitor", 0],
     ["cloudflare-dns", "Cloudflare DNS", "https://one.one.one.one", "cloud", 0],
+    ["argocd", "ArgoCD", "https://argocd.noahsark.me", "git-branch", 0],
+    ["vault", "Vault", "https://vault.noahsark.me", "lock", 0],
+    ["openbao", "OpenBao", "http://10.0.80.75:8200", "lock", 0],
+    ["grafana", "Grafana", "https://grafana.noahsark.me", "line-chart", 0],
+    ["prometheus", "Prometheus", "https://prometheus.noahsark.me", "activity", 0],
+    ["alertmanager", "Alertmanager", "https://alertmanager.noahsark.me", "bell-ring", 0],
+    ["pushgateway", "Pushgateway", "https://pushgateway.noahsark.me", "upload", 0],
+    ["pgadmin", "pgAdmin", "https://pgadmin.noahsark.me", "database", 0],
+    ["supabase", "Supabase", "https://supabase.noahsark.me", "database", 0],
+    ["supabase-studio", "Supabase Studio", "https://supabase-studio.noahsark.me", "layout-grid", 0],
+    ["chat-app", "Chat App", "https://chat.noahsark.me", "message-circle", 0],
+    ["openwebui", "Open WebUI", "https://ai.noahsark.me", "brain", 0],
+    ["ollama", "Ollama API", "https://ollama.noahsark.me", "cpu", 0],
+    ["speaches", "Speaches (STT/TTS)", "https://speaches.noahsark.me", "mic", 0],
+    ["goldilocks", "Goldilocks", "https://goldilocks.noahsark.me", "gauge", 0],
+    ["polaris", "Polaris", "https://polaris.noahsark.me", "shield-check", 0],
+    ["policy-reporter", "Policy Reporter", "https://policy-reporter.noahsark.me", "file-text", 0],
+    ["kyverno-playground", "Kyverno Playground", "https://kyverno-playground.noahsark.me", "shield", 0],
+    ["photovault", "PhotoVault", "https://photovault.noahsark.me", "camera", 0],
+    ["mixvault", "MixVault", "https://mixvault.noahsark.me", "disc-3", 0],
+    ["3cx", "3CX Communicate", "https://communicate.noahsark.me", "phone", 0],
   ];
   for (const [id, name, url, icon, expected] of defaults) {
     await sql`INSERT INTO services (id, name, url, icon, expected_status) VALUES (${id}, ${name}, ${url}, ${icon}, ${expected}) ON CONFLICT (id) DO NOTHING`;
   }
+
+  // One-off fix for the stale RustFS console URL seeded prior to 2026-05-23 (port-based
+  // s3.noahsark.me:9001 -> hostname-based rustfs.noahsark.me). ON CONFLICT DO NOTHING
+  // on the seed above will not update existing rows, so we patch directly here.
+  await sql`UPDATE services SET url = 'https://rustfs.noahsark.me' WHERE id = 'rustfs' AND url = 'https://s3.noahsark.me:9001'`;
 }
 
 export { sql, migrate };
