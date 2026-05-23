@@ -7,13 +7,11 @@ import {
   Bookmark,
   FileText,
   Network,
-  HardDrive,
   Shuffle,
   Activity,
   MonitorDot,
   ScrollText,
   Clock,
-  Power,
   ArrowRight,
   ExternalLink,
   CheckCircle2,
@@ -70,13 +68,10 @@ export function DashboardPage() {
     { path: "/bookmarks",  label: "Bookmarks",       icon: Bookmark,  desc: "Save & tag URLs",               stat: stats ? `${stats.bookmarkCount} saved` : "...",   tone: "warm" },
     { path: "/markdown",   label: "Markdown",        icon: FileText,  desc: "Write & collaborate",           stat: stats ? `${stats.docCount} documents` : "...",    tone: "primary" },
     { path: "/graph",      label: "Knowledge Graph", icon: Network,   desc: "Visualize connections",         stat: "Interactive",                                    tone: "warm" },
-    { path: "/dedup",      label: "Deduplicator",    icon: HardDrive, desc: "Find duplicate files",          stat: "Scanner",                                        tone: "primary" },
     { path: "/randomizer", label: "Build Ideas",     icon: Shuffle,   desc: "Random project ideas",          stat: "Generator",                                      tone: "warm" },
-    { path: "/monitor",    label: "Cluster Monitor", icon: Activity,  desc: "Node & pod metrics",            stat: "Real-time",                                      tone: "primary" },
     { path: "/proxmox",    label: "Proxmox",         icon: MonitorDot,desc: "VMs & containers on Proxmox",   stat: "Hypervisor",                                     tone: "warm" },
     { path: "/logs",       label: "Log Viewer",      icon: ScrollText,desc: "Container & system logs",       stat: "Streaming",                                      tone: "primary" },
     { path: "/cron",       label: "Cron Jobs",       icon: Clock,     desc: "Scheduled task manager",        stat: "Scheduler",                                      tone: "warm" },
-    { path: "/wol",        label: "Wake-on-LAN",     icon: Power,     desc: "Wake machines remotely",        stat: "Network",                                        tone: "primary" },
   ];
 
   const clusterOk    = stats && stats.clusterNodes > 0 && stats.clusterOnline === stats.clusterNodes;
