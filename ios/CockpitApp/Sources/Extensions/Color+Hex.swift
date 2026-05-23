@@ -2,7 +2,9 @@ import SwiftUI
 
 extension Color {
     /// Create a Color from a hex string supporting #RRGGBB and #RRGGBBAA formats.
-    /// The leading '#' is optional.
+    /// The leading '#' is optional. Kept for callers that need #RRGGBBAA alpha
+    /// support; ArkTokens.Colors.* provides the standard palette via opaque
+    /// values + .opacity(_) for translucency.
     init(hexString: String) {
         let hex = hexString.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0
@@ -28,17 +30,22 @@ extension Color {
     }
 
     // MARK: - Theme Convenience Colors
+    //
+    // Delegated to ArkTokens (the Noah's Ark design system Swift mirror).
+    // Names preserved so existing call sites keep working. cockpitAccent is
+    // mapped to ArkTokens.Colors.primary (ocean blue), matching the web
+    // app's accent->primary semantic.
 
-    /// Cockpit background: #0c1118
-    static let cockpitBackground = Color(hex: "0c1118")
-    /// Cockpit accent gold: #c8913a
-    static let cockpitAccent = Color(hex: "c8913a")
-    /// Cockpit surface: #1a2332
-    static let cockpitSurface = Color(hex: "1a2332")
-    /// Cockpit border: #1e2a38
-    static let cockpitBorder = Color(hex: "1e2a38")
-    /// Cockpit text: #e4e8ec
-    static let cockpitText = Color(hex: "e4e8ec")
-    /// Cockpit muted text: #8898a8
-    static let cockpitTextMuted = Color(hex: "8898a8")
+    /// Cockpit background — delegates to ArkTokens.Colors.bg
+    static let cockpitBackground = ArkTokens.Colors.bg
+    /// Cockpit accent — delegates to ArkTokens.Colors.primary (ocean blue)
+    static let cockpitAccent = ArkTokens.Colors.primary
+    /// Cockpit surface — delegates to ArkTokens.Colors.surface
+    static let cockpitSurface = ArkTokens.Colors.surface
+    /// Cockpit border — delegates to ArkTokens.Colors.border
+    static let cockpitBorder = ArkTokens.Colors.border
+    /// Cockpit text — delegates to ArkTokens.Colors.text
+    static let cockpitText = ArkTokens.Colors.text
+    /// Cockpit muted text — delegates to ArkTokens.Colors.textMuted
+    static let cockpitTextMuted = ArkTokens.Colors.textMuted
 }
