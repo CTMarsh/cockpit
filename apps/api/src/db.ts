@@ -144,66 +144,6 @@ async function migrate() {
   await sql`CREATE INDEX IF NOT EXISTS idx_cron_runs_job ON cron_runs(job_id, started_at)`;
 
   await sql`
-    CREATE TABLE IF NOT EXISTS wol_devices (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      mac TEXT NOT NULL,
-      ip TEXT,
-      broadcast TEXT NOT NULL DEFAULT '255.255.255.255',
-      port INTEGER NOT NULL DEFAULT 9,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `;
-
-  await sql`
-    CREATE TABLE IF NOT EXISTS alert_rules (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      metric_type TEXT NOT NULL,
-      operator TEXT NOT NULL DEFAULT 'gt',
-      threshold DOUBLE PRECISION NOT NULL,
-      target TEXT NOT NULL DEFAULT '',
-      cooldown_minutes INTEGER NOT NULL DEFAULT 15,
-      enabled INTEGER NOT NULL DEFAULT 1,
-      webhook_url TEXT NOT NULL DEFAULT '',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `;
-
-  await sql`
-    CREATE TABLE IF NOT EXISTS alert_history (
-      id SERIAL PRIMARY KEY,
-      rule_id TEXT NOT NULL REFERENCES alert_rules(id) ON DELETE CASCADE,
-      rule_name TEXT NOT NULL,
-      metric_type TEXT NOT NULL,
-      value DOUBLE PRECISION NOT NULL,
-      threshold DOUBLE PRECISION NOT NULL,
-      message TEXT NOT NULL,
-      fired_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `;
-
-  await sql`CREATE INDEX IF NOT EXISTS idx_alert_history_rule ON alert_history(rule_id, fired_at)`;
-
-  await sql`
-    CREATE TABLE IF NOT EXISTS deployment_events (
-      id SERIAL PRIMARY KEY,
-      namespace TEXT NOT NULL,
-      deployment TEXT NOT NULL,
-      image TEXT NOT NULL,
-      previous_image TEXT,
-      status TEXT NOT NULL DEFAULT 'started',
-      triggered_by TEXT NOT NULL DEFAULT 'ci',
-      started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      completed_at TIMESTAMPTZ
-    )
-  `;
-
-  await sql`CREATE INDEX IF NOT EXISTS idx_deploy_events_ns ON deployment_events(namespace, deployment)`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_deploy_events_time ON deployment_events(started_at)`;
-
-  await sql`
     CREATE TABLE IF NOT EXISTS uptime_services (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -246,24 +186,6 @@ async function migrate() {
   `;
 
   await sql`CREATE INDEX IF NOT EXISTS idx_network_devices_ip ON network_devices(ip)`;
-
-  await sql`
-    CREATE TABLE IF NOT EXISTS ansible_runs (
-      id TEXT PRIMARY KEY,
-      playbook TEXT NOT NULL,
-      tags TEXT,
-      extra_vars TEXT,
-      dry_run INTEGER NOT NULL DEFAULT 0,
-      status TEXT NOT NULL DEFAULT 'running',
-      exit_code INTEGER,
-      output TEXT NOT NULL DEFAULT '',
-      started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      completed_at TIMESTAMPTZ
-    )
-  `;
-
-  await sql`CREATE INDEX IF NOT EXISTS idx_ansible_runs_status ON ansible_runs(status)`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_ansible_runs_started ON ansible_runs(started_at)`;
 
   // Seed default homelab services
   const defaults: [string, string, string, string, number][] = [

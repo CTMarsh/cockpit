@@ -1,5 +1,0 @@
-{
-  "name": "@cockpit/dedup",
-  "private": true,
-  "main": "api.ts"
-}
