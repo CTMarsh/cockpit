@@ -7,7 +7,6 @@ import sql, { migrate } from "./db";
 import { redis, redisSub, connectRedis } from "./redis";
 import { homelabRoutes } from "../../../modules/homelab/api";
 import { bookmarksRoutes } from "../../../modules/bookmarks/api";
-import { dedupRoutes } from "../../../modules/dedup/api";
 import { randomizerRoutes } from "../../../modules/randomizer/api";
 import { markdownRoutes } from "../../../modules/markdown/api";
 import { graphRoutes } from "../../../modules/graph/api";
@@ -15,12 +14,8 @@ import { sysmonRoutes } from "../../../modules/sysmon/api";
 import { proxmoxRoutes } from "../../../modules/proxmox/api";
 import { logsRoutes } from "../../../modules/logs/api";
 import { cronRoutes } from "../../../modules/cron/api";
-import { wolRoutes } from "../../../modules/wol/api";
 import { k8sRoutes } from "../../../modules/k8s/api";
 import { haRoutes } from "../../../modules/homeassistant/api";
-import { backupRoutes } from "../../../modules/backup/api";
-import { alertsRoutes } from "../../../modules/alerts/api";
-import { deployHistoryRoutes } from "../../../modules/deploy-history/api";
 import { s3BrowserRoutes } from "../../../modules/s3-browser/api";
 import { notifyRoutes } from "../../../modules/notify/api";
 import { gitlabRoutes } from "../../../modules/gitlab/api";
@@ -29,7 +24,6 @@ import { certificateRoutes } from "../../../modules/certificates/api";
 import { traefikRoutes } from "../../../modules/traefik/api";
 import { dnsRoutes } from "../../../modules/dns/api";
 import { networkRoutes } from "../../../modules/network/api";
-import { ansibleRoutes } from "../../../modules/ansible/api";
 
 // Run database migrations and connect Redis before serving
 await migrate();
@@ -84,7 +78,7 @@ const healthRoute = createRoute({
   }
 });
 app.openapi(healthRoute, (c) =>
-  c.json({ status: "ok", name: "Cockpit API", version: process.env.APP_VERSION || "unknown", modules: 25 }, 200)
+  c.json({ status: "ok", name: "Cockpit API", version: process.env.APP_VERSION || "unknown", modules: 19 }, 200)
 );
 
 // Dashboard stats — aggregated overview
@@ -159,7 +153,6 @@ app.openapi(dashboardStatsRoute, async (c) => {
 // Module routes — each has its own namespace
 app.route("/api/homelab", homelabRoutes);
 app.route("/api/bookmarks", bookmarksRoutes);
-app.route("/api/dedup", dedupRoutes);
 app.route("/api/randomizer", randomizerRoutes);
 app.route("/api/markdown", markdownRoutes);
 app.route("/api/graph", graphRoutes);
@@ -167,12 +160,8 @@ app.route("/api/sysmon", sysmonRoutes);
 app.route("/api/proxmox", proxmoxRoutes);
 app.route("/api/logs", logsRoutes);
 app.route("/api/cron", cronRoutes);
-app.route("/api/wol", wolRoutes);
 app.route("/api/k8s", k8sRoutes);
 app.route("/api/ha", haRoutes);
-app.route("/api/backup", backupRoutes);
-app.route("/api/alerts", alertsRoutes);
-app.route("/api/deploy-history", deployHistoryRoutes);
 app.route("/api/s3", s3BrowserRoutes);
 app.route("/api/notify", notifyRoutes);
 app.route("/api/gitlab", gitlabRoutes);
@@ -181,7 +170,6 @@ app.route("/api/certificates", certificateRoutes);
 app.route("/api/traefik", traefikRoutes);
 app.route("/api/dns", dnsRoutes);
 app.route("/api/network", networkRoutes);
-app.route("/api/ansible", ansibleRoutes);
 
 // OpenAPI documentation
 app.doc('/api/openapi.json', {

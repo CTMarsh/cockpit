@@ -21,36 +21,30 @@ cockpit/
 │   │       └── schemas/      # Shared Zod schemas
 │   └── web/                  # Frontend: React 19 + Vite 6 SPA
 │       └── src/
-│           ├── main.tsx      # App entry, 27 routes + auth gate
+│           ├── main.tsx      # App entry, 21 routes + auth gate
 │           ├── Layout.tsx    # Sidebar navigation, responsive shell
 │           ├── api.ts        # Fetch wrapper with credentials + 401 handling
-│           ├── pages/        # 28 page components
+│           ├── pages/        # 21 page components
 │           └── components/   # Shared: ErrorBanner, ConfirmDialog, LoadingSpinner, PageHeader, StatusBadge, Toast
-├── modules/                  # 25 feature modules (each has api.ts with Hono routes)
+├── modules/                  # 19 feature modules (each has api.ts with Hono routes)
 │   ├── homelab/              # Service monitoring with SSRF protection
 │   ├── bookmarks/            # Bookmarks with tags, search, import/export
 │   ├── markdown/             # Markdown editor with WebSocket real-time collaboration
 │   ├── graph/                # Force-directed knowledge graph
-│   ├── sysmon/               # k8s cluster monitor (nodes, pods, metrics via Proxmox + k8s APIs)
+│   ├── sysmon/               # Cluster summary feed for Dashboard widget (no /monitor page)
 │   ├── proxmox/              # Proxmox VE node/VM/CT management
 │   ├── logs/                 # k8s pod log viewer with SSE streaming
 │   ├── cron/                 # Cron job manager with Bun.spawn execution
-│   ├── wol/                  # Wake-on-LAN device management
 │   ├── k8s/                  # Kubernetes workload management (restart/scale/delete)
 │   ├── homeassistant/        # Home Assistant entity states + service calling
-│   ├── alerts/               # Alert rules with Notify webhook integration
 │   ├── uptime/               # Uptime service monitoring + stats
 │   ├── certificates/         # cert-manager Certificate/Issuer viewer
 │   ├── traefik/              # IngressRoute/Middleware viewer
 │   ├── dns/                  # Cloudflare DNS record management
 │   ├── network/              # Network device scanning + port discovery
-│   ├── ansible/              # Playbook execution + run history
-│   ├── backup/               # S3/MinIO backup management
-│   ├── deploy-history/       # Deployment event log
 │   ├── s3-browser/           # MinIO/S3 bucket/file browser
 │   ├── notify/               # Notify service proxy with cookie caching
 │   ├── gitlab/               # Full GitLab API proxy
-│   ├── dedup/                # File deduplication by hash
 │   ├── randomizer/           # Project idea generator with favorites
 │   ├── k8s-client/           # Shared k8s API client (Bearer token, streaming)
 │   ├── s3-client/            # Shared MinIO/S3 client
@@ -88,28 +82,26 @@ cockpit/
 | `/markdown` | Markdown | Editor with live preview |
 | `/markdown/:id` | Markdown | Specific document (WebSocket collab) |
 | `/graph` | Graph | Knowledge graph visualization (D3) |
-| `/monitor` | System Monitor | k8s cluster metrics via Proxmox + k8s APIs |
 | `/proxmox` | Proxmox | VM/CT management |
 | `/logs` | Logs | k8s pod log viewer with SSE streaming |
 | `/cron` | Cron Jobs | Scheduled task manager |
-| `/wol` | Wake-on-LAN | Network device wake |
 | `/k8s` | K8s Manager | Namespace/workload/pod management |
 | `/homeassistant` | Home Assistant | Entity states + service calling |
-| `/alerts` | Alerts | Alert rules + history |
 | `/uptime` | Uptime Monitor | HTTP uptime tracking + stats |
 | `/certificates` | Certificates | cert-manager Certificate/Issuer viewer |
 | `/traefik` | Traefik Routes | IngressRoute/Middleware viewer |
 | `/dns` | DNS Manager | Cloudflare DNS record management |
 | `/network` | Network Scanner | Device scanning + port discovery |
-| `/ansible` | Ansible Runner | Playbook execution |
 | `/s3` | S3 Browser | MinIO/S3 bucket/file browser |
 | `/notify` | Notify | Notification service management |
 | `/gitlab` | GitLab | Projects, MRs, pipelines, jobs, releases |
-| `/backups` | Backups | S3 backup management |
-| `/deploys` | Deploy History | Deployment event log |
-| `/dedup` | Dedup | File deduplication |
 | `/randomizer` | Randomizer | Project idea generator |
 | `/link` | Link Device | QR-based device linking |
+
+> Sunset 2026-05-23: `/alerts`, `/backups`, `/dedup`, `/wol`, `/deploys`, `/ansible`, `/monitor` removed.
+> Alerts → Alertmanager. Backups → CNPG BarmanCloud + Velero. Dedup/WoL/Ansible
+> → did not function in the locked-down pod. Deploy History → ArgoCD UI. Sysmon
+> page → Grafana dashboards (API kept for the Dashboard summary widget).
 
 ### Infrastructure
 
@@ -225,19 +217,14 @@ All env vars come from `cockpit-secrets` ExternalSecret (Vault path: `cockpit/co
 | `GITLAB_TOKEN` | For gitlab | GitLab API token |
 | `HA_URL` | For homeassistant | Home Assistant URL |
 | `HA_TOKEN` | For homeassistant | Home Assistant API token |
-| `NOTIFY_URL` | For notify/alerts | Notify service URL |
+| `NOTIFY_URL` | For notify | Notify service URL |
 | `NOTIFY_ADMIN_USER` | For notify | Notify admin username |
 | `NOTIFY_ADMIN_PASS` | For notify | Notify admin password |
-| `NOTIFY_ALERT_SLUG` | For alerts | Notify webhook slug |
-| `NOTIFY_ALERT_API_KEY` | For alerts | Notify webhook API key |
 | `CLOUDFLARE_API_TOKEN` | For dns | Cloudflare API token |
 | `CLOUDFLARE_ZONE_ID` | For dns | Cloudflare zone ID |
-| `S3_ENDPOINT` | For backup/s3 | MinIO/S3 endpoint |
-| `S3_ACCESS_KEY` | For backup/s3 | MinIO/S3 access key |
-| `S3_SECRET_KEY` | For backup/s3 | MinIO/S3 secret key |
-| `ANSIBLE_REPO_PATH` | For ansible | Ansible playbook path |
-| `ANSIBLE_SSH_HOST` | For ansible | SSH host for playbooks |
-| `ANSIBLE_SSH_KEY` | For ansible | SSH key for playbooks |
+| `S3_ENDPOINT` | For s3 | RustFS/S3 endpoint |
+| `S3_ACCESS_KEY` | For s3 | RustFS/S3 access key |
+| `S3_SECRET_KEY` | For s3 | RustFS/S3 secret key |
 | `API_PORT` | No | API server port (default: 4000) |
 | `APP_VERSION` | No | Version (CI-injected) |
 | `NODE_ENV` | No | Set to `production` in k8s deployment |

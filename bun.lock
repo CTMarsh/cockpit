@@ -59,9 +59,6 @@
       "name": "@cockpit/cron",
       "version": "2.1.0",
     },
-    "modules/dedup": {
-      "name": "@cockpit/dedup",
-    },
     "modules/graph": {
       "name": "@cockpit/graph",
     },
@@ -85,10 +82,6 @@
     "modules/sysmon": {
       "name": "@cockpit/sysmon",
       "version": "2.0.0",
-    },
-    "modules/wol": {
-      "name": "@cockpit/wol",
-      "version": "2.1.0",
     },
   },
   "packages": {
@@ -138,8 +131,6 @@
 
     "@cockpit/cron": ["@cockpit/cron@workspace:modules/cron"],
 
-    "@cockpit/dedup": ["@cockpit/dedup@workspace:modules/dedup"],
-
     "@cockpit/graph": ["@cockpit/graph@workspace:modules/graph"],
 
     "@cockpit/homelab": ["@cockpit/homelab@workspace:modules/homelab"],
@@ -155,8 +146,6 @@
     "@cockpit/sysmon": ["@cockpit/sysmon@workspace:modules/sysmon"],
 
     "@cockpit/web": ["@cockpit/web@workspace:apps/web"],
-
-    "@cockpit/wol": ["@cockpit/wol@workspace:modules/wol"],
 
     "@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.25.12", "", { "os": "aix", "cpu": "ppc64" }, "sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA=="],
 
