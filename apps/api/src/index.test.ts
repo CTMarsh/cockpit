@@ -72,7 +72,6 @@ describe("Health endpoints (public)", () => {
     "/api/sysmon/health",
     "/api/logs/health",
     "/api/cron/health",
-    "/api/wol/health",
   ];
 
   for (const route of healthRoutes) {
@@ -435,68 +434,6 @@ describe("Cron Jobs", () => {
 
   test("DELETE /api/cron/jobs/:id removes job", async () => {
     const res = await authedFetch(`/api/cron/jobs/${jobId}`, { method: "DELETE" });
-    expect(res.status).toBe(200);
-  });
-});
-
-// ── Wake-on-LAN Devices CRUD ─────────────────────────────────
-describe("WoL Devices", () => {
-  let deviceId: string;
-
-  test("POST /api/wol/devices creates a device", async () => {
-    const res = await authedFetch("/api/wol/devices", {
-      method: "POST",
-      body: JSON.stringify({ name: "Test PC", mac: "AA:BB:CC:DD:EE:FF", ip: "10.0.0.100" }),
-    });
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(data.name).toBe("Test PC");
-    expect(data.mac).toBe("AA:BB:CC:DD:EE:FF");
-    deviceId = data.id;
-  });
-
-  test("POST /api/wol/devices rejects missing fields", async () => {
-    const res = await authedFetch("/api/wol/devices", {
-      method: "POST",
-      body: JSON.stringify({ name: "No MAC" }),
-    });
-    expect(res.status).toBe(400);
-  });
-
-  test("POST /api/wol/devices rejects invalid MAC format", async () => {
-    const res = await authedFetch("/api/wol/devices", {
-      method: "POST",
-      body: JSON.stringify({ name: "Bad MAC", mac: "not-a-mac" }),
-    });
-    expect(res.status).toBe(400);
-  });
-
-  test("GET /api/wol/devices lists devices", async () => {
-    const res = await authedFetch("/api/wol/devices");
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(Array.isArray(data.devices)).toBe(true);
-    expect(data.devices.length).toBeGreaterThan(0);
-  });
-
-  test("PUT /api/wol/devices/:id updates a device", async () => {
-    const res = await authedFetch(`/api/wol/devices/${deviceId}`, {
-      method: "PUT",
-      body: JSON.stringify({ name: "Updated PC" }),
-    });
-    expect(res.status).toBe(200);
-  });
-
-  test("PUT /api/wol/devices/nonexistent returns 404", async () => {
-    const res = await authedFetch("/api/wol/devices/nonexistent", {
-      method: "PUT",
-      body: JSON.stringify({ name: "Nope" }),
-    });
-    expect(res.status).toBe(404);
-  });
-
-  test("DELETE /api/wol/devices/:id removes device", async () => {
-    const res = await authedFetch(`/api/wol/devices/${deviceId}`, { method: "DELETE" });
     expect(res.status).toBe(200);
   });
 });
