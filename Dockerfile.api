@@ -5,7 +5,6 @@ COPY package.json bun.lock* ./
 COPY apps/api/package.json apps/api/
 COPY modules/homelab/package.json modules/homelab/
 COPY modules/bookmarks/package.json modules/bookmarks/
-COPY modules/dedup/package.json modules/dedup/
 COPY modules/randomizer/package.json modules/randomizer/
 COPY modules/markdown/package.json modules/markdown/
 COPY modules/graph/package.json modules/graph/
@@ -13,7 +12,6 @@ COPY modules/sysmon/package.json modules/sysmon/
 COPY modules/proxmox/package.json modules/proxmox/
 COPY modules/logs/package.json modules/logs/
 COPY modules/cron/package.json modules/cron/
-COPY modules/wol/package.json modules/wol/
 
 RUN bun install --frozen-lockfile || bun install
 
