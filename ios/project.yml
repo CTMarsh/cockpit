@@ -105,7 +105,6 @@ targets:
       - path: CockpitWatch/CockpitWatch.entitlements
         buildPhase: none
       - CockpitApp/Sources/Models
-      - CockpitApp/Sources/Theme
       - path: CockpitApp/Sources/Extensions/Color+Hex.swift
       - path: CockpitApp/Sources/Auth/KeychainHelper.swift
     settings:
