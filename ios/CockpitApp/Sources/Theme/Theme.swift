@@ -1,37 +1,29 @@
 import SwiftUI
 
-/// Cockpit dark nautical theme — matches web Tailwind cockpit-* tokens
+/// Cockpit iOS theme - delegates to the Noah's Ark design system.
+///
+/// The 10 public properties below KEEP their pre-migration names so every
+/// existing call site (`Theme.background`, `Theme.accent`, etc.) renders
+/// with the new identity automatically. Values now come from
+/// `ArkTokens.Colors.*` instead of inline brass-era hex.
+///
+/// New code should prefer `ArkTokens.Colors.*` directly. This shim exists
+/// to keep the view-layer diff zero for this MR. Sweep call sites to
+/// `ArkTokens.*` in follow-up commits if desired.
+///
+/// `accent` maps to ArkTokens.Colors.primary (ocean blue) to match the
+/// Cockpit web remap (accent is used here for primary CTAs / active states,
+/// not a warm decorative role). `warning` stays warm/golden because that
+/// IS its semantic role.
 enum Theme {
-    static let background = Color(hex: "0c1118")
-    static let surface = Color(hex: "141c26")
-    static let border = Color(hex: "1e2a38")
-    static let accent = Color(hex: "c8913a")
-    static let text = Color(hex: "e4e8ec")
-    static let textMuted = Color(hex: "8898a8")
-    static let success = Color(hex: "34d399")
-    static let danger = Color(hex: "f87171")
-    static let warning = Color(hex: "fbbf24")
-    static let info = Color(hex: "60a5fa")
-}
-
-extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let r, g, b: UInt64
-        switch hex.count {
-        case 6:
-            (r, g, b) = ((int >> 16) & 0xFF, (int >> 8) & 0xFF, int & 0xFF)
-        default:
-            (r, g, b) = (0, 0, 0)
-        }
-        self.init(
-            .sRGB,
-            red: Double(r) / 255,
-            green: Double(g) / 255,
-            blue: Double(b) / 255,
-            opacity: 1
-        )
-    }
+    static let background = ArkTokens.Colors.bg
+    static let surface    = ArkTokens.Colors.surface
+    static let border     = ArkTokens.Colors.border
+    static let accent     = ArkTokens.Colors.primary
+    static let text       = ArkTokens.Colors.text
+    static let textMuted  = ArkTokens.Colors.textMuted
+    static let success    = ArkTokens.Colors.success
+    static let danger     = ArkTokens.Colors.danger
+    static let warning    = ArkTokens.Colors.warm
+    static let info       = ArkTokens.Colors.info
 }
