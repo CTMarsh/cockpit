@@ -277,7 +277,7 @@ deploy:k8s:
     MANIFEST_PROJECT_ID: "41"
   script:
     - apk add --no-cache curl
-    - git clone https://oauth2:${GITLAB_MANIFEST_PAT}@gitlab.noahsark.me/ctmarsh/k8s-manifests.git
+    - git clone https://oauth2:${GITLAB_MANIFEST_PAT}@gitlab.noahsark.me/homelab/k8s-manifests.git
     - cd k8s-manifests
     - DEPLOY_BRANCH="ci/cockpit-deploy-${CI_COMMIT_SHORT_SHA}"
     - git checkout -b "$DEPLOY_BRANCH"
@@ -304,7 +304,7 @@ deploy:k8s:
           \"target_branch\": \"main\",
           \"title\": \"ci(cockpit): deploy ${CI_COMMIT_SHORT_SHA}\",
           \"description\": \"Automated deploy from cockpit pipeline ${CI_PIPELINE_ID}.\\n\\nPipeline: ${CI_PIPELINE_URL}\\nTriggered by: ${GITLAB_USER_LOGIN}\\nVersion: ${APP_VERSION}\",
-          \"assignee_id\": 5,
+          \"assignee_id\": 7,
           \"reviewer_ids\": [1],
           \"remove_source_branch\": true,
           \"squash\": true
