@@ -1,7 +1,9 @@
 import { useEffect, useState, useMemo } from "react";
 import { api } from "../api";
-import { Bookmark, Search, Plus, X, Tag, ExternalLink, Pencil, Check, Download, Upload } from "lucide-react";
+import { Bookmark, Search, Plus, Tag, ExternalLink, Pencil, Check, Download, Upload, Trash2 } from "lucide-react";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { ConfirmDialog } from "../components/ConfirmDialog";
+import { useToast } from "../components/Toast";
 
 interface BookmarkItem {
   id: string;
@@ -22,6 +24,8 @@ export function BookmarksPage() {
   const [editTitle, setEditTitle] = useState("");
   const [editTags, setEditTags] = useState("");
   const [error, setError] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const toast = useToast();
 
   const allTags = useMemo(() => [...new Set(bookmarks.flatMap((b) => b.tags))].sort(), [bookmarks]);
 
@@ -40,30 +44,48 @@ export function BookmarksPage() {
     e.preventDefault();
     if (!newUrl) return;
     setAdding(true);
-    await api("/bookmarks", {
-      method: "POST",
-      body: JSON.stringify({ url: newUrl }),
-    });
-    setNewUrl("");
-    setAdding(false);
-    load();
+    try {
+      await api("/bookmarks", {
+        method: "POST",
+        body: JSON.stringify({ url: newUrl }),
+      });
+      setNewUrl("");
+      toast.success("Bookmark saved");
+      load();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save bookmark");
+    } finally {
+      setAdding(false);
+    }
   }
 
   async function deleteBookmark(id: string) {
-    await api(`/bookmarks/${id}`, { method: "DELETE" });
-    load();
+    try {
+      await api(`/bookmarks/${id}`, { method: "DELETE" });
+      toast.success("Bookmark deleted");
+      load();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to delete bookmark");
+    } finally {
+      setConfirmDeleteId(null);
+    }
   }
 
   async function saveEdit(id: string) {
-    await api(`/bookmarks/${id}`, {
-      method: "PUT",
-      body: JSON.stringify({
-        title: editTitle,
-        tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
-      }),
-    });
-    setEditingId(null);
-    load();
+    try {
+      await api(`/bookmarks/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          title: editTitle,
+          tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
+        }),
+      });
+      setEditingId(null);
+      toast.success("Bookmark updated");
+      load();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to update bookmark");
+    }
   }
 
   function startEdit(b: BookmarkItem) {
@@ -93,11 +115,15 @@ export function BookmarksPage() {
         <div className="flex flex-wrap gap-2 mt-2">
           <button
             onClick={async () => {
-              const data = await api<any>("/bookmarks/export");
-              const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a"); a.href = url; a.download = "bookmarks.json"; a.click();
-              URL.revokeObjectURL(url);
+              try {
+                const data = await api<any>("/bookmarks/export");
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a"); a.href = url; a.download = "bookmarks.json"; a.click();
+                URL.revokeObjectURL(url);
+              } catch (e: any) {
+                toast.error(e?.message || "Export failed");
+              }
             }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cockpit-surface border border-cockpit-border text-xs text-cockpit-text-muted hover:text-cockpit-text transition-colors"
           >
@@ -108,11 +134,17 @@ export function BookmarksPage() {
             <input type="file" accept=".json" className="hidden" onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file) return;
-              const text = await file.text();
-              const data = JSON.parse(text);
-              await api("/bookmarks/import", { method: "POST", body: JSON.stringify(data) });
-              load();
-              e.target.value = "";
+              try {
+                const text = await file.text();
+                const data = JSON.parse(text);
+                await api("/bookmarks/import", { method: "POST", body: JSON.stringify(data) });
+                toast.success("Bookmarks imported");
+                load();
+              } catch (err: any) {
+                toast.error(err instanceof SyntaxError ? "Invalid JSON file" : err?.message || "Import failed");
+              } finally {
+                e.target.value = "";
+              }
             }} />
           </label>
         </div>
@@ -260,14 +292,18 @@ export function BookmarksPage() {
                     <button
                       onClick={() => startEdit(b)}
                       className="text-cockpit-text-muted hover:text-cockpit-accent p-1"
+                      aria-label="Edit bookmark"
+                      title="Edit"
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => deleteBookmark(b.id)}
+                      onClick={() => setConfirmDeleteId(b.id)}
                       className="text-cockpit-text-muted hover:text-cockpit-danger p-1"
+                      aria-label="Delete bookmark"
+                      title="Delete"
                     >
-                      <X className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -276,6 +312,16 @@ export function BookmarksPage() {
           ))
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!confirmDeleteId}
+        title="Delete Bookmark"
+        message="This will permanently remove this bookmark. This cannot be undone."
+        confirmLabel="Delete"
+        danger
+        onConfirm={() => confirmDeleteId && deleteBookmark(confirmDeleteId)}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </div>
   );
 }

@@ -13,6 +13,8 @@ import {
   RefreshCw,
   AlertCircle,
 } from "lucide-react";
+import { ConfirmDialog } from "../components/ConfirmDialog";
+import { useToast } from "../components/Toast";
 
 interface PveNode {
   node: string;
@@ -77,6 +79,10 @@ export function ProxmoxPage() {
   const [vms, setVms] = useState<PveVM[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionPending, setActionPending] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<
+    { vmid: number; action: string; node: string; type: string; name: string } | null
+  >(null);
+  const toast = useToast();
 
   async function fetchData() {
     try {
@@ -107,9 +113,13 @@ export function ProxmoxPage() {
         method: "POST",
         body: JSON.stringify({ action, node, type }),
       });
+      toast.success(`${action.charAt(0).toUpperCase() + action.slice(1)} sent to ${vmid}`);
       setTimeout(fetchData, 2000);
-    } catch {}
-    setActionPending(null);
+    } catch (e: any) {
+      toast.error(e?.message || `Failed to ${action} ${vmid}`);
+    } finally {
+      setActionPending(null);
+    }
   }
 
   if (loading) {
@@ -224,8 +234,8 @@ PVE_TOKEN=root@pam!cockpit=your-token-uuid`}
       </div>
 
       {/* VM/CT Table */}
-      <div className="bg-cockpit-surface border border-cockpit-border rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-cockpit-surface border border-cockpit-border rounded-xl overflow-x-auto">
+        <table className="w-full text-sm min-w-[720px]">
           <thead>
             <tr className="border-b border-cockpit-border text-cockpit-text-muted text-xs uppercase">
               <th className="text-left px-4 py-3">VMID</th>
@@ -291,6 +301,7 @@ PVE_TOKEN=root@pam!cockpit=your-token-uuid`}
                         onClick={() => vmAction(vm.vmid, "start", vm.node, vm.type)}
                         disabled={actionPending === `${vm.vmid}-start`}
                         className="p-1.5 rounded hover:bg-cockpit-success/10 text-cockpit-success"
+                        aria-label="Start"
                         title="Start"
                       >
                         <Play className="w-3.5 h-3.5" />
@@ -298,17 +309,19 @@ PVE_TOKEN=root@pam!cockpit=your-token-uuid`}
                     ) : (
                       <>
                         <button
-                          onClick={() => vmAction(vm.vmid, "reboot", vm.node, vm.type)}
+                          onClick={() => setConfirmAction({ vmid: vm.vmid, action: "reboot", node: vm.node, type: vm.type, name: vm.name })}
                           disabled={!!actionPending}
                           className="p-1.5 rounded hover:bg-cockpit-warning/10 text-cockpit-warning"
+                          aria-label="Reboot"
                           title="Reboot"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => vmAction(vm.vmid, "shutdown", vm.node, vm.type)}
+                          onClick={() => setConfirmAction({ vmid: vm.vmid, action: "shutdown", node: vm.node, type: vm.type, name: vm.name })}
                           disabled={!!actionPending}
                           className="p-1.5 rounded hover:bg-cockpit-danger/10 text-cockpit-danger"
+                          aria-label="Shutdown"
                           title="Shutdown"
                         >
                           <Square className="w-3.5 h-3.5" />
@@ -329,6 +342,25 @@ PVE_TOKEN=root@pam!cockpit=your-token-uuid`}
           </tbody>
         </table>
       </div>
+
+      <ConfirmDialog
+        open={!!confirmAction}
+        title={confirmAction?.action === "shutdown" ? "Shut Down VM" : "Reboot VM"}
+        message={
+          confirmAction
+            ? `${confirmAction.action === "shutdown" ? "Shut down" : "Reboot"} "${confirmAction.name}" (${confirmAction.vmid})? Running workloads on it will be interrupted.`
+            : ""
+        }
+        confirmLabel={confirmAction?.action === "shutdown" ? "Shut Down" : "Reboot"}
+        danger
+        onConfirm={() => {
+          if (confirmAction) {
+            vmAction(confirmAction.vmid, confirmAction.action, confirmAction.node, confirmAction.type);
+            setConfirmAction(null);
+          }
+        }}
+        onCancel={() => setConfirmAction(null)}
+      />
     </div>
   );
 }
