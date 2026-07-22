@@ -232,8 +232,8 @@ export function DnsManagerPage() {
       {error && <ErrorBanner message={error} />}
 
       {/* Records table */}
-      <div className="bg-cockpit-surface border border-cockpit-border rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-cockpit-surface border border-cockpit-border rounded-xl overflow-x-auto">
+        <table className="w-full text-sm min-w-[640px]">
           <thead>
             <tr className="border-b border-cockpit-border text-cockpit-text-muted text-xs uppercase tracking-wider">
               <th className="text-left px-4 py-3">Type</th>

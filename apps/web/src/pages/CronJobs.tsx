@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { useToast } from "../components/Toast";
 
 interface CronRun {
   id: number;
@@ -54,6 +55,7 @@ export function CronJobsPage() {
 
   const [error, setError] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const toast = useToast();
 
   // Form state
   const [name, setName] = useState("");
@@ -96,20 +98,25 @@ export function CronJobsPage() {
     e.preventDefault();
     if (!name || !schedule || !command) return;
 
-    if (editing) {
-      await api(`/cron/jobs/${editing.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ name, schedule, command }),
-      });
-    } else {
-      await api("/cron/jobs", {
-        method: "POST",
-        body: JSON.stringify({ name, schedule, command }),
-      });
+    try {
+      if (editing) {
+        await api(`/cron/jobs/${editing.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ name, schedule, command }),
+        });
+        toast.success("Job updated");
+      } else {
+        await api("/cron/jobs", {
+          method: "POST",
+          body: JSON.stringify({ name, schedule, command }),
+        });
+        toast.success("Job created");
+      }
+      resetForm();
+      fetchJobs();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save job");
     }
-
-    resetForm();
-    fetchJobs();
   }
 
   function resetForm() {
@@ -129,23 +136,39 @@ export function CronJobsPage() {
   }
 
   async function toggleEnabled(job: CronJob) {
-    await api(`/cron/jobs/${job.id}`, {
-      method: "PUT",
-      body: JSON.stringify({ enabled: !job.enabled }),
-    });
-    fetchJobs();
+    try {
+      await api(`/cron/jobs/${job.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ enabled: !job.enabled }),
+      });
+      toast.success(job.enabled ? "Job disabled" : "Job enabled");
+      fetchJobs();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to update job");
+    }
   }
 
   async function deleteJob(id: string) {
-    await api(`/cron/jobs/${id}`, { method: "DELETE" });
-    setConfirmDeleteId(null);
-    fetchJobs();
+    try {
+      await api(`/cron/jobs/${id}`, { method: "DELETE" });
+      toast.success("Job deleted");
+      fetchJobs();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to delete job");
+    } finally {
+      setConfirmDeleteId(null);
+    }
   }
 
   async function runNow(id: string) {
-    await api(`/cron/jobs/${id}/run`, { method: "POST" });
-    fetchJobs();
-    if (expandedJob === id) fetchRuns(id);
+    try {
+      await api(`/cron/jobs/${id}/run`, { method: "POST" });
+      toast.success("Job triggered");
+      fetchJobs();
+      if (expandedJob === id) fetchRuns(id);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to run job");
+    }
   }
 
   function describeCron(expr: string): string {
