@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { RefreshCw, Circle, Server, Pencil, Check, X } from "lucide-react";
+import { RefreshCw, Circle, Server, Pencil, Check, Trash2 } from "lucide-react";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { ConfirmDialog } from "../components/ConfirmDialog";
+import { useToast } from "../components/Toast";
 
 interface ServiceStatus {
   id: string;
@@ -48,6 +50,8 @@ export function HomelabPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editUrl, setEditUrl] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const toast = useToast();
 
   async function refresh() {
     setLoading(true);
@@ -65,18 +69,30 @@ export function HomelabPage() {
   async function addService(e: React.FormEvent) {
     e.preventDefault();
     if (!newName || !newUrl) return;
-    await api("/homelab/services", {
-      method: "POST",
-      body: JSON.stringify({ name: newName, url: newUrl }),
-    });
-    setNewName("");
-    setNewUrl("");
-    refresh();
+    try {
+      await api("/homelab/services", {
+        method: "POST",
+        body: JSON.stringify({ name: newName, url: newUrl }),
+      });
+      setNewName("");
+      setNewUrl("");
+      toast.success("Service added");
+      refresh();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to add service");
+    }
   }
 
   async function removeService(id: string) {
-    await api(`/homelab/services/${id}`, { method: "DELETE" });
-    refresh();
+    try {
+      await api(`/homelab/services/${id}`, { method: "DELETE" });
+      toast.success("Service removed");
+      refresh();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to remove service");
+    } finally {
+      setConfirmDeleteId(null);
+    }
   }
 
   function startEdit(s: ServiceStatus) {
@@ -86,12 +102,17 @@ export function HomelabPage() {
   }
 
   async function saveEdit(id: string) {
-    await api(`/homelab/services/${id}`, {
-      method: "PUT",
-      body: JSON.stringify({ name: editName, url: editUrl }),
-    });
-    setEditingId(null);
-    refresh();
+    try {
+      await api(`/homelab/services/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ name: editName, url: editUrl }),
+      });
+      setEditingId(null);
+      toast.success("Service updated");
+      refresh();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to update service");
+    }
   }
 
   // Fetch sparkline history for all services
@@ -158,6 +179,11 @@ export function HomelabPage() {
       {/* Service Grid */}
       <div>
         <h3 className="text-lg font-semibold mb-4">Services</h3>
+        {!loading && services.length === 0 && (
+          <div className="bg-cockpit-surface border border-cockpit-border rounded-xl p-8 text-center text-cockpit-text-muted mb-4">
+            No services yet. Add one below to start monitoring your homelab.
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {services.map((s) => (
             <div
@@ -194,8 +220,8 @@ export function HomelabPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => startEdit(s)} className="text-cockpit-text-muted hover:text-cockpit-accent text-xs p-1"><Pencil className="w-3 h-3" /></button>
-                      <button onClick={() => removeService(s.id)} className="text-cockpit-text-muted hover:text-cockpit-danger text-xs p-1"><X className="w-3 h-3" /></button>
+                      <button onClick={() => startEdit(s)} className="text-cockpit-text-muted hover:text-cockpit-accent text-xs p-1" aria-label="Edit service" title="Edit"><Pencil className="w-3 h-3" /></button>
+                      <button onClick={() => setConfirmDeleteId(s.id)} className="text-cockpit-text-muted hover:text-cockpit-danger text-xs p-1" aria-label="Remove service" title="Remove"><Trash2 className="w-3 h-3" /></button>
                     </div>
                   </div>
                   <div className="mt-3 space-y-2">
@@ -244,6 +270,15 @@ export function HomelabPage() {
         </form>
       </div>
 
+      <ConfirmDialog
+        open={!!confirmDeleteId}
+        title="Remove Service"
+        message="This will stop monitoring this service and remove its history. This cannot be undone."
+        confirmLabel="Remove"
+        danger
+        onConfirm={() => confirmDeleteId && removeService(confirmDeleteId)}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </div>
   );
 }
