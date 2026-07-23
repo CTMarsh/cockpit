@@ -4,6 +4,20 @@
 
 Cockpit is a self-hosted homelab dashboard deployed to a k3s cluster via GitLab CI/CD and ArgoCD GitOps. It provides a single pane of glass for managing infrastructure, services, and personal tools at `dashboard.noahsark.me`.
 
+## ⚠ Decommission Notice (2026-07-22)
+
+Cockpit is **RETIRED** per `brain-jarvis/arc/ARC-PLAN.md` § P2.5 (#26 "Retire cockpit") — Jarvis's
+card registry + read-only tool layer now covers cockpit's remaining unique views (GitLab pipeline
+summary, certificates, Home Assistant state; parity shipped 2026-07-19). Teardown staged as
+k8s-manifests MR `chore/decommission-cockpit` (unmerged, pending Chris's review): removes
+`apps/cockpit/*` + `bootstrap/cockpit.yaml` so ArgoCD prunes the Deployments, Redis StatefulSet,
+IngressRoute, NetworkPolicies, RBAC, and ExternalSecrets, in that order. **cockpit-pg is
+unaffected** — it already lives in the dedicated `postgres` namespace and continues serving
+supabase/notify/mixvault/photovault/semaphore/pgadmin/brain-jarvis. Manual follow-ups for Chris
+(outside GitOps): remove the `dashboard.noahsark.me` DNS record from the UDM-PRO, archive this
+GitLab repo (claude-bot lacks Owner), and drop the `cockpit` Notify project registration. Rollback
+= revert the MR; images remain in the registry.
+
 ## Architecture
 
 ### Monorepo Structure
